@@ -1,0 +1,86 @@
+# =============================================================
+# book.example.yml - annotated configuration template
+# Copy the fields you need into book.yml.
+# Everything except title, chapters, and output is optional.
+# Commented values document the defaults or common choices.
+# =============================================================
+
+title: "My Handout"                      # Required: cover, header, PDF Title
+subtitle: "Markdown notes to HTML and PDF" # Cover, index page, PDF Subject
+language: "en"                           # <html lang> and PDF language metadata
+date: "2026-07-06"                       # Display date and PDF creation date
+authors:                                 # Cover and PDF Author
+  - "Your Name"
+keywords:                                # Optional PDF Keywords metadata
+  - "Markdown"
+  - "PDF"
+
+chapters:                                # Required: chapter order
+  - notes/00-intro.md
+  - notes/01-topic.md
+
+output:                                  # Output paths
+  html: dist/handout.html                # Non-default themes append .<theme>
+  pdf: dist/handout.pdf
+
+# ---------- Table of contents ----------
+toc:
+  title: "Contents"                      # TOC heading
+  depth: 2                               # Include heading levels 1-3
+  enabled: true                          # false disables the TOC entirely
+
+# ---------- Official PDF print options ----------
+pdf:
+  header_footer: true                    # Header plus x / y footer
+  toc_page_numbers: true                 # Two-pass real page numbers in TOC
+  cover_header_footer: false             # Show header/footer on cover page
+  page_size: "A4"                        # A4, A5, Letter, etc.
+  margin: "18mm 16mm 20mm 16mm"          # top right bottom left
+
+# ---------- Cover and back cover ----------
+cover:
+  enabled: true
+  # html: "templates/cover.html"         # Trusted HTML fragment with placeholders:
+  #                                      # {{title}} {{subtitle}} {{authors}} {{date}} {{lang}}
+  # background: "linear-gradient(160deg, #0f2c66 0%, #4527a0 100%)"
+  # color: "#ffffff"
+
+back_cover:
+  enabled: false
+  # html: "templates/back-cover.html"
+  # background: "#0f172a"
+  # color: "#e2e8f0"
+
+# ---------- Style ----------
+style:
+  accent_color: "#1f6feb"                # Links and primary controls
+  content_width: "860px"                 # Max reading width on screen
+  base_font_size: "16px"                 # Screen font size
+  print_font_size: "11pt"                # PDF / print font size
+  # fonts:
+  #   body: '"Noto Serif", serif'
+  #   heading: '"Inter", sans-serif'
+  #   code: '"JetBrains Mono", Menlo, monospace'
+  # custom_css: "templates/custom.css"   # Loaded last. Can also be an array:
+  # custom_css: ["templates/fonts.css", "templates/custom.css"]
+  #
+  # Bundled font workflow:
+  # Put .woff2 files under notes/assets/fonts/.
+  # In custom CSS:
+  #   @font-face { font-family: "MyFont"; src: url("assets/fonts/MyFont.woff2") format("woff2"); }
+  # Then set fonts.body to "MyFont". The font file is copied into dist/assets/
+  # and can be embedded by Chromium when rendering the PDF.
+
+# ---------- Multiple themes ----------
+# Each theme may override style, cover, back_cover, and pdf.
+# The default theme uses output.html / output.pdf.
+# Other themes produce handout.<name>.html / handout.<name>.pdf.
+themes:
+  - name: light                          # Used in filenames. Use letters, digits, - and _
+    label: "Light"                       # Display label on the index page
+    default: true
+  - name: dark
+    label: "Dark"
+    style:
+      accent_color: "#6ea8ff"
+      custom_css: "templates/theme-dark.css" # Built in. Local file wins if present.

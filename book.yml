@@ -1,0 +1,44 @@
+title: "Markdown Handout Builder"
+subtitle: "Usage Guide and Package Showcase"
+language: "en"
+date: "2026-07-06"
+
+authors:
+  - "Markdown Handout Builder"
+
+keywords:
+  - "Markdown"
+  - "PDF"
+  - "GitHub Pages"
+  - "npm package"
+
+chapters:
+  - notes/00-overview.md
+  - notes/01-quickstart.md
+  - notes/02-writing.md
+  - notes/03-publish.md
+
+output:
+  html: dist/handout.html
+  pdf: dist/handout.pdf
+
+toc:
+  title: "Contents"
+  depth: 2
+
+pdf:
+  header_footer: true
+  toc_page_numbers: true
+  cover_header_footer: false
+  page_size: "A4"
+  margin: "18mm 16mm 20mm 16mm"
+
+themes:
+  - name: light
+    label: "Light"
+    default: true
+  - name: dark
+    label: "Dark"
+    style:
+      accent_color: "#6ea8ff"
+      custom_css: "templates/theme-dark.css"

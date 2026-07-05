@@ -1,0 +1,120 @@
+/* =========================================================
+   theme-dark.css - built-in dark theme
+   Enable it from book.yml themes via style.custom_css:
+     themes:
+       - name: dark
+         style:
+           accent_color: "#6ea8ff"
+           custom_css: "templates/theme-dark.css"
+   ========================================================= */
+
+:root {
+  color-scheme: dark;
+}
+
+/* html must explicitly set the background. In print mode Chromium
+   paints the page canvas, including margins, from html background.
+   Setting only body can leave margins at Chromium's default dark color. */
+html,
+body {
+  background: #0b0e14;
+}
+
+body {
+  color: #d6dde6;
+}
+
+.book {
+  background: #11161f;
+  border-color: #232b38;
+}
+
+.screen-toolbar {
+  background: #11161f;
+  border-bottom-color: #232b38;
+}
+
+.btn {
+  background: #1a2230;
+  border-color: #2c3648;
+  color: #d6dde6;
+}
+
+.btn:hover {
+  background: #212b3d;
+}
+
+h1 {
+  border-bottom-color: #2c3648;
+}
+
+code {
+  background: #1c2432;
+}
+
+pre {
+  background: #151c28;
+  border-color: #232b38;
+}
+
+blockquote {
+  border-left-color: #2c3648;
+  background: #141a24;
+  color: #9aa7b5;
+}
+
+th {
+  background: #1a2230;
+}
+
+th,
+td {
+  border-color: #2c3648;
+}
+
+tr:nth-child(2n) td {
+  background: #141a24;
+}
+
+mark {
+  background: #6b5618;
+  color: #ffe9a3;
+}
+
+hr {
+  border-top-color: #2c3648;
+}
+
+figcaption {
+  color: #9aa7b5;
+}
+
+.footnotes {
+  color: #9aa7b5;
+}
+
+.cover-subtitle,
+.cover-authors,
+.cover-date {
+  opacity: 0.78;
+}
+
+body.toc-has-pages .toc-leader {
+  border-bottom-color: #3a465a;
+}
+
+body.toc-has-pages .toc-page {
+  color: #9aa7b5;
+}
+
+/* ---------- Print / PDF ---------- */
+@media print {
+  html,
+  body {
+    background: #0b0e14;
+  }
+
+  .book {
+    background: transparent;
+  }
+}

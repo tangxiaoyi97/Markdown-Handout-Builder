@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="260" viewBox="0 0 960 260" role="img" aria-labelledby="title desc">
+  <title id="title">Markdown Handout Builder pipeline</title>
+  <desc id="desc">Markdown and book.yml are rendered to HTML, then printed to PDF and deployed to GitHub Pages.</desc>
+  <defs>
+    <style>
+      .bg { fill: #f8fafc; }
+      .box { fill: #ffffff; stroke: #1f6feb; stroke-width: 2; rx: 12; }
+      .label { fill: #0f172a; font: 700 24px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      .sub { fill: #475569; font: 16px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      .arrow { stroke: #64748b; stroke-width: 3; fill: none; marker-end: url(#arrowhead); }
+    </style>
+    <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L8,3 z" fill="#64748b" />
+    </marker>
+  </defs>
+  <rect class="bg" x="0" y="0" width="960" height="260" rx="18" />
+  <rect class="box" x="36" y="72" width="170" height="116" />
+  <text class="label" x="121" y="120" text-anchor="middle">Markdown</text>
+  <text class="sub" x="121" y="150" text-anchor="middle">notes/ + book.yml</text>
+  <path class="arrow" d="M220 130 H270" />
+  <rect class="box" x="286" y="72" width="170" height="116" />
+  <text class="label" x="371" y="120" text-anchor="middle">HTML</text>
+  <text class="sub" x="371" y="150" text-anchor="middle">handout.html</text>
+  <path class="arrow" d="M470 130 H520" />
+  <rect class="box" x="536" y="72" width="170" height="116" />
+  <text class="label" x="621" y="120" text-anchor="middle">PDF</text>
+  <text class="sub" x="621" y="150" text-anchor="middle">Chromium print</text>
+  <path class="arrow" d="M720 130 H770" />
+  <rect class="box" x="786" y="72" width="138" height="116" />
+  <text class="label" x="855" y="120" text-anchor="middle">Pages</text>
+  <text class="sub" x="855" y="150" text-anchor="middle">artifact</text>
+</svg>

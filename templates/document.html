@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="{{lang}}">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{docTitle}}</title>
+    <style>
+{{css}}
+    </style>
+  </head>
+  <body>
+    <div class="screen-toolbar screen-only">
+      <a class="btn" href="./index.html">&larr; Index</a>
+      <span class="toolbar-title">{{title}}</span>
+      <span class="spacer"></span>
+      <a class="btn" href="{{pdfHref}}" download>Download official PDF</a>
+      <button class="btn btn-primary" type="button" onclick="window.print()">Print</button>
+    </div>
+
+    <main class="book">
+      {{cover}}
+
+      {{toc}}
+
+      {{body}}
+
+      {{backCover}}
+    </main>
+
+    <script>
+      window.addEventListener("keydown", event => {
+        const isPrint =
+          (event.ctrlKey || event.metaKey) &&
+          event.key.toLowerCase() === "p";
+
+        if (isPrint) {
+          event.preventDefault();
+          window.print();
+        }
+      });
+    </script>
+  </body>
+</html>

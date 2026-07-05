@@ -1,0 +1,78 @@
+# Writing Syntax
+
+Chapter content uses ordinary Markdown. Raw HTML is disabled, and Obsidian-specific syntax is rejected by the checker so builds remain portable.
+
+## Headings and Chapters
+
+Each chapter file should normally have one top-level heading:
+
+```md
+# Chapter Title
+
+## Section Title
+
+Body text.
+```
+
+Top-level headings enter the PDF outline and table of contents. In the PDF, each chapter starts on a new page. Heading IDs are generated from heading text and can be used for internal links.
+
+## Emphasis, Highlight, and Footnotes
+
+Markdown **bold**, *italic*, and `inline code` work directly. The package also supports `==highlight==`, for example: ==mark an important conclusion this way==.
+
+Footnotes are useful for citations, side comments, or details that should not interrupt the main paragraph.[^install]
+
+[^install]: Install Playwright Chromium before the first PDF render. You usually do not need to repeat this unless the Playwright version changes.
+
+## Math
+
+Inline math such as $F = ma$ is supported, as are block equations:
+
+```md
+$$
+E_k = \frac{1}{2}mv^2
+$$
+```
+
+Rendered result:
+
+$$
+E_k = \frac{1}{2}mv^2
+$$
+
+Math is rendered by KaTeX. The CSS is inlined into the HTML, and font files are copied to `dist/assets/katex-fonts/`.
+
+## Tables
+
+Tables are useful for options, commands, and comparisons:
+
+| Markdown | Output |
+|---|---|
+| `![alt](./assets/a.png)` | Regular image |
+| `![alt\|300](./assets/a.png)` | Fixed width |
+| `![alt\|300x200](./assets/a.png)` | Fixed width and height |
+| `![alt](./assets/a.png "Caption")` | Caption when the image stands alone |
+
+Escape a pipe inside a table cell as `\|`; otherwise it is parsed as a column separator.
+
+## Images
+
+Put local images under `notes/assets/`. Reference them with paths relative to the current chapter:
+
+```md
+![Build pipeline|720](./assets/pipeline.svg "Figure 1: Build pipeline")
+```
+
+An image on its own paragraph is wrapped as `<figure>`, and the title field becomes `<figcaption>`. Print layout tries to keep image and caption together.
+
+## Unsupported Syntax
+
+These forms are not supported:
+
+```md
+[[wikilink]]
+![[embed]]
+[[Note#^block-id]]
+```
+
+They depend on Obsidian or plugin behavior and are not reproducible outside the editor. Use standard Markdown links and images instead.

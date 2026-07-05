@@ -1,0 +1,484 @@
+/* =========================================================
+   print.css
+   Shared styles for screen reading and print/PDF output.
+   This file is inlined into dist/handout.html during build.
+   ========================================================= */
+
+/* ---------- Page setup for print / PDF ---------- */
+@page {
+  size: A4;
+  margin: 18mm 16mm 20mm 16mm;
+}
+
+/* The cover and named back-cover page use zero page margin so
+   backgrounds can bleed to the page edge. Content is positioned by
+   .cover / .back-cover padding in the print rules. */
+@page :first {
+  margin: 0;
+}
+
+@page hb-backcover {
+  margin: 0;
+}
+
+/* ---------- Theme variables, overridable from book.yml style ---------- */
+:root {
+  --hb-accent: #1f6feb;          /* Links and primary buttons */
+  --hb-content-width: 860px;     /* Max screen reading width */
+  --hb-base-font-size: 16px;     /* Screen font size */
+  --hb-print-font-size: 11pt;    /* PDF / print font size */
+
+  /* Font stacks, overridable from book.yml style.fonts */
+  --hb-font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, "PingFang SC", "Hiragino Sans GB",
+    "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+  --hb-font-heading: var(--hb-font-body);
+  --hb-font-code: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+    "Liberation Mono", monospace;
+
+  /* Mirror values for @page margins. pdf.margin overrides them so
+     cover/back-cover content can be positioned on zero-margin pages. */
+  --hb-page-margin-top: 18mm;
+  --hb-page-margin-right: 16mm;
+  --hb-page-margin-bottom: 20mm;
+  --hb-page-margin-left: 16mm;
+}
+
+/* ---------- Base ---------- */
+* {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--hb-font-body);
+  font-size: var(--hb-base-font-size);
+  line-height: 1.7;
+  color: #1f2328;
+  background: #f2f3f5;
+}
+
+/* ---------- Screen toolbar, hidden when printing ---------- */
+.screen-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  background: #ffffff;
+  border-bottom: 1px solid #d0d7de;
+}
+
+.toolbar-title {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.spacer {
+  flex: 1;
+}
+
+.btn {
+  display: inline-block;
+  padding: 6px 14px;
+  border: 1px solid #d0d7de;
+  border-radius: 6px;
+  background: #f6f8fa;
+  color: #1f2328;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.4;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.btn:hover {
+  background: #eef1f4;
+}
+
+.btn-primary {
+  background: var(--hb-accent);
+  border-color: var(--hb-accent);
+  color: #ffffff;
+}
+
+.btn-primary:hover {
+  filter: brightness(0.92);
+}
+
+/* ---------- Book container ---------- */
+.book {
+  max-width: var(--hb-content-width);
+  margin: 24px auto 48px;
+  padding: 40px 48px 64px;
+  background: #ffffff;
+  border: 1px solid #e4e7eb;
+  border-radius: 8px;
+}
+
+/* ---------- Cover / back cover ----------
+   Background and text color can be configured from book.yml cover /
+   back_cover. Solid colors and gradients are both supported. */
+.cover {
+  text-align: center;
+  padding: 72px 24px 48px;
+  background: var(--hb-cover-bg, transparent);
+  color: var(--hb-cover-color, inherit);
+}
+
+.back-cover {
+  margin-top: 48px;
+  padding: 96px 24px;
+  text-align: center;
+  background: var(--hb-back-bg, transparent);
+  color: var(--hb-back-color, inherit);
+}
+
+.back-cover-title {
+  font-size: 1.25em;
+  font-weight: 600;
+  margin: 0 0 8px;
+}
+
+.back-cover-meta {
+  margin: 4px 0;
+  opacity: 0.75;
+}
+
+.cover-title {
+  font-size: 2.4em;
+  margin: 0 0 12px;
+  border: none;
+  padding: 0;
+}
+
+.cover-subtitle {
+  font-size: 1.25em;
+  color: inherit;
+  opacity: 0.72;
+  margin: 0 0 32px;
+}
+
+.cover-authors,
+.cover-date {
+  color: inherit;
+  opacity: 0.72;
+  margin: 4px 0;
+}
+
+/* ---------- Table of contents ---------- */
+.toc {
+  margin: 24px 0 48px;
+}
+
+.toc-list,
+.toc-list ol {
+  list-style: none;
+  margin: 0;
+  padding-left: 0;
+}
+
+.toc-list ol {
+  padding-left: 1.6em;
+}
+
+.toc-list li {
+  margin: 6px 0;
+}
+
+.toc-list a {
+  color: var(--hb-accent);
+  text-decoration: none;
+}
+
+.toc-list a:hover {
+  text-decoration: underline;
+}
+
+/* TOC row: title + dotted leader + page number.
+   Page numbers are injected by render-pdf.mjs for official PDFs.
+   They stay hidden for screen reading and regular browser printing. */
+.toc-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.toc-title {
+  min-width: 0;
+}
+
+.toc-leader,
+.toc-page {
+  display: none;
+}
+
+body.toc-has-pages .toc-leader {
+  display: block;
+  flex: 1;
+  min-width: 24px;
+  align-self: flex-end;
+  margin-bottom: 5px;
+  border-bottom: 1px dotted #b6bec7;
+}
+
+body.toc-has-pages .toc-page {
+  display: inline-block;
+  color: #57606a;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Headings ---------- */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--hb-font-heading);
+}
+
+h1 {
+  font-size: 1.85em;
+  line-height: 1.3;
+  margin: 1.4em 0 0.6em;
+  padding-bottom: 0.3em;
+  border-bottom: 1px solid #d8dee4;
+}
+
+h2 {
+  font-size: 1.45em;
+  line-height: 1.35;
+  margin: 1.4em 0 0.6em;
+}
+
+h3 {
+  font-size: 1.2em;
+  margin: 1.2em 0 0.5em;
+}
+
+h4,
+h5,
+h6 {
+  margin: 1.2em 0 0.5em;
+}
+
+.chapter > h1:first-child {
+  margin-top: 0.6em;
+}
+
+/* ---------- Body elements ---------- */
+p {
+  margin: 0.75em 0;
+}
+
+a {
+  color: var(--hb-accent);
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Standalone images are wrapped as figure; the title becomes caption. */
+figure {
+  margin: 1.5em auto;
+  text-align: center;
+}
+
+figcaption {
+  font-size: 0.9em;
+  color: #57606a;
+  margin-top: 8px;
+}
+
+code {
+  font-family: var(--hb-font-code);
+  font-size: 0.9em;
+  background: #eff1f3;
+  padding: 0.15em 0.4em;
+  border-radius: 4px;
+}
+
+pre {
+  background: #f6f8fa;
+  border: 1px solid #e4e7eb;
+  border-radius: 6px;
+  padding: 12px 16px;
+  overflow-x: auto;
+  line-height: 1.55;
+}
+
+pre code {
+  background: none;
+  padding: 0;
+  font-size: 0.88em;
+}
+
+blockquote {
+  margin: 1em 0;
+  padding: 0.4em 16px;
+  border-left: 4px solid #d0d7de;
+  background: #f8f9fa;
+  color: #57606a;
+}
+
+blockquote > :first-child {
+  margin-top: 0;
+}
+
+blockquote > :last-child {
+  margin-bottom: 0;
+}
+
+ul,
+ol {
+  margin: 0.75em 0;
+  padding-left: 1.9em;
+}
+
+li {
+  margin: 0.25em 0;
+}
+
+table {
+  border-collapse: collapse;
+  margin: 1em 0;
+  max-width: 100%;
+}
+
+th,
+td {
+  border: 1px solid #d0d7de;
+  padding: 6px 13px;
+  text-align: left;
+}
+
+th {
+  background: #f6f8fa;
+}
+
+tr:nth-child(2n) td {
+  background: #fafbfc;
+}
+
+mark {
+  background: #fff1a8;
+  padding: 0.05em 0.25em;
+  border-radius: 3px;
+}
+
+hr {
+  border: none;
+  border-top: 1px solid #d8dee4;
+  margin: 2em 0;
+}
+
+/* ---------- Math ---------- */
+.katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.2em 0;
+}
+
+/* ---------- Footnotes ---------- */
+.footnotes {
+  font-size: 0.9em;
+  color: #57606a;
+}
+
+hr.footnotes-sep {
+  margin: 2em 0 1em;
+}
+
+/* =========================================================
+   Print styles
+   ========================================================= */
+@media print {
+  .screen-only {
+    display: none !important;
+  }
+
+  body {
+    font-size: var(--hb-print-font-size);
+    background: #ffffff;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  .book {
+    max-width: none;
+    margin: 0;
+    padding: 0;
+    border: none;
+    border-radius: 0;
+  }
+
+  .cover {
+    break-after: page;
+    min-height: 100vh; /* First page has margin:0; 100vh spans the page. */
+    padding: var(--hb-cover-pad-top, calc(var(--hb-page-margin-top) + 60mm))
+      var(--hb-page-margin-right) var(--hb-page-margin-bottom)
+      var(--hb-page-margin-left);
+  }
+
+  .back-cover {
+    page: hb-backcover; /* Named zero-margin page for full bleed. */
+    break-before: page;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    margin-top: 0;
+    padding: var(--hb-page-margin-top) var(--hb-page-margin-right)
+      var(--hb-page-margin-bottom) var(--hb-page-margin-left);
+  }
+
+  .toc {
+    break-after: page;
+  }
+
+  .chapter {
+    break-before: page;
+  }
+
+  .chapter:first-of-type {
+    break-before: auto;
+  }
+
+  h1,
+  h2,
+  h3 {
+    break-after: avoid;
+  }
+
+  table,
+  pre,
+  blockquote,
+  img,
+  figure,
+  .katex-display {
+    break-inside: avoid;
+  }
+
+  pre {
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  a,
+  .toc-list a {
+    color: inherit;
+    text-decoration: none;
+  }
+}

@@ -1,0 +1,68 @@
+{
+  "name": "markdown-handout-builder",
+  "version": "1.0.0",
+  "description": "Build a class handout (HTML + official PDF) from plain Markdown via markdown-it and a Playwright Chromium print pipeline.",
+  "license": "MIT",
+  "type": "module",
+  "packageManager": "npm@11.12.1",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tangxiaoyi/mhb.git"
+  },
+  "bugs": {
+    "url": "https://github.com/tangxiaoyi/mhb/issues"
+  },
+  "homepage": "https://tangxiaoyi.github.io/mhb/",
+  "keywords": [
+    "markdown",
+    "pdf",
+    "handout",
+    "playwright",
+    "katex",
+    "github-pages"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "bin": {
+    "mhb": "bin/mhb.mjs",
+    "markdown-handout-builder": "bin/mhb.mjs"
+  },
+  "files": [
+    "bin/",
+    "scripts/",
+    "templates/",
+    "book.example.yml",
+    "WRITING_RULES.md",
+    "LICENSE",
+    "THIRD_PARTY_NOTICES.md",
+    "README.md"
+  ],
+  "scripts": {
+    "check": "node bin/mhb.mjs check",
+    "build": "node bin/mhb.mjs build",
+    "pdf": "node bin/mhb.mjs pdf",
+    "serve": "node bin/mhb.mjs serve",
+    "all": "node bin/mhb.mjs all",
+    "install-browser": "node bin/mhb.mjs install-browser",
+    "install-deps": "node bin/mhb.mjs install-deps",
+    "pack:check": "npm pack --dry-run",
+    "verify": "npm run check && npm run build && npm run pdf && npm run pack:check",
+    "prepublishOnly": "npm run verify"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@vscode/markdown-it-katex": "^1.1.1",
+    "katex": "^0.16.11",
+    "markdown-it": "^14.1.0",
+    "markdown-it-anchor": "^9.2.0",
+    "markdown-it-footnote": "^4.0.0",
+    "markdown-it-mark": "^4.0.0",
+    "pdf-lib": "^1.17.1",
+    "pdfjs-dist": "^6.1.200",
+    "playwright": "^1.49.0",
+    "yaml": "^2.6.0"
+  }
+}

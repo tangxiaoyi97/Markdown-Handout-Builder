@@ -1,0 +1,88 @@
+name: Build showcase
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium and Linux dependencies
+        run: npm run install-browser -- --with-deps chromium
+
+      - name: Install CJK fonts (Chinese text in the PDF)
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends fonts-noto-cjk
+
+      - name: Check sources
+        run: npm run check
+
+      - name: Build HTML
+        run: npm run build
+
+      - name: Render PDF from handout.html
+        run: npm run pdf
+
+      - name: Upload handout artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: markdown-handout-builder-showcase
+          path: |
+            dist/index.html
+            dist/handout*.html
+            dist/handout*.pdf
+            dist/THIRD_PARTY_NOTICES.md
+          retention-days: 30
+
+      # 以下两步只在 main push / 手动触发时执行；PR 只构建，不部署 Pages
+      - name: Setup Pages
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        uses: actions/configure-pages@v6
+
+      - name: Upload Pages artifact
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: dist
+
+  deploy:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5

@@ -1,0 +1,299 @@
+#!/usr/bin/env node
+/**
+ * scripts/check.mjs
+ *
+ * 构建前检查：
+ *   1. book.yml 存在、可解析，chapters 为非空数组；
+ *   2. 每个章节文件存在；
+ *   3. 章节正文中不允许出现 Obsidian 专有语法（[[ / ]] / ![[）；
+ *   4. 本地图片引用必须存在（相对当前 Markdown 文件所在目录解析）。
+ *
+ * 说明：围栏代码块（``` / ~~~）和行内代码 `...` 中的内容不参与
+ * wikilink / 图片检查，避免误报（例如 bash 的 [[ ]]）。
+ *
+ * 任一错误：打印全部错误并 process.exit(1)。
+ * 全部通过：打印 "Check passed"。
+ */
+
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import YAML from "yaml";
+
+const scriptDir = path.dirname(fileURLToPath(import.meta.url));
+const toolRoot = path.resolve(scriptDir, "..");
+
+function resolveConfigPath() {
+  const i = process.argv.indexOf("--config");
+  if (i !== -1) {
+    const value = process.argv[i + 1];
+    if (!value) {
+      console.error("Error: --config requires a file path, e.g. --config book.yml");
+      process.exit(1);
+    }
+    return path.resolve(process.cwd(), value);
+  }
+  return path.resolve(process.cwd(), "book.yml");
+}
+
+const configPath = resolveConfigPath();
+const baseDir = path.dirname(configPath);
+const configName = path.basename(configPath);
+
+const errors = [];
+const fail = (message) => errors.push(message);
+const toPosix = (p) => p.split(path.sep).join("/");
+
+// 被章节引用过的本地图片（用于"未引用图片"警告）
+const referencedImages = new Set();
+
+/* ---------- 1. 读取并解析 book.yml ---------- */
+
+if (!fs.existsSync(configPath)) {
+  console.error(`Error: config file not found: ${configPath}`);
+  process.exit(1);
+}
+
+let book;
+try {
+  book = YAML.parse(fs.readFileSync(configPath, "utf8"));
+} catch (err) {
+  console.error(`Error: failed to parse ${configName}: ${err.message}`);
+  process.exit(1);
+}
+
+if (!book || typeof book !== "object") {
+  console.error(`Error: ${configName} is empty or not a YAML mapping.`);
+  process.exit(1);
+}
+
+/* ---------- 2. chapters 必须是非空数组 ---------- */
+
+if (!Array.isArray(book.chapters) || book.chapters.length === 0) {
+  console.error(
+    `Error: "chapters" in ${configName} must be a non-empty array of Markdown file paths.`
+  );
+  process.exit(1);
+}
+
+/* ---------- 3 & 4. 逐章检查 ---------- */
+
+// 匹配 Markdown 图片：![alt](target ...)，target 可写成 <target>。
+// 前置 "!" 保证不会匹配普通链接 [text](url)。
+const IMAGE_RE = /!\[[^\]]*\]\(\s*<?([^)>\s]+)[^)]*\)/g;
+
+function isRemoteTarget(target) {
+  return /^(https?:)?\/\//i.test(target) || /^(data|mailto|ftp):/i.test(target);
+}
+
+function checkChapterContent(absPath, relPath) {
+  const text = fs.readFileSync(absPath, "utf8").replace(/^﻿/, ""); // 去 UTF-8 BOM
+  const lines = text.split(/\r?\n/);
+
+  let inFence = false;
+  let fenceChar = "";
+
+  lines.forEach((rawLine, idx) => {
+    const lineNo = idx + 1;
+
+    // 围栏代码块开/关（``` 或 ~~~）
+    const fenceMatch = rawLine.match(/^\s{0,3}(`{3,}|~{3,})/);
+    if (fenceMatch) {
+      const char = fenceMatch[1][0];
+      if (!inFence) {
+        inFence = true;
+        fenceChar = char;
+      } else if (char === fenceChar) {
+        inFence = false;
+      }
+      return; // 围栏行本身不检查
+    }
+    if (inFence) return;
+
+    // 去掉行内代码，避免误报
+    const line = rawLine.replace(/`[^`]*`/g, "");
+
+    // Obsidian 专有语法
+    if (line.includes("![[")) {
+      fail(
+        `${relPath}:${lineNo}: Obsidian embed "![[...]]" is not supported. ` +
+          `Use a standard Markdown image like ![alt](./assets/pic.png).`
+      );
+    } else if (line.includes("[[") || line.includes("]]")) {
+      fail(
+        `${relPath}:${lineNo}: Obsidian wikilink "[[...]]" is not supported. ` +
+          `Use a standard Markdown link like [text](target).`
+      );
+    }
+
+    // 本地图片存在性检查
+    for (const match of line.matchAll(IMAGE_RE)) {
+      const rawTarget = match[1];
+      if (isRemoteTarget(rawTarget)) continue; // 远程图片跳过
+
+      let target = rawTarget.split("#")[0].split("?")[0];
+      if (!target) continue;
+      try {
+        target = decodeURIComponent(target);
+      } catch {
+        // 保留原样
+      }
+
+      const resolved = path.resolve(path.dirname(absPath), target);
+      if (!fs.existsSync(resolved)) {
+        fail(
+          `${relPath}:${lineNo}: image not found: ${rawTarget} ` +
+            `(resolved to ${toPosix(path.relative(baseDir, resolved))})`
+        );
+      } else {
+        referencedImages.add(resolved);
+      }
+    }
+  });
+}
+
+const seenChapters = new Set();
+for (const chapter of book.chapters) {
+  if (typeof chapter !== "string" || chapter.trim() === "") {
+    fail(`${configName}: invalid chapter entry: ${JSON.stringify(chapter)}`);
+    continue;
+  }
+
+  const absPath = path.resolve(baseDir, chapter);
+  if (seenChapters.has(absPath)) {
+    fail(`${configName}: chapter listed more than once: ${chapter}`);
+    continue;
+  }
+  seenChapters.add(absPath);
+
+  if (!fs.existsSync(absPath) || !fs.statSync(absPath).isFile()) {
+    fail(`${configName}: chapter file not found: ${chapter}`);
+    continue;
+  }
+
+  checkChapterContent(absPath, toPosix(chapter));
+}
+
+/* ---------- themes 与引用文件路径校验 ---------- */
+
+if (book.themes !== undefined) {
+  if (!Array.isArray(book.themes) || book.themes.length === 0) {
+    fail(`${configName}: "themes" must be a non-empty array (or be removed entirely).`);
+  } else {
+    const seenNames = new Set();
+    let defaultCount = 0;
+    book.themes.forEach((theme, i) => {
+      const label = `themes[${i}]`;
+      if (!theme || typeof theme !== "object") {
+        fail(`${configName}: ${label} must be a mapping with at least a "name".`);
+        return;
+      }
+      const name = theme.name;
+      if (typeof name !== "string" || !/^[A-Za-z0-9][A-Za-z0-9_-]*$/.test(name)) {
+        fail(
+          `${configName}: ${label}.name must match [A-Za-z0-9][A-Za-z0-9_-]* ` +
+            `(used in output filenames), got: ${JSON.stringify(name)}`
+        );
+      } else if (seenNames.has(name)) {
+        fail(`${configName}: duplicate theme name "${name}".`);
+      } else {
+        seenNames.add(name);
+      }
+      if (theme.default === true) defaultCount += 1;
+    });
+    if (defaultCount > 1) {
+      fail(`${configName}: only one theme may have "default: true" (found ${defaultCount}).`);
+    }
+  }
+}
+
+// 配置中引用的文件必须存在（custom_css / 封面封底组件），基础配置与各主题都查
+function checkReferencedFiles(scope, where) {
+  if (!scope || typeof scope !== "object") return;
+  const cssRaw = scope.style?.custom_css;
+  const cssList = Array.isArray(cssRaw) ? cssRaw : cssRaw ? [cssRaw] : [];
+  for (const file of cssList) {
+    const projectPath = path.resolve(baseDir, String(file));
+    const toolPath = path.resolve(toolRoot, String(file));
+    if (!fs.existsSync(projectPath) && !fs.existsSync(toolPath)) {
+      fail(`${configName}: ${where}style.custom_css file not found: ${file}`);
+    }
+  }
+  for (const [section, key] of [["cover", "cover"], ["back_cover", "back_cover"]]) {
+    const html = scope[section]?.html;
+    if (html && !fs.existsSync(path.resolve(baseDir, String(html)))) {
+      fail(`${configName}: ${where}${key}.html component not found: ${html}`);
+    }
+  }
+}
+
+checkReferencedFiles(book, "");
+if (Array.isArray(book.themes)) {
+  book.themes.forEach((theme, i) => checkReferencedFiles(theme, `themes[${i}].`));
+}
+
+/* ---------- 非阻断警告：未收录的章节 / 未引用的图片 ---------- */
+
+const warnings = [];
+
+function* walkFiles(dir) {
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (entry.name.startsWith(".")) continue;
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) yield* walkFiles(full);
+    else if (entry.isFile()) yield full;
+  }
+}
+
+const chapterSet = new Set(
+  book.chapters
+    .filter((c) => typeof c === "string")
+    .map((c) => path.resolve(baseDir, c))
+);
+const notesDir = path.join(baseDir, "notes");
+const assetsDir = path.join(notesDir, "assets");
+
+// notes/ 里存在、但 book.yml 没有收录的 Markdown（防止忘记收录）
+if (fs.existsSync(notesDir)) {
+  for (const file of walkFiles(notesDir)) {
+    if (!file.endsWith(".md")) continue;
+    if (path.basename(file).startsWith("_")) continue; // "_" 开头视为草稿，不提醒
+    if (!chapterSet.has(file)) {
+      warnings.push(
+        `${toPosix(path.relative(baseDir, file))}: not listed in ${configName} "chapters" — ` +
+          `it will NOT appear in the handout (prefix the filename with "_" to mark it as a draft)`
+      );
+    }
+  }
+}
+
+// notes/assets/ 里没有被任何章节引用的文件
+if (fs.existsSync(assetsDir)) {
+  for (const file of walkFiles(assetsDir)) {
+    if (!referencedImages.has(file)) {
+      warnings.push(
+        `${toPosix(path.relative(baseDir, file))}: not referenced by any chapter (unused asset)`
+      );
+    }
+  }
+}
+
+if (warnings.length > 0) {
+  console.warn(`${warnings.length} warning(s):\n`);
+  for (const message of warnings) {
+    console.warn(`  ⚠ ${message}`);
+  }
+  console.warn("");
+}
+
+/* ---------- 结果 ---------- */
+
+if (errors.length > 0) {
+  console.error(`Check failed with ${errors.length} error(s):\n`);
+  for (const message of errors) {
+    console.error(`  ✗ ${message}`);
+  }
+  process.exit(1);
+}
+
+console.log("Check passed");
