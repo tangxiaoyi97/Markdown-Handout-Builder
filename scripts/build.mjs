@@ -742,27 +742,48 @@ const variantsHtml = built
   .filter((b) => !b.theme.isDefault)
   .map(
     (b) =>
-      '<div class="variant">' +
       `<span class="variant-label">${escapeHtml(b.theme.label || b.theme.name)}</span>` +
       `<a href="./${escapeHtml(path.basename(b.htmlOutTheme))}">HTML</a>` +
       '<span class="sep">&middot;</span>' +
-      `<a href="./${escapeHtml(path.basename(b.pdfOutTheme))}" download>PDF</a>` +
-      "</div>"
+      `<a href="./${escapeHtml(path.basename(b.pdfOutTheme))}" download>PDF</a>`
   )
   .join("\n");
 
+// 章节序号：≤12 用罗马数字（最宽 XII，不破坏对齐），更多则用补零十进制
+function romanNumeral(n) {
+  const map = [
+    [1000, "M"], [900, "CM"], [500, "D"], [400, "CD"], [100, "C"], [90, "XC"],
+    [50, "L"], [40, "XL"], [10, "X"], [9, "IX"], [5, "V"], [4, "IV"], [1, "I"]
+  ];
+  let out = "";
+  for (const [value, symbol] of map) {
+    while (n >= value) {
+      out += symbol;
+      n -= value;
+    }
+  }
+  return out;
+}
+
 // 首页章节导航：默认主题的一级标题，链接到 handout 内锚点
 const chapterItems = (defaultBuild.tocEntries ?? []).filter((e) => e.level === 1);
+const useRoman = chapterItems.length <= 12;
+const pad = String(chapterItems.length).length;
+const chapterNo = (i) =>
+  useRoman ? romanNumeral(i + 1) : String(i + 1).padStart(Math.max(2, pad), "0");
 const chaptersHtml =
   chapterItems.length > 0
-    ? '<div class="chapters"><h2 class="sec-label">Contents</h2>\n<ol class="chapter-list">\n' +
+    ? '<p class="sec-label">CONTENTS</p>\n<div class="chapters">\n' +
       chapterItems
         .map(
-          (e) =>
-            `<li><a href="${escapeHtml(defaultHtmlHref)}#${escapeHtml(e.id)}">${escapeHtml(e.title)}</a></li>`
+          (e, i) =>
+            '<div class="ch">' +
+            `<span class="no">${chapterNo(i)}</span>` +
+            `<a href="${escapeHtml(defaultHtmlHref)}#${escapeHtml(e.id)}">${escapeHtml(e.title)}</a>` +
+            "</div>"
         )
         .join("\n") +
-      "\n</ol></div>"
+      "\n</div>"
     : "";
 const chapterCount = chapterItems.length || book.chapters.length;
 
@@ -780,7 +801,7 @@ const indexHtml = renderTemplate(indexTemplate, {
   chapters: chaptersHtml,
   chapterCount: escapeHtml(String(chapterCount)),
   variants: variantsHtml
-    ? '<div class="variants"><h2 class="sec-label">Other themes</h2>\n' + variantsHtml + "\n</div>"
+    ? '<div class="variants"><span class="lb">Other themes:</span>\n' + variantsHtml + "\n</div>"
     : ""
 });
 

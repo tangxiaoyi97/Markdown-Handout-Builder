@@ -49,6 +49,10 @@ pdf:
     font_size: "8.5px"
     color: "#8a919a"
 
+style:
+  fonts:
+    heading: 'Georgia, "Times New Roman", "Noto Serif CJK SC", "Source Han Serif SC", serif'
+
 themes:
   - name: light
     label: "Light"
@@ -56,8 +60,8 @@ themes:
   - name: dark
     label: "Dark"
     style:
-      accent_color: "#6ea8ff"
+      accent_color: "#eaeaea"
       custom_css: "templates/theme-dark.css"
     pdf:
       header_footer_style:
-        color: "#a8b3c3"
+        color: "#9a9a9a"

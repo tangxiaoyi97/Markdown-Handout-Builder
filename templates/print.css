@@ -23,7 +23,7 @@
 
 /* ---------- Theme variables, overridable from book.yml style ---------- */
 :root {
-  --hb-accent: #1f6feb;          /* Links and primary buttons */
+  --hb-accent: #111111;          /* Links and primary buttons (monochrome default) */
   --hb-content-width: 860px;     /* Max screen reading width */
   --hb-base-font-size: 16px;     /* Screen font size */
   --hb-print-font-size: 11pt;    /* PDF / print font size */
@@ -306,6 +306,14 @@ p {
 
 a {
   color: var(--hb-accent);
+}
+
+/* 黑白灰方案下正文链接需要形态提示：下划线（打印时统一去除） */
+.chapter a,
+.footnotes a {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
 }
 
 img {

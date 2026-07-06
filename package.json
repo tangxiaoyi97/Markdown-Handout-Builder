@@ -7,12 +7,12 @@
   "packageManager": "npm@11.12.1",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/tangxiaoyi/mhb.git"
+    "url": "git+https://github.com/tangxiaoyi97/mdpdf-tool.git"
   },
   "bugs": {
-    "url": "https://github.com/tangxiaoyi/mhb/issues"
+    "url": "https://github.com/tangxiaoyi97/mdpdf-tool/issues"
   },
-  "homepage": "https://tangxiaoyi.github.io/mhb/",
+  "homepage": "https://tangxiaoyi97.github.io/mdpdf-tool/",
   "keywords": [
     "markdown",
     "pdf",

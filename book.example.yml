@@ -73,7 +73,7 @@ back_cover:
 
 # ---------- Style ----------
 style:
-  accent_color: "#1f6feb"                # Links and primary controls
+  accent_color: "#111111"                # Links and primary controls (monochrome default)
   content_width: "860px"                 # Max reading width on screen
   base_font_size: "16px"                 # Screen font size
   print_font_size: "11pt"                # PDF / print font size
@@ -102,5 +102,5 @@ themes:
   - name: dark
     label: "Dark"
     style:
-      accent_color: "#6ea8ff"
+      accent_color: "#eaeaea"
       custom_css: "templates/theme-dark.css" # Built in. Local file wins if present.
