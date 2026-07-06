@@ -148,6 +148,33 @@ function sanitizeCssValue(value) {
   return String(value).replace(/[{}<>;]/g, "").trim();
 }
 
+// pdf 配置合并：header / footer / page_numbers / header_footer_style
+// 为嵌套对象，主题只写其中一个键时不应丢掉基础配置的其余键
+function mergePdfCfg(base, override) {
+  const merged = { ...(base ?? {}), ...(override ?? {}) };
+  for (const key of ["page_numbers", "header", "footer", "header_footer_style"]) {
+    if (base?.[key] || override?.[key]) {
+      merged[key] = { ...(base?.[key] ?? {}), ...(override?.[key] ?? {}) };
+    }
+  }
+  return merged;
+}
+
+function cssLengthToMm(value) {
+  const m = String(value ?? "").trim().match(/^([\d.]+)\s*(mm|cm|in|pt|px)?$/i);
+  if (!m) return null;
+  const n = Number.parseFloat(m[1]);
+  const per = { mm: 1, cm: 10, in: 25.4, pt: 25.4 / 72, px: 25.4 / 96 };
+  return n * (per[(m[2] ?? "mm").toLowerCase()] ?? 1);
+}
+
+// 页眉/页脚在页边距区内的垂直落点：取对应边距的 38%，钳制在 3–8mm。
+// 让文字离纸边有呼吸感、又不贴近正文；可用 header_footer_style.offset 覆盖。
+function hfOffset(marginValue, fallbackMm) {
+  const mm = cssLengthToMm(marginValue) ?? fallbackMm;
+  return `${Math.min(8, Math.max(3, mm * 0.38)).toFixed(1)}mm`;
+}
+
 function dateParts(value) {
   const raw = String(value ?? "").trim();
   const match = raw.match(/^(\d{4})(?:-?(\d{2})(?:-?(\d{2}))?)?/);
@@ -218,7 +245,7 @@ function slotTemplate(slots, values, style) {
   return (
     `<div style="width:100%; box-sizing:border-box; padding:${padding}; ` +
     `font-family:${fontFamily}; font-size:${fontSize}; color:${color}; ` +
-    `display:flex; align-items:center; gap:8px;">` +
+    `letter-spacing:0.02em; display:flex; align-items:baseline; gap:8px;">` +
     `<span style="flex:1; text-align:left; ${cellStyle}">${renderHeaderFooterContent(slots.left, values)}</span>` +
     `<span style="flex:1; text-align:center; ${cellStyle}">${renderHeaderFooterContent(slots.center, values)}</span>` +
     `<span style="flex:1; text-align:right; ${cellStyle}">${renderHeaderFooterContent(slots.right, values)}</span>` +
@@ -243,11 +270,17 @@ function buildHeaderFooterTemplates(pdfCfg, theme, pageMargin) {
 
   const styleCfg = pdfCfg.header_footer_style ?? {};
   const style = {
-    padding: `0 ${sanitizeCssValue(pageMargin.right)} 0 ${sanitizeCssValue(pageMargin.left)}`,
     fontFamily: sanitizeCssValue(styleCfg.font_family ?? hfFontFamily),
     fontSize: sanitizeCssValue(styleCfg.font_size ?? "8.5px"),
     color: sanitizeCssValue(styleCfg.color ?? "#8a919a")
   };
+
+  // 垂直落点：默认按边距比例计算；header_footer_style.offset 统一覆盖
+  const offsetOverride = styleCfg.offset ? sanitizeCssValue(styleCfg.offset) : null;
+  const headerPadTop = offsetOverride ?? hfOffset(pageMargin.top, 18);
+  const footerPadBottom = offsetOverride ?? hfOffset(pageMargin.bottom, 20);
+  const left = sanitizeCssValue(pageMargin.left);
+  const right = sanitizeCssValue(pageMargin.right);
 
   const headerSlots = {
     left: "{{title}}",
@@ -263,8 +296,14 @@ function buildHeaderFooterTemplates(pdfCfg, theme, pageMargin) {
   };
 
   return {
-    headerTemplate: slotTemplate(headerSlots, values, style),
-    footerTemplate: slotTemplate(footerSlots, values, style)
+    headerTemplate: slotTemplate(headerSlots, values, {
+      ...style,
+      padding: `${headerPadTop} ${right} 0 ${left}`
+    }),
+    footerTemplate: slotTemplate(footerSlots, values, {
+      ...style,
+      padding: `0 ${right} ${footerPadBottom} ${left}`
+    })
   };
 }
 
@@ -496,6 +535,9 @@ async function preparePage(browser, htmlPath) {
   });
 
   await page.emulateMedia({ media: "print" });
+  // 标记"官方 PDF 管线"：隐藏网页打印专用的运行页眉（<thead> 重复头），
+  // 官方页眉由 Chromium headerTemplate 绘制在页边距区，避免双重页眉
+  await page.evaluate(() => document.documentElement.classList.add("mhb-pdf"));
   await page.evaluate(() => document.fonts.ready);
   return page;
 }
@@ -572,7 +614,7 @@ try {
 
 try {
   for (const theme of themes) {
-    const pdfCfg = { ...pdfBase, ...theme.pdf };
+    const pdfCfg = mergePdfCfg(pdfBase, theme.pdf);
     const coverCfg = { ...coverBase, ...theme.cover };
     const backCfg = { ...backBase, ...theme.back_cover };
 

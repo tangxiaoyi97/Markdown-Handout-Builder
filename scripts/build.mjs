@@ -210,6 +210,18 @@ function formatDate(value, format = "YYYY-MM-DD") {
 // 防止配置值破坏内联 <style>
 const sanitizeCssValue = (v) => String(v).replace(/[{}<>;]/g, "").trim();
 
+// pdf 配置合并：header / footer / page_numbers / header_footer_style
+// 为嵌套对象，主题只写其中一个键时不应丢掉基础配置的其余键
+function mergePdfCfg(base, override) {
+  const merged = { ...(base ?? {}), ...(override ?? {}) };
+  for (const key of ["page_numbers", "header", "footer", "header_footer_style"]) {
+    if (base?.[key] || override?.[key]) {
+      merged[key] = { ...(base?.[key] ?? {}), ...(override?.[key] ?? {}) };
+    }
+  }
+  return merged;
+}
+
 // CSS margin 简写 → 上右下左
 function marginParts(value) {
   const parts = String(value ?? "").trim().split(/\s+/).filter(Boolean);
@@ -347,9 +359,9 @@ function buildToc(entries) {
 /* ---------- 单个主题的渲染 ---------- */
 
 function buildTheme(theme) {
-  // 主题配置浅合并覆盖基础配置
+  // 主题配置浅合并覆盖基础配置（pdf 的嵌套键做二层合并）
   const styleCfg = { ...styleBase, ...theme.style };
-  const pdfCfg = { ...pdfBase, ...theme.pdf };
+  const pdfCfg = mergePdfCfg(pdfBase, theme.pdf);
   const coverCfg = { ...coverBase, ...theme.cover };
   const backCfg = { ...backBase, ...theme.back_cover };
 
@@ -513,6 +525,55 @@ function buildTheme(theme) {
     }
   });
 
+  /* ----- 网页打印的运行页眉 ----- */
+  // 浏览器 Ctrl+P 拿不到 Chromium 的 headerTemplate（那是打印管线专属），
+  // 也没有 CSS @page 边距盒可用。这里用 <thead> 跨页重复的标准行为：
+  // 每章（和目录）包一层单格表格，表头即运行页眉，浏览器打印时每页重复；
+  // 官方 PDF 管线会加 html.mhb-pdf 隐藏它（官方页眉画在页边距区）。
+  // 页码只在官方 PDF 中存在（浏览器无逐页计数能力），{{page}}/{{total}} 会被剔除。
+  const runningHeaderHtml = (() => {
+    if (!withHeaderFooter) return "";
+    const displayDate = formatDate(rawDate, pdfCfg.date_format ?? dateFormat);
+    const values = {
+      title,
+      subtitle,
+      authors: authorsText,
+      author: authors[0] ?? "",
+      date: displayDate,
+      rawDate,
+      lang: language,
+      theme: theme.label || theme.name || ""
+    };
+    const renderSlot = (t) =>
+      String(t ?? "")
+        .replace(/\{\{(\w+)\}\}/g, (whole, key) => {
+          if (key === "page" || key === "total") return "";
+          return Object.hasOwn(values, key) ? escapeHtml(values[key]) : whole;
+        })
+        .trim();
+    const slots = { left: "{{title}}", center: "", right: "{{date}}", ...(pdfCfg.header ?? {}) };
+    const left = renderSlot(slots.left);
+    const center = renderSlot(slots.center);
+    const right = renderSlot(slots.right);
+    if (!left && !center && !right) return "";
+    return (
+      '<div class="hb-run" aria-hidden="true">' +
+      `<span class="hb-run-slot hb-run-left">${left}</span>` +
+      `<span class="hb-run-slot hb-run-center">${center}</span>` +
+      `<span class="hb-run-slot hb-run-right">${right}</span>` +
+      "</div>"
+    );
+  })();
+
+  const wrapWithRunningHeader = (innerHtml) =>
+    runningHeaderHtml
+      ? '<table class="hb-sheet"><thead class="hb-running"><tr><td>' +
+        runningHeaderHtml +
+        "</td></tr></thead><tbody><tr><td>\n" +
+        innerHtml +
+        "\n</td></tr></tbody></table>"
+      : innerHtml;
+
   /* ----- 渲染章节 ----- */
 
   const sections = [];
@@ -532,7 +593,7 @@ function buildTheme(theme) {
     const env = { docId: `ch${i + 1}`, chapterDir: path.dirname(absPath) };
     const bodyHtml = md.render(source, env);
     sections.push(
-      `<section class="chapter" data-chapter="${i + 1}">\n${bodyHtml}</section>`
+      `<section class="chapter" data-chapter="${i + 1}">\n${wrapWithRunningHeader(bodyHtml)}</section>`
     );
   });
 
@@ -553,6 +614,12 @@ function buildTheme(theme) {
   if (fonts.body) rootVars.push(`  --hb-font-body: ${sanitizeCssValue(fonts.body)};`);
   if (fonts.heading) rootVars.push(`  --hb-font-heading: ${sanitizeCssValue(fonts.heading)};`);
   if (fonts.code) rootVars.push(`  --hb-font-code: ${sanitizeCssValue(fonts.code)};`);
+
+  // 页眉页脚样式 → CSS 变量（网页打印的运行页眉与官方 PDF 保持一致外观）
+  const hfStyleCfg = pdfCfg.header_footer_style ?? {};
+  if (hfStyleCfg.font_size) rootVars.push(`  --hb-hf-font-size: ${sanitizeCssValue(hfStyleCfg.font_size)};`);
+  if (hfStyleCfg.color) rootVars.push(`  --hb-hf-color: ${sanitizeCssValue(hfStyleCfg.color)};`);
+  if (hfStyleCfg.font_family) rootVars.push(`  --hb-hf-font-family: ${sanitizeCssValue(hfStyleCfg.font_family)};`);
 
   // 封面 / 封底背景与文字色
   if (coverCfg.background) rootVars.push(`  --hb-cover-bg: ${sanitizeCssValue(coverCfg.background)};`);
@@ -635,12 +702,20 @@ function buildTheme(theme) {
   // 浏览器标签页标题：非默认主题附加主题名，便于区分
   const docTitle = theme.isDefault ? title : `${title} · ${theme.label || theme.name}`;
 
+  // 目录页同样带运行页眉（封面/封底不带）
+  const tocRaw = buildToc(tocEntries);
+  const tocHtml = tocRaw
+    ? tocRaw.replace(/^(<nav class="toc">\n)([\s\S]*)(\n<\/nav>)$/, (whole, open, inner, close) =>
+        open + wrapWithRunningHeader(inner) + close
+      )
+    : "";
+
   const handoutHtml = renderTemplate(documentTemplate, {
     ...metaValues,
     docTitle: escapeHtml(docTitle),
     pdfHref: escapeHtml(pdfHref),
     cover: coverHtml,
-    toc: buildToc(tocEntries),
+    toc: tocHtml,
     backCover: backCoverHtml,
     css: inlineCss,
     body: sections.join("\n\n")
@@ -650,7 +725,7 @@ function buildTheme(theme) {
   fs.writeFileSync(htmlOutTheme, handoutHtml);
   console.log(`Generated ${toPosix(path.relative(process.cwd(), htmlOutTheme))}`);
 
-  return { theme, htmlOutTheme, pdfOutTheme, styleCfg, fonts };
+  return { theme, htmlOutTheme, pdfOutTheme, styleCfg, fonts, tocEntries };
 }
 
 /* ---------- 渲染所有主题 ---------- */
@@ -667,14 +742,29 @@ const variantsHtml = built
   .filter((b) => !b.theme.isDefault)
   .map(
     (b) =>
-      '<p class="variant">' +
+      '<div class="variant">' +
       `<span class="variant-label">${escapeHtml(b.theme.label || b.theme.name)}</span>` +
       `<a href="./${escapeHtml(path.basename(b.htmlOutTheme))}">HTML</a>` +
-      " / " +
+      '<span class="sep">&middot;</span>' +
       `<a href="./${escapeHtml(path.basename(b.pdfOutTheme))}" download>PDF</a>` +
-      "</p>"
+      "</div>"
   )
   .join("\n");
+
+// 首页章节导航：默认主题的一级标题，链接到 handout 内锚点
+const chapterItems = (defaultBuild.tocEntries ?? []).filter((e) => e.level === 1);
+const chaptersHtml =
+  chapterItems.length > 0
+    ? '<div class="chapters"><h2 class="sec-label">Contents</h2>\n<ol class="chapter-list">\n' +
+      chapterItems
+        .map(
+          (e) =>
+            `<li><a href="${escapeHtml(defaultHtmlHref)}#${escapeHtml(e.id)}">${escapeHtml(e.title)}</a></li>`
+        )
+        .join("\n") +
+      "\n</ol></div>"
+    : "";
+const chapterCount = chapterItems.length || book.chapters.length;
 
 const defaultFonts = defaultBuild.fonts ?? {};
 const indexFontVars = defaultFonts.body
@@ -687,8 +777,10 @@ const indexHtml = renderTemplate(indexTemplate, {
   pdfHref: escapeHtml(defaultPdfHref),
   accent: escapeHtml(sanitizeCssValue(defaultBuild.styleCfg.accent_color ?? "#1f6feb")),
   fontVars: indexFontVars,
+  chapters: chaptersHtml,
+  chapterCount: escapeHtml(String(chapterCount)),
   variants: variantsHtml
-    ? `<div class="variants">\n${variantsHtml}\n</div>`
+    ? '<div class="variants"><h2 class="sec-label">Other themes</h2>\n' + variantsHtml + "\n</div>"
     : ""
 });
 

@@ -236,6 +236,99 @@ if (Array.isArray(book.themes)) {
 
 const warnings = [];
 
+/* ---------- pdf 页眉页脚 / 页码 / 日期格式配置校验 ---------- */
+
+const KNOWN_PLACEHOLDERS = new Set([
+  "page", "total", "title", "subtitle", "authors", "author", "date", "rawDate", "lang", "theme"
+]);
+const KNOWN_HF_STYLE_KEYS = new Set(["font_size", "color", "font_family", "offset"]);
+
+if (book.date_format !== undefined && typeof book.date_format !== "string") {
+  fail(`${configName}: "date_format" must be a string (e.g. "YYYY-MM-DD").`);
+}
+
+function checkPdfConfig(scope, where) {
+  const pdf = scope?.pdf;
+  if (pdf === undefined) return;
+  if (!pdf || typeof pdf !== "object") {
+    fail(`${configName}: ${where}pdf must be a mapping.`);
+    return;
+  }
+
+  if (pdf.date_format !== undefined && typeof pdf.date_format !== "string") {
+    fail(`${configName}: ${where}pdf.date_format must be a string.`);
+  }
+
+  const pn = pdf.page_numbers;
+  if (pn !== undefined) {
+    if (!pn || typeof pn !== "object") {
+      fail(`${configName}: ${where}pdf.page_numbers must be a mapping.`);
+    } else {
+      if (pn.format !== undefined && typeof pn.format !== "string") {
+        fail(`${configName}: ${where}pdf.page_numbers.format must be a string.`);
+      }
+      for (const key of ["count_cover", "count_back_cover"]) {
+        if (pn[key] !== undefined && typeof pn[key] !== "boolean") {
+          fail(`${configName}: ${where}pdf.page_numbers.${key} must be true or false.`);
+        }
+      }
+      if (typeof pn.format === "string") {
+        for (const m of pn.format.matchAll(/\{\{(\w+)\}\}/g)) {
+          if (!KNOWN_PLACEHOLDERS.has(m[1])) {
+            warnings.push(
+              `${where}pdf.page_numbers.format: unknown placeholder {{${m[1]}}} (kept as literal text)`
+            );
+          }
+        }
+      }
+    }
+  }
+
+  for (const section of ["header", "footer"]) {
+    const slots = pdf[section];
+    if (slots === undefined) continue;
+    if (!slots || typeof slots !== "object") {
+      fail(`${configName}: ${where}pdf.${section} must be a mapping with left/center/right.`);
+      continue;
+    }
+    for (const [slot, value] of Object.entries(slots)) {
+      if (!["left", "center", "right"].includes(slot)) {
+        warnings.push(`${where}pdf.${section}.${slot}: unknown slot (use left / center / right)`);
+        continue;
+      }
+      if (typeof value !== "string") {
+        fail(`${configName}: ${where}pdf.${section}.${slot} must be a string.`);
+        continue;
+      }
+      for (const m of value.matchAll(/\{\{(\w+)\}\}/g)) {
+        if (!KNOWN_PLACEHOLDERS.has(m[1])) {
+          warnings.push(
+            `${where}pdf.${section}.${slot}: unknown placeholder {{${m[1]}}} (kept as literal text)`
+          );
+        }
+      }
+    }
+  }
+
+  const hfs = pdf.header_footer_style;
+  if (hfs !== undefined) {
+    if (!hfs || typeof hfs !== "object") {
+      fail(`${configName}: ${where}pdf.header_footer_style must be a mapping.`);
+    } else {
+      for (const key of Object.keys(hfs)) {
+        if (!KNOWN_HF_STYLE_KEYS.has(key)) {
+          warnings.push(`${where}pdf.header_footer_style.${key}: unknown key (ignored)`);
+        }
+      }
+    }
+  }
+}
+
+checkPdfConfig(book, "");
+if (Array.isArray(book.themes)) {
+  book.themes.forEach((theme, i) => checkPdfConfig(theme, `themes[${i}].`));
+}
+
 function* walkFiles(dir) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     if (entry.name.startsWith(".")) continue;

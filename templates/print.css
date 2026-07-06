@@ -271,8 +271,32 @@ h6 {
   margin: 1.2em 0 0.5em;
 }
 
-.chapter > h1:first-child {
+.chapter > h1:first-child,
+.hb-sheet > tbody > tr > td > h1:first-child {
   margin-top: 0.6em;
+}
+
+/* ---------- 网页打印运行页眉的包裹表格 ----------
+   每章 / 目录包一层单格表格，<thead> 在浏览器打印时逐页重复，
+   充当运行页眉（官方 PDF 管线用 html.mhb-pdf 隐藏它，改由
+   Chromium headerTemplate 在页边距区绘制，二者内容一致）。
+   包裹表格必须完全中性化：不吃数据表样式，也不参与防拆页规则。 */
+.hb-sheet {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0;
+}
+
+.hb-sheet > thead > tr > td,
+.hb-sheet > tbody > tr > td {
+  border: none;
+  padding: 0;
+  background: none;
+  text-align: inherit;
+}
+
+.hb-sheet > thead {
+  display: none;
 }
 
 /* ---------- Body elements ---------- */
@@ -462,13 +486,59 @@ hr.footnotes-sep {
     break-after: avoid;
   }
 
-  table,
+  table:not(.hb-sheet),
   pre,
   blockquote,
   img,
   figure,
   .katex-display {
     break-inside: avoid;
+  }
+
+  /* 运行页眉：浏览器打印时每页重复；官方 PDF 管线隐藏 */
+  .hb-sheet {
+    break-inside: auto;
+  }
+
+  .hb-sheet > thead {
+    display: table-header-group;
+  }
+
+  html.mhb-pdf .hb-sheet > thead {
+    display: none !important;
+  }
+
+  .hb-run {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    font-family: var(--hb-hf-font-family, var(--hb-font-body));
+    font-size: var(--hb-hf-font-size, 8.5px);
+    color: var(--hb-hf-color, #8a919a);
+    letter-spacing: 0.02em;
+    border-bottom: 0.5pt solid rgba(140, 150, 160, 0.45);
+    padding-bottom: 4px;
+    margin-bottom: 14px;
+  }
+
+  .hb-run-slot {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .hb-run-left {
+    text-align: left;
+  }
+
+  .hb-run-center {
+    text-align: center;
+  }
+
+  .hb-run-right {
+    text-align: right;
   }
 
   pre {

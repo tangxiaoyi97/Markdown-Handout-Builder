@@ -54,6 +54,8 @@ pdf:
     font_size: "8.5px"
     color: "#8a919a"
     # font_family: "Inter, Arial, sans-serif"
+    # offset: "6mm"                        # Distance from the paper edge.
+    #                                      # Default: 38% of the page margin (3-8mm).
 
 # ---------- Cover and back cover ----------
 cover:
