@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.4.0
+
+- `{{commit}}` build-provenance placeholder: the note repository's
+  short git hash, with a `-dirty` suffix when the working tree has
+  uncommitted changes, empty outside a git repository. Available in
+  PDF header/footer slots, running headers, and cover fragments.
+  Deliberately no build-timestamp placeholder: builds from the same
+  commit stay byte-reproducible.
+- `book.example.yml` hardening: full placeholder list in the
+  header/footer section, `{{version}}` added to cover fragment
+  placeholders, and a theme-level `pdf` override example.
+
 ## 1.3.0
 
 Removed (breaking): the automatic numbering system introduced in 1.2.0
