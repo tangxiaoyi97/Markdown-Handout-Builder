@@ -311,6 +311,63 @@ test("{{commit}} resolves from the note repo git (dirty suffix; empty outside gi
   assert.match(html, new RegExp(`hb-run-center">${hash}-dirty<`), "dirty suffix");
 });
 
+test("chapters: .md is a chapter, .html is an insert, first body section is hb-lead", async () => {
+  const dir = await makeFixture({
+    "book.yml": 'title: "T"\nchapters:\n  - notes/a.md\n  - notes/mid.html\n  - notes/b.md\n',
+    "notes/a.md": "# Aye\n\ntext\n",
+    "notes/mid.html": '<div class="pause"><h2>Break {{title}}</h2></div>\n',
+    "notes/b.md": "# Bee\n\ntext\n"
+  });
+  const r = await runScript("build.mjs", { cwd: dir });
+  assert.equal(r.code, 0, r.stderr);
+
+  const html = await readOut(dir, "handout.html");
+  assert.match(html, /<section class="chapter hb-lead" data-chapter="1"/);
+  assert.match(html, /<section class="insert" data-entry="2"/);
+  assert.match(html, /<section class="chapter" data-chapter="3"/);
+  assert.match(html, /<h2>Break T<\/h2>/, "insert placeholder filled, markup verbatim");
+});
+
+test("chapters object form: per-entry class + chapter_toc build an isolated mini-TOC after the h1", async () => {
+  const dir = await makeFixture({
+    "book.yml":
+      'title: "T"\nchapters:\n' +
+      "  - path: notes/deep.md\n    class: deep-dive\n    chapter_toc: true\n",
+    "notes/deep.md": "# Deep\n\nlead\n\n## One\n\na\n\n### Detail\n\nb\n\n## Two\n\nc\n"
+  });
+  const r = await runScript("build.mjs", { cwd: dir });
+  assert.equal(r.code, 0, r.stderr);
+
+  const html = await readOut(dir, "handout.html");
+  assert.match(html, /<section class="chapter deep-dive hb-lead"/, "custom class on the section");
+  assert.match(html, /<\/h1>\s*<nav class="chapter-toc">/, "mini-TOC placed right after the h1");
+  // Reuses the shared .toc-page[data-target] hook so PDF page numbers fill it.
+  assert.match(html, /chapter-toc-title"><a href="#one">One<\/a>[\s\S]*?data-target="one"/);
+  assert.match(html, /data-target="detail"/);
+  assert.match(html, /data-target="two"/);
+  // The mini-TOC uses its own isolated classes, distinct from the main .toc.
+  assert.match(html, /<nav class="chapter-toc">/);
+  assert.doesNotMatch(html, /<nav class="chapter-toc"[^>]*\bclass="toc"/);
+});
+
+test("chapter_toc global default + depth; chapters loaded from an external file", async () => {
+  const dir = await makeFixture({
+    "book.yml":
+      'title: "T"\nchapters: chapters.yml\n' +
+      'chapter_toc:\n  default: true\n  title: "本章"\n  depth: 2\n',
+    "chapters.yml": "- notes/a.md\n",
+    "notes/a.md": "# A\n\n## Keep\n\nx\n\n### Drop\n\ny\n"
+  });
+  const r = await runScript("build.mjs", { cwd: dir });
+  assert.equal(r.code, 0, r.stderr);
+
+  const html = await readOut(dir, "handout.html");
+  assert.match(html, /<nav class="chapter-toc">/, "global default turns it on");
+  assert.match(html, /<p class="chapter-toc-heading">本章<\/p>/, "custom title");
+  assert.match(html, /data-target="keep"/);
+  assert.doesNotMatch(html, /data-target="drop"/, "depth 2 excludes the h3");
+});
+
 test("header_footer: false removes the web-print running header", async () => {
   const dir = await makeFixture({
     "book.yml": baseBook("pdf:\n  header_footer: false\n"),

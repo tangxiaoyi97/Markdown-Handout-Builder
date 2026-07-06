@@ -262,6 +262,90 @@ body.toc-has-pages .toc-page {
   font-variant-numeric: tabular-nums;
 }
 
+/* ---------- Per-chapter mini table of contents ----------
+   Isolated from the main .toc so it can be styled independently. It reuses the
+   shared .toc-page[data-target] hook, so render-pdf fills it with real page
+   numbers in the same pass as the main TOC. */
+.chapter-toc {
+  margin: 0 0 1.6em;
+  padding: 12px 18px;
+  border: 1px solid var(--hb-border);
+  border-left: 3px solid var(--hb-border-strong);
+  border-radius: 0 6px 6px 0;
+  background: var(--hb-quote-bg);
+}
+
+.chapter-toc-heading {
+  margin: 0 0 6px;
+  font-size: 0.78em;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--hb-fg-muted);
+}
+
+.chapter-toc-list {
+  list-style: none;
+  margin: 0;
+  padding-left: 0;
+}
+
+.chapter-toc-list li {
+  margin: 3px 0;
+}
+
+.chapter-toc-l1 {
+  padding-left: 1.4em;
+}
+
+.chapter-toc-l2 {
+  padding-left: 2.8em;
+}
+
+.chapter-toc-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.chapter-toc-title {
+  min-width: 0;
+}
+
+.chapter-toc a {
+  color: var(--hb-accent);
+  text-decoration: none;
+}
+
+.chapter-toc a:hover {
+  text-decoration: underline;
+}
+
+.chapter-toc-leader,
+.chapter-toc .toc-page {
+  display: none;
+}
+
+body.toc-has-pages .chapter-toc-leader {
+  display: block;
+  flex: 1;
+  min-width: 24px;
+  align-self: flex-end;
+  margin-bottom: 5px;
+  border-bottom: 1px dotted var(--hb-leader);
+}
+
+body.toc-has-pages .chapter-toc .toc-page {
+  display: inline-block;
+  color: var(--hb-fg-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Raw-HTML insert page (a .html chapters entry) ---------- */
+.insert {
+  margin: 0;
+}
+
 /* ---------- Headings ---------- */
 h1,
 h2,
@@ -685,11 +769,15 @@ hr.footnotes-sep {
     break-after: page;
   }
 
-  .chapter {
+  /* Each chapter and each raw insert page starts on a new page. The first body
+     section (chapter or insert) does not, so it follows the cover / TOC without
+     a blank page. */
+  .chapter,
+  .insert {
     break-before: page;
   }
 
-  .chapter:first-of-type {
+  .hb-lead {
     break-before: auto;
   }
 
@@ -706,6 +794,7 @@ hr.footnotes-sep {
   figure,
   .admonition,
   .env,
+  .chapter-toc,
   .katex-display {
     break-inside: avoid;
   }

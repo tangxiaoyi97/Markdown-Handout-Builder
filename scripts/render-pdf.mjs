@@ -539,29 +539,92 @@ async function postProcessPdf(filePath, { plainBytes, cleanIndexes, themeLabel, 
   fs.writeFileSync(filePath, await doc.save());
 }
 
-async function assembleWithExcludedPages({ numberedBytes, plainBytes, prependCover, appendBackCover }) {
+// Assemble the final PDF from two renders:
+//   numberedBytes — only the COUNTED sections, with header/footer + logical
+//                   page numbers (the outline lives here, so it stays the base
+//                   to preserve bookmarks and internal links).
+//   plainBytes    — ALL sections, no header/footer; the source for the excluded
+//                   (uncounted) cover / TOC / back-cover pages.
+// Uncounted sections are spliced back in at their correct positions. cover and
+// back are single pages; the TOC may span several. numIdx is the count of
+// counted pages that precede a block (its insertion index before any inserts);
+// applying inserts in ascending numIdx with a running offset yields document
+// order regardless of which sections are excluded.
+async function assembleWithExcluded({
+  numberedBytes,
+  plainBytes,
+  hasCover,
+  hasBack,
+  excludeCover,
+  excludeToc,
+  excludeBack
+}) {
   let PDFDocument;
   try {
     ({ PDFDocument } = await import("pdf-lib"));
   } catch (err) {
-    throw new Error(`Cannot assemble excluded cover/back-cover pages: ${err.message}`);
+    throw new Error(`Cannot assemble excluded pages: ${err.message}`);
   }
 
-  const doc = await PDFDocument.load(numberedBytes, { updateMetadata: false });
+  const numbered = await PDFDocument.load(numberedBytes, { updateMetadata: false });
   const plain = await PDFDocument.load(plainBytes, { updateMetadata: false });
-  const plainPageCount = plain.getPageCount();
+  const P = plain.getPageCount();
+  const N = numbered.getPageCount();
 
-  if (prependCover && plainPageCount > 0) {
-    const [coverPage] = await doc.copyPages(plain, [0]);
-    doc.insertPage(0, coverPage);
+  const C = hasCover ? 1 : 0;
+  const K = hasBack ? 1 : 0;
+  const coverCounted = hasCover && !excludeCover ? 1 : 0;
+  const backCounted = hasBack && !excludeBack ? 1 : 0;
+
+  const inserts = [];
+  if (excludeCover) {
+    inserts.push({ numIdx: 0, plainIndices: pageRange(0, C) });
+  }
+  if (excludeToc) {
+    // Uncounted pages total = P - N. Subtract the uncounted cover / back to
+    // isolate the TOC's page span; the TOC sits right after the cover in plain.
+    // This is exact while the two renders agree on body pagination — they do,
+    // because chapters force a page break and the first body page has the same
+    // margin in both renders. The guard below turns any future drift into a
+    // warning instead of a dropped / duplicated / out-of-range page.
+    const uncountedCover = C - coverCounted; // C when excluded, else 0
+    const uncountedBack = K - backCounted;
+    const tocPages = P - N - uncountedCover - uncountedBack;
+    inserts.push({ numIdx: coverCounted, plainIndices: pageRange(C, C + tocPages) });
+  }
+  if (excludeBack) {
+    inserts.push({ numIdx: N, plainIndices: pageRange(P - K, P) });
   }
 
-  if (appendBackCover && plainPageCount > 0) {
-    const [backPage] = await doc.copyPages(plain, [plainPageCount - 1]);
-    doc.addPage(backPage);
+  // Safety net: spliced pages must be valid and together cover exactly the pages
+  // the numbered render is missing (P - N). Bound every index to [0, P) so a bad
+  // computation can never throw in copyPages, and warn on any mismatch.
+  let spliced = 0;
+  for (const ins of inserts) {
+    ins.plainIndices = ins.plainIndices.filter((i) => i >= 0 && i < P);
+    spliced += ins.plainIndices.length;
+  }
+  if (spliced !== P - N) {
+    console.warn(
+      "Warning: page-number splice is inconsistent (the numbered and plain " +
+        "renders disagree on pagination); some page numbers may be off."
+    );
   }
 
-  return doc.save();
+  inserts.sort((a, b) => a.numIdx - b.numIdx);
+  let offset = 0;
+  for (const ins of inserts) {
+    if (ins.plainIndices.length === 0) continue;
+    const copied = await numbered.copyPages(plain, ins.plainIndices);
+    let pos = ins.numIdx + offset;
+    for (const p of copied) {
+      numbered.insertPage(pos, p);
+      pos += 1;
+    }
+    offset += copied.length;
+  }
+
+  return numbered.save();
 }
 
 async function preparePage(browser, htmlPath) {
@@ -584,12 +647,18 @@ async function preparePage(browser, htmlPath) {
   return page;
 }
 
-async function applyNumberingDomAdjustments(page, { removeCover, removeBackCover, firstPageMargin }) {
+async function applyNumberingDomAdjustments(
+  page,
+  { removeCover, removeToc, removeBackCover, firstPageMargin }
+) {
   await page.evaluate(
-    ({ removeCover, removeBackCover, firstPageMargin }) => {
+    ({ removeCover, removeToc, removeBackCover, firstPageMargin }) => {
       if (removeCover) document.getElementById("cover")?.remove();
+      if (removeToc) document.getElementById("toc")?.remove();
       if (removeBackCover) document.getElementById("back-cover")?.remove();
 
+      // Removing the cover promotes a normal-margin page to first; restore the
+      // regular first-page margin (the cover uses @page :first { margin: 0 }).
       if (removeCover) {
         const style = document.createElement("style");
         style.setAttribute("data-mhb-page-numbering", "true");
@@ -597,9 +666,15 @@ async function applyNumberingDomAdjustments(page, { removeCover, removeBackCover
         document.head.appendChild(style);
       }
     },
-    { removeCover, removeBackCover, firstPageMargin }
+    { removeCover, removeToc, removeBackCover, firstPageMargin }
   );
 }
+
+const pageRange = (start, end) => {
+  const out = [];
+  for (let i = start; i < end; i += 1) out.push(i);
+  return out;
+};
 
 async function pageBackgroundFrom(page) {
   const bodyBgRaw = await page.evaluate(
@@ -615,29 +690,31 @@ async function pageBackgroundFrom(page) {
   return null;
 }
 
-async function injectTocPageNumbers(page, pdfOptions) {
+// Resolve logical page numbers for every heading by printing once and reading
+// the outline. Returns [{ id, pageNo }] or null. When called on a page whose
+// uncounted sections were removed, the numbers are logical (counting starts
+// after the excluded cover / TOC).
+async function computeTocEntries(page, pdfOptions) {
   const firstPass = await page.pdf(pdfOptions);
-
-  let entries = null;
   try {
-    entries = await resolveTocPageNumbers(firstPass, page);
+    return await resolveTocPageNumbers(firstPass, page);
   } catch (err) {
     console.warn(`Warning: failed to resolve TOC page numbers: ${err.message}`);
+    return null;
   }
+}
 
-  if (entries && entries.length > 0) {
-    await page.evaluate((list) => {
-      document.body.classList.add("toc-has-pages");
-      for (const { id, pageNo } of list) {
-        const target = document.querySelector(
-          `.toc-page[data-target="${CSS.escape(id)}"]`
-        );
-        if (target) target.textContent = String(pageNo);
-      }
-    }, entries);
-  } else {
-    console.warn("Warning: TOC page numbers unavailable; generating PDF without them.");
-  }
+// Fill every matching .toc-page[data-target] — the main TOC AND every per-chapter
+// mini TOC share the same id-based hook, so all of them get real page numbers.
+async function injectTocEntries(page, entries) {
+  if (!entries || entries.length === 0) return;
+  await page.evaluate((list) => {
+    document.body.classList.add("toc-has-pages");
+    for (const { id, pageNo } of list) {
+      const targets = document.querySelectorAll(`.toc-page[data-target="${CSS.escape(id)}"]`);
+      for (const target of targets) target.textContent = String(pageNo);
+    }
+  }, entries);
 }
 
 /* ---------- 打印管线 ---------- */
@@ -682,18 +759,8 @@ try {
     );
     const pageNumberCfg = pdfCfg.page_numbers ?? {};
     const countCover = pageNumberCfg.count_cover ?? true;
+    const countToc = pageNumberCfg.count_toc ?? true;
     const countBackCover = pageNumberCfg.count_back_cover ?? true;
-    const excludeCoverFromNumbering = Boolean(coverEnabled && !countCover);
-    const excludeBackFromNumbering = Boolean(backCoverEnabled && !countBackCover);
-    const useNumberedSubset =
-      (excludeCoverFromNumbering || excludeBackFromNumbering) &&
-      (withHeaderFooter || withTocPageNumbers);
-
-    if (withHeaderFooter && coverHeaderFooter && excludeCoverFromNumbering) {
-      console.warn(
-        "Warning: pdf.cover_header_footer is ignored when pdf.page_numbers.count_cover is false."
-      );
-    }
 
     const basePdfOptions = {
       preferCSSPageSize: true, // 使用 print.css 中的 @page 尺寸与边距
@@ -709,46 +776,97 @@ try {
       pdfOptions.headerTemplate = headerTemplate;
       pdfOptions.footerTemplate = footerTemplate;
     }
-
-    const cleanIndexes = [];
-    if (withHeaderFooter) {
-      if (coverEnabled && countCover && !coverHeaderFooter) cleanIndexes.push(0);
-      if (backCoverEnabled && countBackCover) cleanIndexes.push(-1); // -1 = 最后一页
-    }
-
-    let plainBytes = null;
-    if (useNumberedSubset || cleanIndexes.length > 0) {
-      const plainPage = await preparePage(browser, htmlPath);
-      plainBytes = await plainPage.pdf({
-        ...basePdfOptions,
-        displayHeaderFooter: false
-      });
-      await plainPage.close();
-    }
+    const firstPageMargin = sanitizeCssValue(pdfCfg.margin ?? "18mm 16mm 20mm 16mm");
 
     const page = await preparePage(browser, htmlPath);
+
+    // Probe what is actually in the built HTML. The main TOC exists only when
+    // there are headings to list; chapter mini TOCs add more .toc-page hooks.
+    const present = await page.evaluate(() => ({
+      cover: !!document.getElementById("cover"),
+      toc: !!document.getElementById("toc"),
+      back: !!document.getElementById("back-cover"),
+      tocTargets: document.querySelectorAll(".toc-page[data-target]").length
+    }));
+
+    const hasCover = present.cover && coverEnabled;
+    const hasBack = present.back && backCoverEnabled;
+    const hasMainToc = present.toc;
+    const doTocNumbers = withTocPageNumbers && present.tocTargets > 0;
+
+    // count_cover / count_toc / count_back_cover: keep the section in the PDF but
+    // exclude it from page numbering. Chapter mini TOCs live in the body flow and
+    // are always counted. The main TOC is excluded independently of the cover.
+    const excludeCover = hasCover && !countCover;
+    const excludeToc = hasMainToc && !countToc;
+    const excludeBack = hasBack && !countBackCover;
+    const useNumberedSubset =
+      (excludeCover || excludeToc || excludeBack) && (withHeaderFooter || doTocNumbers);
+
+    if (withHeaderFooter && coverHeaderFooter && excludeCover) {
+      console.warn(
+        "Warning: pdf.cover_header_footer is ignored when pdf.page_numbers.count_cover is false."
+      );
+    }
+
+    // Final pages whose header/footer are overlaid with a clean (no-HF) version:
+    // the counted full-bleed cover and the counted back cover.
+    const cleanIndexes = [];
+    if (withHeaderFooter) {
+      if (hasCover && countCover && !coverHeaderFooter) cleanIndexes.push(0);
+      if (hasBack && countBackCover) cleanIndexes.push(-1); // -1 = 最后一页
+    }
+
+    const needPlain = useNumberedSubset || cleanIndexes.length > 0;
+
+    // Numbered render: uncounted sections removed so Chromium numbers only the
+    // counted pages (logical numbering). With no exclusions this is the full doc.
     if (useNumberedSubset) {
       await applyNumberingDomAdjustments(page, {
-        removeCover: excludeCoverFromNumbering,
-        removeBackCover: excludeBackFromNumbering,
-        firstPageMargin: sanitizeCssValue(pdfCfg.margin ?? "18mm 16mm 20mm 16mm")
+        removeCover: excludeCover,
+        removeToc: excludeToc,
+        removeBackCover: excludeBack,
+        firstPageMargin
       });
     }
 
     // 读取打印态的 body 背景色；非白色主题需要在后处理时统一页面基底色
     const pageBackground = await pageBackgroundFrom(page);
 
-    if (withTocPageNumbers) await injectTocPageNumbers(page, pdfOptions);
+    // Logical page numbers for the main TOC and every chapter mini TOC.
+    let tocEntries = null;
+    if (doTocNumbers) {
+      tocEntries = await computeTocEntries(page, pdfOptions);
+      if (tocEntries && tocEntries.length > 0) {
+        await injectTocEntries(page, tocEntries); // chapter TOCs (+ main TOC if counted)
+      } else {
+        console.warn("Warning: TOC page numbers unavailable; generating PDF without them.");
+      }
+    }
+
+    // Plain render (all sections, no header/footer): supplies the excluded pages
+    // for splicing and the clean cover/back overlays. An excluded main TOC comes
+    // from here, so its page numbers are injected into this render too.
+    let plainBytes = null;
+    if (needPlain) {
+      const plainPage = await preparePage(browser, htmlPath);
+      if (excludeToc && tocEntries) await injectTocEntries(plainPage, tocEntries);
+      plainBytes = await plainPage.pdf({ ...basePdfOptions, displayHeaderFooter: false });
+      await plainPage.close();
+    }
 
     fs.mkdirSync(path.dirname(pdfPath), { recursive: true });
 
     if (useNumberedSubset) {
       const numberedBytes = await page.pdf(pdfOptions);
-      const assembledBytes = await assembleWithExcludedPages({
+      const assembledBytes = await assembleWithExcluded({
         numberedBytes,
         plainBytes,
-        prependCover: excludeCoverFromNumbering,
-        appendBackCover: excludeBackFromNumbering
+        hasCover,
+        hasBack,
+        excludeCover,
+        excludeToc,
+        excludeBack
       });
       fs.writeFileSync(pdfPath, assembledBytes);
     } else {

@@ -3,7 +3,7 @@ subtitle: "Usage Guide and Package Showcase"
 language: "en"
 date: "2026-07-06"
 date_format: "YYYY.MM.DD"
-version: "v1.4"
+version: "v2.0"
 
 authors:
   - "Tangxy97"
@@ -17,8 +17,12 @@ keywords:
 chapters:
   - notes/00-overview.md
   - notes/01-quickstart.md
-  - notes/02-writing.md
+  - path: notes/02-writing.md   # long syntax reference: open it with a mini-TOC
+    chapter_toc: true
   - notes/03-publish.md
+  - path: notes/04-layout.md    # object form: opens with a chapter mini-TOC
+    chapter_toc: true
+  - notes/colophon.html         # raw-HTML insert page (back matter)
 
 output:
   html: dist/handout.html
@@ -28,6 +32,11 @@ toc:
   title: "Contents"
   depth: 2
 
+chapter_toc:
+  default: false
+  title: "In this chapter"
+  depth: 3
+
 pdf:
   header_footer: true
   toc_page_numbers: true
@@ -36,7 +45,8 @@ pdf:
   margin: "18mm 16mm 20mm 16mm"
   page_numbers:
     format: "{{page}} / {{total}}"
-    count_cover: false
+    count_cover: false          # cover stays, numbering starts after it
+    count_toc: false            # the contents page carries no page number
     count_back_cover: false
   header:
     left: "{{title}}"

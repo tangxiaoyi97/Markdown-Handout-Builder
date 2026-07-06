@@ -2,6 +2,8 @@
 
 Build a polished handout from plain Markdown: HTML for reading, PDF for printing, and an optional GitHub Pages showcase.
 
+**Live showcase:** [read online](https://tangxiaoyi97.github.io/Markdown-Handout-Builder/) &middot; [official PDF](https://tangxiaoyi97.github.io/Markdown-Handout-Builder/handout.pdf)
+
 The package is designed for small note repositories. Your content repo can keep only `book.yml`, `notes/`, optional local custom templates, and a thin `package.json`. The renderer, default templates, print CSS, PDF pipeline, and preview server live in this npm package.
 
 ## Install
@@ -131,6 +133,41 @@ output:
   pdf: dist/handout.pdf
 ```
 
+### Chapters and page layout
+
+Every `chapters` entry is a file path, and its extension decides its role: a `.md` file is a rendered **chapter**, a `.html` file is a trusted raw-HTML **insert page** (a part divider, a colophon, a diagram Markdown can't express). A mistyped path is reported by `check`, never turned into a blank page.
+
+Use the mapping form only when an entry needs options; the list can also live in its own file:
+
+```yaml
+chapters:
+  - notes/00-intro.md            # chapter
+  - notes/interlude.html         # raw-HTML insert page
+  - path: notes/01-topic.md      # mapping form for extra options
+    class: deep-dive             #   extra CSS class on the <section>
+    chapter_toc: true            #   open the chapter with a mini table of contents
+# chapters: chapters.yml         # …or keep the whole list in a separate file
+```
+
+Set `chapter_toc: true` on a long chapter to open it with an auto-built list of its own sub-headings — an isolated `<nav class="chapter-toc">` that gets real PDF page numbers. Configure the default and its look at the top level:
+
+```yaml
+chapter_toc:
+  default: false                 # true = on for every chapter
+  title: "In this chapter"       # "" hides the heading
+  depth: 3                       # include heading levels 2..depth
+```
+
+Front matter can stay in the PDF while being excluded from page numbering, so the body starts at page 1 the way a printed book does. Chapter mini-TOCs are body content and are always counted.
+
+```yaml
+pdf:
+  page_numbers:
+    count_cover: false           # cover stays, numbering starts after it
+    count_toc: false             # the contents page carries no page number
+    count_back_cover: false
+```
+
 Common options:
 
 ```yaml
@@ -148,6 +185,7 @@ pdf:
   page_numbers:
     format: "{{page}} / {{total}}" # or "x", "x/x", "page-of-total"
     count_cover: true
+    count_toc: true
     count_back_cover: true
   header:
     left: "{{title}}"
@@ -183,7 +221,7 @@ PDF headers and footers use three slots: `left`, `center`, and `right`. Supporte
 
 Set a top-level `version: "v2"` in `book.yml` to show a handout revision on the cover and index page; the same value is available as `{{version}}` in header/footer slots and cover fragments.
 
-`pdf.page_numbers.count_cover: false` keeps the cover in the PDF but starts generated numbering after it. `count_back_cover: false` keeps the back cover in the PDF while excluding it from `{{total}}`.
+`pdf.page_numbers.count_cover: false` keeps the cover in the PDF but starts generated numbering after it. `count_toc: false` does the same for the contents page, and `count_back_cover: false` keeps the back cover in the PDF while excluding it from `{{total}}`. Chapter mini-TOCs are body content and are always counted.
 
 ### Labels and custom containers
 

@@ -20,9 +20,19 @@ keywords:                                # Optional PDF Keywords metadata
   - "Markdown"
   - "PDF"
 
-chapters:                                # Required: chapter order
-  - notes/00-intro.md
+chapters:                                # Required: order + role of each page.
+  # Every entry is a FILE PATH; the extension decides its role:
+  #   .md / .markdown -> chapter (rendered; joins the TOC and PDF bookmarks)
+  #   .html / .htm    -> insert  (trusted raw-HTML page, verbatim, its own page)
+  - notes/00-intro.md                    # string form = just the path
   - notes/01-topic.md
+  - notes/interlude.html                 # a raw-HTML insert page
+  # Mapping form, for the few entries that need extra options:
+  - path: notes/02-deep.md               # "path" is required
+    class: deep-dive                     #   extra CSS class(es) on the <section>
+    chapter_toc: true                    #   open this chapter with a mini-TOC
+  # The whole list may instead live in its own file, like book.yml:
+  #   chapters: chapters.yml             # a .yml/.yaml list (or a {chapters:} map)
 
 output:                                  # Output paths
   html: dist/handout.html                # Non-default themes append .<theme>
@@ -33,6 +43,18 @@ toc:
   title: "Contents"                      # TOC heading
   depth: 2                               # Include heading levels 1-3
   enabled: true                          # false disables the TOC entirely
+
+# ---------- Per-chapter mini tables of contents ----------
+# "In this chapter" — an auto-built list of a chapter's own sub-headings,
+# rendered as an isolated <nav class="chapter-toc"> and given real PDF page
+# numbers in the same pass as the main TOC. Off unless a chapter opts in with
+# chapter_toc: true (or default: true here). Chapter mini-TOCs live in the body
+# flow and are always counted toward page numbers.
+chapter_toc:
+  default: false                         # true = on for every chapter
+  title: "In this chapter"               # heading above each mini-TOC ("" hides it)
+  depth: 3                               # include heading levels 2..depth (2-6)
+  class: ""                              # extra CSS class on every chapter-toc
 
 # ---------- Official PDF print options ----------
 pdf:
@@ -45,6 +67,7 @@ pdf:
   page_numbers:
     format: "{{page}} / {{total}}"       # Also: "x", "x/x", "page-of-total"
     count_cover: true                    # false keeps cover in PDF but starts numbering after it
+    count_toc: true                      # false keeps the contents page but leaves it unnumbered
     count_back_cover: true               # false excludes enabled back cover from total pages
   header:
     left: "{{title}}"                    # Slots: left, center, right

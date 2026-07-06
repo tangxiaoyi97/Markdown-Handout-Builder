@@ -136,6 +136,66 @@ test("non-scalar version fails", async () => {
   assert.match(r.stderr, /"version" must be a string or number/);
 });
 
+test("chapters: unrecognized extension fails; .html insert is accepted", async () => {
+  const bad = await makeFixture({
+    "book.yml": "title: T\nchapters:\n  - notes/a.txt\n",
+    "notes/a.txt": "x"
+  });
+  const r1 = await runScript("check.mjs", { cwd: bad });
+  assert.equal(r1.code, 1);
+  assert.match(r1.stderr, /unrecognized extension/);
+
+  const ok = await makeFixture({
+    "book.yml": "title: T\nchapters:\n  - notes/a.md\n  - notes/p.html\n",
+    "notes/a.md": "# A\n",
+    "notes/p.html": "<p>hi</p>"
+  });
+  const r2 = await runScript("check.mjs", { cwd: ok });
+  assert.equal(r2.code, 0, r2.stderr);
+});
+
+test("external chapters file: valid passes; missing fails; a non-yaml string fails", async () => {
+  const ok = await makeFixture({
+    "book.yml": "title: T\nchapters: chapters.yml\n",
+    "chapters.yml": "- notes/a.md\n",
+    "notes/a.md": "# A\n"
+  });
+  assert.equal((await runScript("check.mjs", { cwd: ok })).code, 0);
+
+  const missing = await makeFixture({ "book.yml": "title: T\nchapters: nope.yml\n" });
+  const rm = await runScript("check.mjs", { cwd: missing });
+  assert.equal(rm.code, 1);
+  assert.match(rm.stderr, /chapters file not found/);
+
+  const notYaml = await makeFixture({
+    "book.yml": "title: T\nchapters: notes/a.md\n",
+    "notes/a.md": "# A\n"
+  });
+  const rn = await runScript("check.mjs", { cwd: notYaml });
+  assert.equal(rn.code, 1);
+  assert.match(rn.stderr, /must point to a \.yml/);
+});
+
+test("chapters object form + chapter_toc config: class, depth, default, count_toc, insert warning", async () => {
+  const dir = await makeFixture({
+    "book.yml":
+      "title: T\nchapters:\n" +
+      '  - path: notes/a.md\n    class: "bad class!"\n' +
+      "  - path: notes/x.html\n    chapter_toc: true\n" +
+      'chapter_toc:\n  depth: 9\n  default: "yes"\n' +
+      'pdf:\n  page_numbers:\n    count_toc: "x"\n',
+    "notes/a.md": "# A\n",
+    "notes/x.html": "<p>hi</p>"
+  });
+  const r = await runScript("check.mjs", { cwd: dir });
+  assert.equal(r.code, 1);
+  assert.match(r.stderr, /invalid class/);
+  assert.match(r.stderr, /chapter_toc\.depth must be an integer between 2 and 6/);
+  assert.match(r.stderr, /chapter_toc\.default must be true or false/);
+  assert.match(r.stderr, /count_toc must be true or false/);
+  assert.match(r.stderr, /chapter_toc is ignored on a \.html insert/);
+});
+
 test("missing custom_css and cover component fail", async () => {
   const dir = await makeFixture({
     "book.yml":

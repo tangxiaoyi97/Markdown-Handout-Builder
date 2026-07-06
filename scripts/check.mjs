@@ -3,10 +3,12 @@
  * scripts/check.mjs
  *
  * 构建前检查：
- *   1. book.yml 存在、可解析，chapters 为非空数组；
- *   2. 每个章节文件存在；
- *   3. 章节正文中不允许出现 Obsidian 专有语法（[[ / ]] / ![[）；
- *   4. 本地图片引用必须存在（相对当前 Markdown 文件所在目录解析）。
+ *   1. book.yml 存在、可解析；chapters 为非空列表或指向外部 .yml 列表文件；
+ *   2. 每个条目按扩展名分派（.md/.markdown=章节，.html/.htm=插页），文件存在，
+ *      对象形态的 class/chapter_toc 合法（chapter_toc 只对章节有意义）；
+ *   3. 章节（仅 .md）正文中不允许出现 Obsidian 专有语法（[[ / ]] / ![[）；
+ *   4. 章节的本地图片引用必须存在（相对当前 Markdown 文件所在目录解析）；
+ *   5. toc / chapter_toc / pdf / themes / labels 等配置字段类型校验。
  *
  * 说明：围栏代码块（``` / ~~~）和行内代码 `...` 中的内容不参与
  * wikilink / 图片检查，避免误报（例如 bash 的 [[ ]]）。
@@ -19,6 +21,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import YAML from "yaml";
+import { resolveChapterList, normalizeChapterEntry, isValidClassAttr } from "./lib/chapters.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const toolRoot = path.resolve(scriptDir, "..");
@@ -41,6 +44,7 @@ const baseDir = path.dirname(configPath);
 const configName = path.basename(configPath);
 
 const errors = [];
+const warnings = [];
 const fail = (message) => errors.push(message);
 const toPosix = (p) => p.split(path.sep).join("/");
 
@@ -67,12 +71,16 @@ if (!book || typeof book !== "object") {
   process.exit(1);
 }
 
-/* ---------- 2. chapters 必须是非空数组 ---------- */
+/* ---------- 2. chapters：解析（内联列表或外部 chapters 文件） ---------- */
 
-if (!Array.isArray(book.chapters) || book.chapters.length === 0) {
-  console.error(
-    `Error: "chapters" in ${configName} must be a non-empty array of Markdown file paths.`
-  );
+const chaptersResult = resolveChapterList(book, baseDir);
+if (chaptersResult.error) {
+  console.error(`Error: ${chaptersResult.error}`);
+  process.exit(1);
+}
+const rawChapters = chaptersResult.list;
+if (rawChapters.length === 0) {
+  console.error(`Error: "chapters" in ${configName} must not be empty.`);
   process.exit(1);
 }
 
@@ -153,25 +161,46 @@ function checkChapterContent(absPath, relPath) {
 }
 
 const seenChapters = new Set();
-for (const chapter of book.chapters) {
-  if (typeof chapter !== "string" || chapter.trim() === "") {
-    fail(`${configName}: invalid chapter entry: ${JSON.stringify(chapter)}`);
+const chapterResolvedPaths = []; // all listed entries' abs paths (orphan detection)
+for (const raw of rawChapters) {
+  const entry = normalizeChapterEntry(raw);
+  if (entry.error) {
+    fail(`${configName}: ${entry.error}`);
     continue;
   }
 
-  const absPath = path.resolve(baseDir, chapter);
+  const absPath = path.resolve(baseDir, entry.file);
   if (seenChapters.has(absPath)) {
-    fail(`${configName}: chapter listed more than once: ${chapter}`);
+    fail(`${configName}: chapter listed more than once: ${entry.file}`);
     continue;
   }
   seenChapters.add(absPath);
+  chapterResolvedPaths.push(absPath);
 
   if (!fs.existsSync(absPath) || !fs.statSync(absPath).isFile()) {
-    fail(`${configName}: chapter file not found: ${chapter}`);
+    const kind = entry.kind === "insert" ? "insert" : "chapter";
+    fail(`${configName}: ${kind} file not found: ${entry.file}`);
     continue;
   }
 
-  checkChapterContent(absPath, toPosix(chapter));
+  // Per-entry CSS class(es), when the object form is used
+  if (entry.className && !isValidClassAttr(entry.className)) {
+    fail(
+      `${configName}: invalid class ${JSON.stringify(entry.className)} for ${entry.file} ` +
+        `(space-separated tokens, each matching [A-Za-z_-][A-Za-z0-9_-]*).`
+    );
+  }
+
+  // chapter_toc only applies to Markdown chapters
+  if (entry.kind === "insert" && entry.chapterToc !== null) {
+    warnings.push(`${entry.file}: chapter_toc is ignored on a .html insert page`);
+  }
+
+  // Wikilink / local-image checks only apply to Markdown chapters. Raw HTML
+  // inserts are trusted, author-controlled fragments.
+  if (entry.kind === "chapter") {
+    checkChapterContent(absPath, toPosix(entry.file));
+  }
 }
 
 /* ---------- themes 与引用文件路径校验 ---------- */
@@ -232,10 +261,6 @@ if (Array.isArray(book.themes)) {
   book.themes.forEach((theme, i) => checkReferencedFiles(theme, `themes[${i}].`));
 }
 
-/* ---------- 非阻断警告：未收录的章节 / 未引用的图片 ---------- */
-
-const warnings = [];
-
 /* ---------- pdf 页眉页脚 / 页码 / 日期格式配置校验 ---------- */
 
 const KNOWN_PLACEHOLDERS = new Set([
@@ -277,7 +302,7 @@ function checkPdfConfig(scope, where) {
       if (pn.format !== undefined && typeof pn.format !== "string") {
         fail(`${configName}: ${where}pdf.page_numbers.format must be a string.`);
       }
-      for (const key of ["count_cover", "count_back_cover"]) {
+      for (const key of ["count_cover", "count_toc", "count_back_cover"]) {
         if (pn[key] !== undefined && typeof pn[key] !== "boolean") {
           fail(`${configName}: ${where}pdf.page_numbers.${key} must be true or false.`);
         }
@@ -371,6 +396,37 @@ if (book.labels !== undefined) {
   }
 }
 
+// chapter_toc: 每章小目录的全局配置（default / title / depth / class）
+if (book.chapter_toc !== undefined) {
+  const ct = book.chapter_toc;
+  if (!ct || typeof ct !== "object" || Array.isArray(ct)) {
+    fail(`${configName}: "chapter_toc" must be a mapping (default / title / depth / class).`);
+  } else {
+    if (ct.default !== undefined && typeof ct.default !== "boolean") {
+      fail(`${configName}: chapter_toc.default must be true or false.`);
+    }
+    if (
+      ct.title !== undefined &&
+      ct.title !== null &&
+      !["string", "number"].includes(typeof ct.title)
+    ) {
+      fail(`${configName}: chapter_toc.title must be a string.`);
+    }
+    if (
+      ct.depth !== undefined &&
+      (typeof ct.depth !== "number" || !Number.isInteger(ct.depth) || ct.depth < 2 || ct.depth > 6)
+    ) {
+      fail(`${configName}: chapter_toc.depth must be an integer between 2 and 6.`);
+    }
+    if (ct.class !== undefined && ct.class !== null && !isValidClassAttr(ct.class)) {
+      fail(
+        `${configName}: chapter_toc.class must be space-separated CSS class tokens ` +
+          `([A-Za-z_-][A-Za-z0-9_-]*).`
+      );
+    }
+  }
+}
+
 // numbering 已移除：编号由作者写在内容里（标题、环境名称、图注、\tag）
 if (book.numbering !== undefined) {
   warnings.push(
@@ -388,11 +444,7 @@ function* walkFiles(dir) {
   }
 }
 
-const chapterSet = new Set(
-  book.chapters
-    .filter((c) => typeof c === "string")
-    .map((c) => path.resolve(baseDir, c))
-);
+const chapterSet = new Set(chapterResolvedPaths);
 const notesDir = path.join(baseDir, "notes");
 const assetsDir = path.join(notesDir, "assets");
 

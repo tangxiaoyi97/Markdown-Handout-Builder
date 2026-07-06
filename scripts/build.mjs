@@ -31,6 +31,8 @@ import markdownItMarkModule from "markdown-it-mark";
 import markdownItKatexModule from "@vscode/markdown-it-katex";
 import YAML from "yaml";
 
+import { normalizeChapters, isValidClassAttr } from "./lib/chapters.mjs";
+
 const require = createRequire(import.meta.url);
 
 // 兼容 CJS/ESM 双格式导出
@@ -80,13 +82,20 @@ try {
   process.exit(1);
 }
 
-if (!book || !Array.isArray(book.chapters) || book.chapters.length === 0) {
-  console.error(
-    `Error: "chapters" in ${path.basename(configPath)} must be a non-empty array. ` +
-      `Run "npm run check" for details.`
-  );
+if (!book || typeof book !== "object") {
+  console.error(`Error: ${path.basename(configPath)} is empty or not a YAML mapping.`);
   process.exit(1);
 }
+
+// chapters: inline list or an external chapters file; each entry is a file path
+// whose extension decides its role (.md -> chapter, .html -> raw insert page).
+const chaptersResult = normalizeChapters(book, baseDir);
+if (chaptersResult.error) {
+  console.error(`Error: ${chaptersResult.error}`);
+  console.error('Run "npm run check" for details.');
+  process.exit(1);
+}
+const chapterEntries = chaptersResult.entries;
 
 const title = book.title ? String(book.title) : "Untitled Handout";
 const subtitle = book.subtitle ? String(book.subtitle) : "";
@@ -140,6 +149,23 @@ const tocCfg = book.toc ?? {};
 const tocEnabled = tocCfg.enabled ?? true;
 const tocTitle = tocCfg.title ? String(tocCfg.title) : "目录";
 const tocDepth = Math.min(3, Math.max(1, Number(tocCfg.depth) || 2));
+
+// Per-chapter mini table of contents ("In this chapter"). Off by default; a
+// chapter opts in with `chapter_toc: true`, or set chapter_toc.default: true to
+// turn it on for every chapter. Rendered as an isolated <nav class="chapter-toc">
+// that reuses the .toc-page[data-target] hook, so the PDF page-number pass fills
+// it with real page numbers for free.
+const chapterTocCfg = book.chapter_toc ?? {};
+const chapterTocDefault = chapterTocCfg.default ?? false;
+const chapterTocTitle =
+  chapterTocCfg.title !== undefined && chapterTocCfg.title !== null
+    ? String(chapterTocCfg.title)
+    : "In this chapter";
+const chapterTocDepth = Math.min(6, Math.max(2, Number(chapterTocCfg.depth) || 3));
+const chapterTocClass =
+  chapterTocCfg.class && isValidClassAttr(chapterTocCfg.class)
+    ? String(chapterTocCfg.class).trim()
+    : "";
 
 /* ---------- 标签与自定义容器 ---------- */
 
@@ -426,11 +452,42 @@ function buildToc(entries) {
   html += "</ol>";
 
   return (
-    '<nav class="toc">\n' +
+    '<nav class="toc" id="toc">\n' +
     `<h2 class="toc-heading">${escapeHtml(tocTitle)}</h2>\n` +
     `${html}\n` +
     "</nav>"
   );
+}
+
+// Per-chapter mini TOC. Lists this chapter's sub-headings (levels 2..depth; the
+// chapter's own h1 is the title, not a row). Uses distinct .chapter-toc* classes
+// (isolated from the main .toc) but keeps the .toc-page[data-target] hook so the
+// render-pdf page-number pass fills it. Chapter TOCs live in the body flow and
+// are always counted toward page numbers.
+function buildChapterToc(headings) {
+  const items = headings.filter((e) => e.level >= 2 && e.level <= chapterTocDepth);
+  if (items.length === 0) return "";
+
+  const minLevel = Math.min(...items.map((e) => e.level));
+  const rows = items
+    .map((e) => {
+      const indent = Math.max(0, e.level - minLevel);
+      const indentClass = indent > 0 ? ` chapter-toc-l${indent}` : "";
+      return (
+        `<li class="chapter-toc-row${indentClass}">` +
+        `<span class="chapter-toc-title"><a href="#${escapeHtml(e.id)}">${escapeHtml(e.title)}</a></span>` +
+        '<span class="chapter-toc-leader"></span>' +
+        `<span class="toc-page" data-target="${escapeHtml(e.id)}"></span>` +
+        "</li>"
+      );
+    })
+    .join("\n");
+
+  const cls = ["chapter-toc", chapterTocClass].filter(Boolean).join(" ");
+  const heading = chapterTocTitle
+    ? `<p class="chapter-toc-heading">${escapeHtml(chapterTocTitle)}</p>\n`
+    : "";
+  return `<nav class="${cls}">\n${heading}<ul class="chapter-toc-list">\n${rows}\n</ul>\n</nav>`;
 }
 
 /* ---------- 单个主题的渲染 ---------- */
@@ -737,23 +794,67 @@ function buildTheme(theme) {
   /* ----- 渲染章节 ----- */
 
   const sections = [];
-  book.chapters.forEach((chapter, i) => {
-    const absPath = path.resolve(baseDir, String(chapter));
+  let leadAssigned = false;
+  const leadClass = () => {
+    if (leadAssigned) return "";
+    leadAssigned = true;
+    return " hb-lead"; // first body section: no forced page break before it
+  };
+
+  chapterEntries.forEach((entry, i) => {
+    const absPath = path.resolve(baseDir, entry.file);
+
+    if (entry.kind === "insert") {
+      // Trusted raw-HTML page. Placeholders ({{title}} ...) are filled; the
+      // fragment's inner markup is authored as-is.
+      let fragment;
+      try {
+        fragment = fs.readFileSync(absPath, "utf8").replace(/^﻿/, "");
+      } catch (err) {
+        console.error(`Error: cannot read insert file: ${entry.file} (${err.message})`);
+        console.error('Run "npm run check" for details.');
+        process.exit(1);
+      }
+      const rendered = renderTemplate(fragment, metaValues);
+      const cls = ["insert", entry.className].filter(Boolean).join(" ");
+      sections.push(
+        `<section class="${cls}${leadClass()}" data-entry="${i + 1}">\n` +
+          wrapWithRunningHeader(rendered) +
+          "\n</section>"
+      );
+      return;
+    }
+
+    // Markdown chapter
     let source;
     try {
       // 去掉 UTF-8 BOM：带 BOM 时首行的 "# 标题" 不会被识别为标题
       source = fs.readFileSync(absPath, "utf8").replace(/^﻿/, "");
     } catch (err) {
-      console.error(`Error: cannot read chapter file: ${chapter} (${err.message})`);
+      console.error(`Error: cannot read chapter file: ${entry.file} (${err.message})`);
       console.error('Run "npm run check" for details.');
       process.exit(1);
     }
 
     // docId 用于给脚注 ID 加章节前缀，避免跨章节 ID 冲突
     const env = { docId: `ch${i + 1}`, chapterDir: path.dirname(absPath) };
-    const bodyHtml = md.render(source, env);
+    const headingStart = tocEntries.length;
+    let bodyHtml = md.render(source, env);
+
+    // Optional per-chapter mini TOC, inserted right after the chapter's h1.
+    const wantChapterToc = entry.chapterToc === null ? chapterTocDefault : entry.chapterToc;
+    if (wantChapterToc) {
+      const miniToc = buildChapterToc(tocEntries.slice(headingStart));
+      if (miniToc) {
+        bodyHtml = /<\/h1>/.test(bodyHtml)
+          ? bodyHtml.replace("</h1>", `</h1>\n${miniToc}`)
+          : miniToc + bodyHtml;
+      }
+    }
+
+    const cls = ["chapter", entry.className].filter(Boolean).join(" ");
     sections.push(
-      `<section class="chapter" data-chapter="${i + 1}">\n${wrapWithRunningHeader(bodyHtml)}</section>`
+      `<section class="${cls}${leadClass()}" data-chapter="${i + 1}">\n${wrapWithRunningHeader(bodyHtml)}</section>`
     );
   });
 
@@ -865,8 +966,9 @@ function buildTheme(theme) {
   // 目录页同样带运行页眉（封面/封底不带）
   const tocRaw = buildToc(tocEntries);
   const tocHtml = tocRaw
-    ? tocRaw.replace(/^(<nav class="toc">\n)([\s\S]*)(\n<\/nav>)$/, (whole, open, inner, close) =>
-        open + wrapWithRunningHeader(inner) + close
+    ? tocRaw.replace(
+        /^(<nav class="toc" id="toc">\n)([\s\S]*)(\n<\/nav>)$/,
+        (whole, open, inner, close) => open + wrapWithRunningHeader(inner) + close
       )
     : "";
 
@@ -945,7 +1047,7 @@ const chaptersHtml =
         .join("\n") +
       "\n</div>"
     : "";
-const chapterCount = chapterItems.length || book.chapters.length;
+const chapterCount = chapterItems.length || chapterEntries.length;
 
 const defaultFonts = defaultBuild.fonts ?? {};
 const indexFontVars = defaultFonts.body

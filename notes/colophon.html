@@ -1,0 +1,15 @@
+<!--
+  A ".html" chapters entry: a trusted raw-HTML insert page. Markdown cannot
+  express this centered, full-page layout, so it is authored directly. Template
+  placeholders ({{title}}, {{version}}, {{date}}, {{commit}}, ...) are filled at
+  build time; the markup is injected verbatim.
+-->
+<div style="text-align:center; padding: 40mm 12mm;">
+  <p style="letter-spacing:.35em; font-size:.72em; text-transform:uppercase; opacity:.55; margin:0 0 20px;">Colophon</p>
+  <p style="font-size:1.15em; margin:0 0 6px;">{{title}}</p>
+  <p style="opacity:.7; margin:0 0 28px;">{{version}} &middot; {{date}}</p>
+  <p style="opacity:.7; margin:0; font-size:.9em;">
+    Built from plain Markdown with Markdown&nbsp;Handout&nbsp;Builder.<br>
+    Source revision {{commit}}.
+  </p>
+</div>

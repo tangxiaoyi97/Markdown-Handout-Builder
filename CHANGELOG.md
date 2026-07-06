@@ -1,5 +1,33 @@
 # Changelog
 
+## 2.0.0
+
+A reworked `chapters` system and book-style front-matter numbering. Existing
+configs keep working unchanged: a plain list of `.md` paths behaves exactly as
+before, so the upgrade is backward compatible despite the major version.
+
+- Chapters can now be raw-HTML insert pages: a `.html` / `.htm` entry in
+  `chapters` is inserted verbatim as its own page (placeholders like `{{title}}`
+  are filled), while `.md` / `.markdown` entries stay rendered chapters. The
+  extension decides the role, so a mistyped path is reported by `check` instead
+  of silently becoming a blank page.
+- Chapters entries accept a mapping form `{ path, class, chapter_toc }` for the
+  few pages that need options; plain string paths keep working unchanged.
+- Per-chapter mini tables of contents (`chapter_toc`): open a chapter with an
+  auto-built list of its own sub-headings, rendered as an isolated
+  `<nav class="chapter-toc">` (styled independently of the main contents page).
+  Set the default and look with a top-level `chapter_toc:` block (`default`,
+  `title`, `depth`, `class`). Each row gets a real page number from the same
+  pass as the main TOC.
+- `pdf.page_numbers.count_toc: false` keeps the contents page in the PDF while
+  leaving it unnumbered, so the body starts at page 1 — the conventional printed
+  layout. Composes with `count_cover` / `count_back_cover`. Chapter mini-TOCs are
+  body content and are always counted.
+- The `chapters` list may live in its own file: `chapters: chapters.yml`.
+- `check` gains validation for every new field; `book.example.yml` and the
+  GitHub Pages showcase now demonstrate inserts, chapter mini-TOCs, and
+  `count_toc`.
+
 ## 1.4.0
 
 - `{{commit}}` build-provenance placeholder: the note repository's

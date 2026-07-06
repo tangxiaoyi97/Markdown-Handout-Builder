@@ -124,6 +124,62 @@ back_cover:
   }
 });
 
+test("count_toc:false: main TOC excluded from numbering; chapter mini-TOC numbered", { skip: !hasChromium && "Playwright Chromium not installed" }, async () => {
+  const book = `title: "CT"
+date: "2026-01-02"
+chapters:
+  - notes/01-alpha.md
+  - path: notes/02-beta.md
+    chapter_toc: true
+output:
+  html: dist/handout.html
+  pdf: dist/handout.pdf
+toc:
+  title: "Contents"
+  depth: 1
+pdf:
+  page_numbers:
+    format: "{{page}} / {{total}}"
+    count_cover: false
+    count_toc: false
+  footer:
+    left: ""
+    center: "{{page}} / {{total}}"
+    right: ""
+`;
+  const { dir } = await buildAndRender({
+    "book.yml": book,
+    "notes/01-alpha.md": ALPHA_MD,
+    "notes/02-beta.md": BETA_MD,
+    "notes/assets/p.png": TINY_PNG
+  });
+
+  const { doc, destroy } = await loadPdf(path.join(dir, "dist", "handout.pdf"));
+  try {
+    // cover + TOC + 2 chapters
+    assert.equal(doc.numPages, 4);
+
+    // Cover and TOC are excluded, so the body is numbered from 1. The TOC shows
+    // those logical page numbers and carries no page number of its own.
+    const toc = await pageText(doc, 2);
+    assert.match(toc, /Alpha\s*1/, "logical: Alpha is page 1");
+    assert.match(toc, /Beta\s*2/);
+    assert.doesNotMatch(toc, /1 \/ 2/, "the TOC page itself is not numbered");
+
+    // First chapter (physical page 3) is logical page 1.
+    assert.match(await pageText(doc, 3), /1 \/ 2/);
+
+    // Beta's chapter mini-TOC is present, numbered (Kraft -> 2), and the page is
+    // counted (footer shows 2 / 2). The heading is uppercased via CSS.
+    const beta = await pageText(doc, 4);
+    assert.match(beta, /in this chapter/i, "chapter mini-TOC rendered");
+    assert.match(beta, /Kraft\s*2/, "mini-TOC row gets a real page number");
+    assert.match(beta, /2 \/ 2/);
+  } finally {
+    await destroy();
+  }
+});
+
 test("sepia (light, non-white) theme: page base fill injected without warnings", { skip: !hasChromium && "Playwright Chromium not installed" }, async () => {
   const themes = `themes:
   - name: sepia
