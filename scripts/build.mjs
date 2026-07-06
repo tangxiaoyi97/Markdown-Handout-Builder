@@ -87,13 +87,15 @@ if (!book || !Array.isArray(book.chapters) || book.chapters.length === 0) {
 const title = book.title ? String(book.title) : "Untitled Handout";
 const subtitle = book.subtitle ? String(book.subtitle) : "";
 const language = book.language ? String(book.language) : "zh-CN";
-const date = book.date ? String(book.date) : new Date().toISOString().slice(0, 10);
+const rawDate = book.date ? String(book.date) : new Date().toISOString().slice(0, 10);
+const dateFormat = book.date_format ? String(book.date_format) : "YYYY-MM-DD";
 const authors = Array.isArray(book.authors)
   ? book.authors.map(String)
   : book.authors
     ? [String(book.authors)]
     : [];
 const authorsText = authors.join(", ");
+const date = formatDate(rawDate, dateFormat);
 
 const htmlOut = path.resolve(baseDir, book.output?.html ?? "dist/handout.html");
 const pdfOut = path.resolve(baseDir, book.output?.pdf ?? "dist/handout.pdf");
@@ -163,6 +165,46 @@ function escapeHtml(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
+}
+
+function dateParts(value) {
+  const raw = String(value ?? "").trim();
+  const match = raw.match(/^(\d{4})(?:-?(\d{2})(?:-?(\d{2}))?)?/);
+  if (!match) return null;
+  return {
+    YYYY: match[1],
+    YY: match[1].slice(-2),
+    MM: match[2] ?? "01",
+    DD: match[3] ?? "01"
+  };
+}
+
+function formatDate(value, format = "YYYY-MM-DD") {
+  const parts = dateParts(value);
+  if (!parts) return String(value ?? "");
+
+  const normalized = String(format || "YYYY-MM-DD").toLowerCase();
+  const presets = {
+    iso: "YYYY-MM-DD",
+    "yyyy-mm-dd": "YYYY-MM-DD",
+    yyyymmdd: "YYYYMMDD",
+    yymmdd: "YYMMDD",
+    "yyyy/mm/dd": "YYYY/MM/DD",
+    "yy/mm/dd": "YY/MM/DD",
+    "yyyy.mm.dd": "YYYY.MM.DD",
+    "yy.mm.dd": "YY.MM.DD"
+  };
+  const pattern = presets[normalized] ?? String(format || "YYYY-MM-DD");
+
+  return pattern
+    .replaceAll("YYYY", parts.YYYY)
+    .replaceAll("yyyy", parts.YYYY)
+    .replaceAll("YY", parts.YY)
+    .replaceAll("yy", parts.YY)
+    .replaceAll("MM", parts.MM)
+    .replaceAll("mm", parts.MM)
+    .replaceAll("DD", parts.DD)
+    .replaceAll("dd", parts.DD);
 }
 
 // 防止配置值破坏内联 <style>
@@ -313,7 +355,11 @@ function buildTheme(theme) {
 
   const coverEnabled = coverCfg.enabled ?? true;
   const backEnabled = backCfg.enabled ?? false;
+  const withHeaderFooter = pdfCfg.header_footer ?? true;
   const coverHeaderFooter = pdfCfg.cover_header_footer ?? false;
+  const pageNumberCfg = pdfCfg.page_numbers ?? {};
+  const countCover = pageNumberCfg.count_cover ?? true;
+  const coverUsesHeaderFooter = withHeaderFooter && coverHeaderFooter && countCover;
 
   const htmlOutTheme = variantPath(htmlOut, theme);
   const pdfOutTheme = variantPath(pdfOut, theme);
@@ -524,7 +570,7 @@ function buildTheme(theme) {
   }
 
   // 封面也要显示页眉页脚时：第一页恢复正常页边距，封面顶部留白相应减小
-  if (coverHeaderFooter) {
+  if (coverUsesHeaderFooter) {
     rootVars.push("  --hb-cover-pad-top: 60mm;");
   }
 
@@ -540,7 +586,7 @@ function buildTheme(theme) {
   }
 
   // 无封面 / 封面带页眉页脚时，第一页不再需要 margin:0 的全出血设定
-  if (!coverEnabled || coverHeaderFooter) {
+  if (!coverEnabled || coverUsesHeaderFooter) {
     overrideCss += `@page :first {\n  margin: ${sanitizeCssValue(pdfCfg.margin ?? "18mm 16mm 20mm 16mm")};\n}\n`;
   }
 

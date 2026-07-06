@@ -2,9 +2,10 @@ title: "Markdown Handout Builder"
 subtitle: "Usage Guide and Package Showcase"
 language: "en"
 date: "2026-07-06"
+date_format: "YYYY.MM.DD"
 
 authors:
-  - "Markdown Handout Builder"
+  - "Tangxy97"
 
 keywords:
   - "Markdown"
@@ -32,6 +33,21 @@ pdf:
   cover_header_footer: false
   page_size: "A4"
   margin: "18mm 16mm 20mm 16mm"
+  page_numbers:
+    format: "{{page}} / {{total}}"
+    count_cover: false
+    count_back_cover: false
+  header:
+    left: "{{title}}"
+    center: ""
+    right: "{{date}}"
+  footer:
+    left: ""
+    center: ""
+    right: "{{page}}"
+  header_footer_style:
+    font_size: "8.5px"
+    color: "#8a919a"
 
 themes:
   - name: light
@@ -42,3 +58,6 @@ themes:
     style:
       accent_color: "#6ea8ff"
       custom_css: "templates/theme-dark.css"
+    pdf:
+      header_footer_style:
+        color: "#a8b3c3"

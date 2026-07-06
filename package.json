@@ -1,5 +1,5 @@
 {
-  "name": "markdown-handout-builder",
+  "name": "mdpdftool",
   "version": "1.0.0",
   "description": "Build a class handout (HTML + official PDF) from plain Markdown via markdown-it and a Playwright Chromium print pipeline.",
   "license": "MIT",

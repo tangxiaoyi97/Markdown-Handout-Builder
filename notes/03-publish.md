@@ -44,6 +44,30 @@ style:
     - templates/custom.css
 ```
 
+## PDF Header, Footer, and Numbering
+
+Generated PDF headers and footers are configured with three slots:
+
+```yaml
+date_format: "YYYYMMDD"
+
+pdf:
+  page_numbers:
+    format: "{{page}} / {{total}}"
+    count_cover: false
+    count_back_cover: false
+  header:
+    left: "{{title}}"
+    center: ""
+    right: "{{date}}"
+  footer:
+    left: ""
+    center: "{{page}} / {{total}}"
+    right: "{{theme}}"
+```
+
+The `format` field also accepts shortcuts such as `x`, `x/x`, and `page-of-total`. Date presets include `YYYY-MM-DD`, `YYYYMMDD`, `YYMMDD`, `YYYY/MM/DD`, and `YY.MM.DD`.
+
 ## GitHub Actions
 
 This repository's `.github/workflows/render.yml` builds this showcase and publishes `dist/` to GitHub Pages. npm package publishing is handled by `.github/workflows/publish.yml`.

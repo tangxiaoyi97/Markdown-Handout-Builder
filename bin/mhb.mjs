@@ -113,8 +113,9 @@ async function initProject(args) {
 
   const book = `title: "${title || "My Handout"}"
 subtitle: "Markdown notes to HTML and PDF"
-language: "zh-CN"
+language: "en"
 date: "${new Date().toISOString().slice(0, 10)}"
+date_format: "YYYY-MM-DD"
 
 authors:
   - "Your Name"
@@ -127,13 +128,25 @@ output:
   pdf: dist/handout.pdf
 
 toc:
-  title: "目录"
+  title: "Contents"
   depth: 2
 
 pdf:
   header_footer: true
   toc_page_numbers: true
   cover_header_footer: false
+  page_numbers:
+    format: "{{page}} / {{total}}"
+    count_cover: true
+    count_back_cover: true
+  header:
+    left: "{{title}}"
+    center: ""
+    right: "{{date}}"
+  footer:
+    left: ""
+    center: "{{page}} / {{total}}"
+    right: ""
 `;
 
   const chapter = `# Intro

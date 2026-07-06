@@ -79,7 +79,8 @@ const pdfOut = path.resolve(baseDir, book?.output?.pdf ?? "dist/handout.pdf");
 const title = book?.title ? String(book.title) : "";
 const subtitle = book?.subtitle ? String(book.subtitle) : "";
 const language = book?.language ? String(book.language) : "zh-CN";
-const date = book?.date ? String(book.date) : "";
+const rawDate = book?.date ? String(book.date) : "";
+const baseDateFormat = book?.date_format ? String(book.date_format) : "YYYY-MM-DD";
 const authors = Array.isArray(book?.authors)
   ? book.authors.map(String)
   : book?.authors
@@ -141,6 +142,130 @@ function marginParts(value) {
   }
   const [a, b = a, c = a, d = b] = parts;
   return { top: a, right: b, bottom: c, left: d };
+}
+
+function sanitizeCssValue(value) {
+  return String(value).replace(/[{}<>;]/g, "").trim();
+}
+
+function dateParts(value) {
+  const raw = String(value ?? "").trim();
+  const match = raw.match(/^(\d{4})(?:-?(\d{2})(?:-?(\d{2}))?)?/);
+  if (!match) return null;
+  return {
+    YYYY: match[1],
+    YY: match[1].slice(-2),
+    MM: match[2] ?? "01",
+    DD: match[3] ?? "01"
+  };
+}
+
+function formatDate(value, format = "YYYY-MM-DD") {
+  const parts = dateParts(value);
+  if (!parts) return String(value ?? "");
+
+  const normalized = String(format || "YYYY-MM-DD").toLowerCase();
+  const presets = {
+    iso: "YYYY-MM-DD",
+    "yyyy-mm-dd": "YYYY-MM-DD",
+    yyyymmdd: "YYYYMMDD",
+    yymmdd: "YYMMDD",
+    "yyyy/mm/dd": "YYYY/MM/DD",
+    "yy/mm/dd": "YY/MM/DD",
+    "yyyy.mm.dd": "YYYY.MM.DD",
+    "yy.mm.dd": "YY.MM.DD"
+  };
+  const pattern = presets[normalized] ?? String(format || "YYYY-MM-DD");
+
+  return pattern
+    .replaceAll("YYYY", parts.YYYY)
+    .replaceAll("yyyy", parts.YYYY)
+    .replaceAll("YY", parts.YY)
+    .replaceAll("yy", parts.YY)
+    .replaceAll("MM", parts.MM)
+    .replaceAll("mm", parts.MM)
+    .replaceAll("DD", parts.DD)
+    .replaceAll("dd", parts.DD);
+}
+
+function normalizePageNumberFormat(value) {
+  const raw = String(value ?? "{{page}} / {{total}}").trim();
+  const normalized = raw.toLowerCase().replace(/\s+/g, "");
+  if (["x", "page", "{{page}}"].includes(normalized)) return "{{page}}";
+  if (["x/x", "page/total", "{{page}}/{{total}}"].includes(normalized)) {
+    return "{{page}} / {{total}}";
+  }
+  if (["xofy", "pageoftotal", "page-of-total"].includes(normalized)) {
+    return "{{page}} of {{total}}";
+  }
+  return raw;
+}
+
+function renderHeaderFooterContent(template, values) {
+  return String(template ?? "").replace(/\{\{(\w+)\}\}/g, (whole, key) => {
+    if (key === "page") return '<span class="pageNumber"></span>';
+    if (key === "total") return '<span class="totalPages"></span>';
+    return Object.hasOwn(values, key) ? escapeHtml(values[key]) : whole;
+  });
+}
+
+function slotTemplate(slots, values, style) {
+  const cellStyle = "min-width:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis;";
+  const padding = escapeHtml(style.padding);
+  const fontFamily = escapeHtml(style.fontFamily);
+  const fontSize = escapeHtml(style.fontSize);
+  const color = escapeHtml(style.color);
+  return (
+    `<div style="width:100%; box-sizing:border-box; padding:${padding}; ` +
+    `font-family:${fontFamily}; font-size:${fontSize}; color:${color}; ` +
+    `display:flex; align-items:center; gap:8px;">` +
+    `<span style="flex:1; text-align:left; ${cellStyle}">${renderHeaderFooterContent(slots.left, values)}</span>` +
+    `<span style="flex:1; text-align:center; ${cellStyle}">${renderHeaderFooterContent(slots.center, values)}</span>` +
+    `<span style="flex:1; text-align:right; ${cellStyle}">${renderHeaderFooterContent(slots.right, values)}</span>` +
+    "</div>"
+  );
+}
+
+function buildHeaderFooterTemplates(pdfCfg, theme, pageMargin) {
+  const pageNumbers = pdfCfg.page_numbers ?? {};
+  const pageFormat = normalizePageNumberFormat(pageNumbers.format ?? "{{page}} / {{total}}");
+  const displayDate = formatDate(rawDate, pdfCfg.date_format ?? baseDateFormat);
+  const values = {
+    title,
+    subtitle,
+    authors: authors.join(", "),
+    author: authors[0] ?? "",
+    date: displayDate,
+    rawDate,
+    lang: language,
+    theme: theme.label || theme.name || ""
+  };
+
+  const styleCfg = pdfCfg.header_footer_style ?? {};
+  const style = {
+    padding: `0 ${sanitizeCssValue(pageMargin.right)} 0 ${sanitizeCssValue(pageMargin.left)}`,
+    fontFamily: sanitizeCssValue(styleCfg.font_family ?? hfFontFamily),
+    fontSize: sanitizeCssValue(styleCfg.font_size ?? "8.5px"),
+    color: sanitizeCssValue(styleCfg.color ?? "#8a919a")
+  };
+
+  const headerSlots = {
+    left: "{{title}}",
+    center: "",
+    right: "{{date}}",
+    ...(pdfCfg.header ?? {})
+  };
+  const footerSlots = {
+    left: "",
+    center: pageFormat,
+    right: "",
+    ...(pdfCfg.footer ?? {})
+  };
+
+  return {
+    headerTemplate: slotTemplate(headerSlots, values, style),
+    footerTemplate: slotTemplate(footerSlots, values, style)
+  };
 }
 
 const hfFontFamily =
@@ -303,7 +428,7 @@ async function postProcessPdf(filePath, { plainBytes, cleanIndexes, themeLabel, 
   doc.setCreator("markdown-handout-builder");
   doc.setProducer("Chromium (Playwright) + pdf-lib");
   if (language) doc.setLanguage(language);
-  const created = date ? new Date(date) : new Date();
+  const created = rawDate ? new Date(rawDate) : new Date();
   if (!Number.isNaN(created.getTime())) doc.setCreationDate(created);
   doc.setModificationDate(new Date());
 
@@ -331,6 +456,104 @@ async function postProcessPdf(filePath, { plainBytes, cleanIndexes, themeLabel, 
   }
 
   fs.writeFileSync(filePath, await doc.save());
+}
+
+async function assembleWithExcludedPages({ numberedBytes, plainBytes, prependCover, appendBackCover }) {
+  let PDFDocument;
+  try {
+    ({ PDFDocument } = await import("pdf-lib"));
+  } catch (err) {
+    throw new Error(`Cannot assemble excluded cover/back-cover pages: ${err.message}`);
+  }
+
+  const doc = await PDFDocument.load(numberedBytes, { updateMetadata: false });
+  const plain = await PDFDocument.load(plainBytes, { updateMetadata: false });
+  const plainPageCount = plain.getPageCount();
+
+  if (prependCover && plainPageCount > 0) {
+    const [coverPage] = await doc.copyPages(plain, [0]);
+    doc.insertPage(0, coverPage);
+  }
+
+  if (appendBackCover && plainPageCount > 0) {
+    const [backPage] = await doc.copyPages(plain, [plainPageCount - 1]);
+    doc.addPage(backPage);
+  }
+
+  return doc.save();
+}
+
+async function preparePage(browser, htmlPath) {
+  const page = await browser.newPage({
+    viewport: {
+      width: 1280,
+      height: 720
+    }
+  });
+
+  await page.goto(pathToFileURL(htmlPath).href, {
+    waitUntil: "networkidle"
+  });
+
+  await page.emulateMedia({ media: "print" });
+  await page.evaluate(() => document.fonts.ready);
+  return page;
+}
+
+async function applyNumberingDomAdjustments(page, { removeCover, removeBackCover, firstPageMargin }) {
+  await page.evaluate(
+    ({ removeCover, removeBackCover, firstPageMargin }) => {
+      if (removeCover) document.getElementById("cover")?.remove();
+      if (removeBackCover) document.getElementById("back-cover")?.remove();
+
+      if (removeCover) {
+        const style = document.createElement("style");
+        style.setAttribute("data-mhb-page-numbering", "true");
+        style.textContent = `@page :first { margin: ${firstPageMargin}; }`;
+        document.head.appendChild(style);
+      }
+    },
+    { removeCover, removeBackCover, firstPageMargin }
+  );
+}
+
+async function pageBackgroundFrom(page) {
+  const bodyBgRaw = await page.evaluate(
+    () => getComputedStyle(document.body).backgroundColor
+  );
+  const bgMatch = String(bodyBgRaw).match(
+    /rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)(?:\s*,\s*([\d.]+))?\s*\)/
+  );
+  if (bgMatch && bgMatch[4] !== "0") {
+    const [r, g, b] = [Number(bgMatch[1]), Number(bgMatch[2]), Number(bgMatch[3])];
+    if (!(r === 255 && g === 255 && b === 255)) return { r, g, b };
+  }
+  return null;
+}
+
+async function injectTocPageNumbers(page, pdfOptions) {
+  const firstPass = await page.pdf(pdfOptions);
+
+  let entries = null;
+  try {
+    entries = await resolveTocPageNumbers(firstPass, page);
+  } catch (err) {
+    console.warn(`Warning: failed to resolve TOC page numbers: ${err.message}`);
+  }
+
+  if (entries && entries.length > 0) {
+    await page.evaluate((list) => {
+      document.body.classList.add("toc-has-pages");
+      for (const { id, pageNo } of list) {
+        const target = document.querySelector(
+          `.toc-page[data-target="${CSS.escape(id)}"]`
+        );
+        if (target) target.textContent = String(pageNo);
+      }
+    }, entries);
+  } else {
+    console.warn("Warning: TOC page numbers unavailable; generating PDF without them.");
+  }
 }
 
 /* ---------- 打印管线 ---------- */
@@ -368,110 +591,89 @@ try {
     }
 
     const pageMargin = marginParts(pdfCfg.margin ?? "18mm 16mm 20mm 16mm");
-    const hfPadding = `0 ${pageMargin.right} 0 ${pageMargin.left}`;
-
-    const headerTemplate =
-      `<div style="width:100%; box-sizing:border-box; padding:${hfPadding}; ` +
-      `font-family:${hfFontFamily}; font-size:8.5px; color:#8a919a; ` +
-      `display:flex; justify-content:space-between;">` +
-      `<span>${escapeHtml(title)}</span>` +
-      `<span>${escapeHtml(date)}</span>` +
-      `</div>`;
-
-    const footerTemplate =
-      `<div style="width:100%; box-sizing:border-box; padding:${hfPadding}; ` +
-      `font-family:${hfFontFamily}; font-size:8.5px; color:#8a919a; text-align:center;">` +
-      `<span class="pageNumber"></span> / <span class="totalPages"></span>` +
-      `</div>`;
-
-    const page = await browser.newPage({
-      viewport: {
-        width: 1280,
-        height: 720
-      }
-    });
-
-    await page.goto(pathToFileURL(htmlPath).href, {
-      waitUntil: "networkidle"
-    });
-
-    // 模拟浏览器打印（Ctrl+P 使用的 media: print 渲染路径）
-    await page.emulateMedia({ media: "print" });
-
-    // 等字体加载完成，避免公式 / 中文字形缺失
-    await page.evaluate(() => document.fonts.ready);
-
-    // 读取打印态的 body 背景色；非白色主题需要在后处理时统一页面基底色
-    const bodyBgRaw = await page.evaluate(
-      () => getComputedStyle(document.body).backgroundColor
+    const { headerTemplate, footerTemplate } = buildHeaderFooterTemplates(
+      pdfCfg,
+      theme,
+      pageMargin
     );
-    let pageBackground = null;
-    const bgMatch = String(bodyBgRaw).match(
-      /rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)(?:\s*,\s*([\d.]+))?\s*\)/
-    );
-    if (bgMatch && bgMatch[4] !== "0") {
-      const [r, g, b] = [Number(bgMatch[1]), Number(bgMatch[2]), Number(bgMatch[3])];
-      if (!(r === 255 && g === 255 && b === 255)) pageBackground = { r, g, b };
+    const pageNumberCfg = pdfCfg.page_numbers ?? {};
+    const countCover = pageNumberCfg.count_cover ?? true;
+    const countBackCover = pageNumberCfg.count_back_cover ?? true;
+    const excludeCoverFromNumbering = Boolean(coverEnabled && !countCover);
+    const excludeBackFromNumbering = Boolean(backCoverEnabled && !countBackCover);
+    const useNumberedSubset =
+      (excludeCoverFromNumbering || excludeBackFromNumbering) &&
+      (withHeaderFooter || withTocPageNumbers);
+
+    if (withHeaderFooter && coverHeaderFooter && excludeCoverFromNumbering) {
+      console.warn(
+        "Warning: pdf.cover_header_footer is ignored when pdf.page_numbers.count_cover is false."
+      );
     }
 
-    const pdfOptions = {
+    const basePdfOptions = {
       preferCSSPageSize: true, // 使用 print.css 中的 @page 尺寸与边距
       printBackground: true,
-      displayHeaderFooter: withHeaderFooter,
       tagged: true, // 生成带结构标签的 PDF（可访问性更好；outline 依赖它）
       outline: true // 由标题生成 PDF 书签，同时用于解析目录页码
+    };
+    const pdfOptions = {
+      ...basePdfOptions,
+      displayHeaderFooter: withHeaderFooter
     };
     if (withHeaderFooter) {
       pdfOptions.headerTemplate = headerTemplate;
       pdfOptions.footerTemplate = footerTemplate;
     }
 
-    if (withTocPageNumbers) {
-      // 第一遍：拿到每个标题的真实页码
-      const firstPass = await page.pdf(pdfOptions);
-
-      let entries = null;
-      try {
-        entries = await resolveTocPageNumbers(firstPass, page);
-      } catch (err) {
-        console.warn(`Warning: failed to resolve TOC page numbers: ${err.message}`);
-      }
-
-      if (entries && entries.length > 0) {
-        // 注入页码。页码追加在目录同一行内，不改变行数和分页，
-        // 因此第一遍得到的页码在第二遍中仍然有效。
-        await page.evaluate((list) => {
-          document.body.classList.add("toc-has-pages");
-          for (const { id, pageNo } of list) {
-            const target = document.querySelector(
-              `.toc-page[data-target="${CSS.escape(id)}"]`
-            );
-            if (target) target.textContent = String(pageNo);
-          }
-        }, entries);
-      } else {
-        console.warn("Warning: TOC page numbers unavailable; generating PDF without them.");
-      }
+    const cleanIndexes = [];
+    if (withHeaderFooter) {
+      if (coverEnabled && countCover && !coverHeaderFooter) cleanIndexes.push(0);
+      if (backCoverEnabled && countBackCover) cleanIndexes.push(-1); // -1 = 最后一页
     }
+
+    let plainBytes = null;
+    if (useNumberedSubset || cleanIndexes.length > 0) {
+      const plainPage = await preparePage(browser, htmlPath);
+      plainBytes = await plainPage.pdf({
+        ...basePdfOptions,
+        displayHeaderFooter: false
+      });
+      await plainPage.close();
+    }
+
+    const page = await preparePage(browser, htmlPath);
+    if (useNumberedSubset) {
+      await applyNumberingDomAdjustments(page, {
+        removeCover: excludeCoverFromNumbering,
+        removeBackCover: excludeBackFromNumbering,
+        firstPageMargin: sanitizeCssValue(pdfCfg.margin ?? "18mm 16mm 20mm 16mm")
+      });
+    }
+
+    // 读取打印态的 body 背景色；非白色主题需要在后处理时统一页面基底色
+    const pageBackground = await pageBackgroundFrom(page);
+
+    if (withTocPageNumbers) await injectTocPageNumbers(page, pdfOptions);
 
     fs.mkdirSync(path.dirname(pdfPath), { recursive: true });
 
-    // 最终一遍：写出该主题的 PDF
-    await page.pdf({
-      ...pdfOptions,
-      path: pdfPath
-    });
-
-    // 封面（默认）与封底（启用时）不显示页眉页脚
-    const cleanIndexes = [];
-    if (withHeaderFooter) {
-      if (coverEnabled && !coverHeaderFooter) cleanIndexes.push(0);
-      if (backCoverEnabled) cleanIndexes.push(-1); // -1 = 最后一页
+    if (useNumberedSubset) {
+      const numberedBytes = await page.pdf(pdfOptions);
+      const assembledBytes = await assembleWithExcludedPages({
+        numberedBytes,
+        plainBytes,
+        prependCover: excludeCoverFromNumbering,
+        appendBackCover: excludeBackFromNumbering
+      });
+      fs.writeFileSync(pdfPath, assembledBytes);
+    } else {
+      // 最终一遍：写出该主题的 PDF
+      await page.pdf({
+        ...pdfOptions,
+        path: pdfPath
+      });
     }
-    const plainBytes =
-      cleanIndexes.length > 0
-        ? await page.pdf({ ...pdfOptions, displayHeaderFooter: false })
-        : null;
 
     await postProcessPdf(pdfPath, {
       plainBytes,

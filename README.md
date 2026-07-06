@@ -117,6 +117,7 @@ title: "My Handout"
 subtitle: "Markdown notes to HTML and PDF"
 language: "en"
 date: "2026-07-06"
+date_format: "YYYY-MM-DD"
 
 authors:
   - "Your Name"
@@ -144,6 +145,21 @@ pdf:
   cover_header_footer: false
   # page_size: "A4"
   # margin: "18mm 16mm 20mm 16mm"
+  page_numbers:
+    format: "{{page}} / {{total}}" # or "x", "x/x", "page-of-total"
+    count_cover: true
+    count_back_cover: true
+  header:
+    left: "{{title}}"
+    center: ""
+    right: "{{date}}"
+  footer:
+    left: ""
+    center: "{{page}} / {{total}}"
+    right: ""
+  header_footer_style:
+    font_size: "8.5px"
+    color: "#8a919a"
 
 style:
   # accent_color: "#1f6feb"
@@ -158,6 +174,12 @@ style:
 ```
 
 Default document templates, print CSS, index page, and the built-in dark theme are packaged with the CLI. You do not need to copy `scripts/` or the default `templates/` into a note repository.
+
+Date formatting supports presets such as `YYYY-MM-DD`, `YYYYMMDD`, `YYMMDD`, `YYYY/MM/DD`, and `YY.MM.DD`. Put `date_format` at the top level for covers and index pages, or set `pdf.date_format` to override only generated PDF headers and footers.
+
+PDF headers and footers use three slots: `left`, `center`, and `right`. Supported placeholders are `{{title}}`, `{{subtitle}}`, `{{authors}}`, `{{author}}`, `{{date}}`, `{{rawDate}}`, `{{lang}}`, `{{theme}}`, `{{page}}`, and `{{total}}`.
+
+`pdf.page_numbers.count_cover: false` keeps the cover in the PDF but starts generated numbering after it. `count_back_cover: false` keeps the back cover in the PDF while excluding it from `{{total}}`.
 
 ## Writing Markdown
 

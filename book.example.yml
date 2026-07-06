@@ -9,6 +9,7 @@ title: "My Handout"                      # Required: cover, header, PDF Title
 subtitle: "Markdown notes to HTML and PDF" # Cover, index page, PDF Subject
 language: "en"                           # <html lang> and PDF language metadata
 date: "2026-07-06"                       # Display date and PDF creation date
+date_format: "YYYY-MM-DD"                # Presets: YYYY-MM-DD, YYYYMMDD, YYMMDD
 authors:                                 # Cover and PDF Author
   - "Your Name"
 keywords:                                # Optional PDF Keywords metadata
@@ -31,11 +32,28 @@ toc:
 
 # ---------- Official PDF print options ----------
 pdf:
-  header_footer: true                    # Header plus x / y footer
+  header_footer: true                    # Enable generated PDF header/footer
   toc_page_numbers: true                 # Two-pass real page numbers in TOC
-  cover_header_footer: false             # Show header/footer on cover page
+  cover_header_footer: false             # true shows header/footer on counted cover
   page_size: "A4"                        # A4, A5, Letter, etc.
   margin: "18mm 16mm 20mm 16mm"          # top right bottom left
+  # date_format: "YYMMDD"                # Optional header/footer override
+  page_numbers:
+    format: "{{page}} / {{total}}"       # Also: "x", "x/x", "page-of-total"
+    count_cover: true                    # false keeps cover in PDF but starts numbering after it
+    count_back_cover: true               # false excludes enabled back cover from total pages
+  header:
+    left: "{{title}}"                    # Slots: left, center, right
+    center: ""
+    right: "{{date}}"
+  footer:
+    left: ""
+    center: "{{page}} / {{total}}"       # Placeholders work in header and footer
+    right: ""
+  header_footer_style:
+    font_size: "8.5px"
+    color: "#8a919a"
+    # font_family: "Inter, Arial, sans-serif"
 
 # ---------- Cover and back cover ----------
 cover:
