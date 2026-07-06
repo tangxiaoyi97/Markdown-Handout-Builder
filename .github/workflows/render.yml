@@ -39,6 +39,9 @@ jobs:
       - name: Install CJK fonts (Chinese text in the PDF)
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends fonts-noto-cjk
 
+      - name: Test
+        run: npm test
+
       - name: Check sources
         run: npm run check
 

@@ -42,6 +42,18 @@
     --hb-mark-bg: #6b5618;
     --hb-mark-fg: #ffe9a3;
     --hb-leader: #3d3d3d;
+
+    /* Syntax highlighting */
+    --hb-hl-comment: #8b949e;
+    --hb-hl-keyword: #ff7b72;
+    --hb-hl-string: #a5d6ff;
+    --hb-hl-number: #79c0ff;
+    --hb-hl-title: #d2a8ff;
+    --hb-hl-type: #ffa657;
+    --hb-hl-attr: #7ee787;
+    --hb-hl-meta: #d2a8ff;
+    --hb-hl-addition: #7ee787;
+    --hb-hl-deletion: #ffa198;
   }
 
   /* Explicit html background keeps overscroll areas consistent. */
@@ -71,5 +83,17 @@
     --hb-mark-bg: #6b5618;
     --hb-mark-fg: #ffe9a3;
     --hb-leader: #3d3d3d;
+
+    /* Syntax highlighting */
+    --hb-hl-comment: #8b949e;
+    --hb-hl-keyword: #ff7b72;
+    --hb-hl-string: #a5d6ff;
+    --hb-hl-number: #79c0ff;
+    --hb-hl-title: #d2a8ff;
+    --hb-hl-type: #ffa657;
+    --hb-hl-attr: #7ee787;
+    --hb-hl-meta: #d2a8ff;
+    --hb-hl-addition: #7ee787;
+    --hb-hl-deletion: #ffa198;
   }
 }

@@ -187,7 +187,8 @@ Put chapters under `notes/`, and put local images under `notes/assets/`. Chapter
 
 Supported syntax includes:
 
-- Headings, paragraphs, emphasis, block quotes, lists, tables, code blocks, and links.
+- Headings, paragraphs, emphasis, block quotes, lists, tables, and links.
+- Fenced code blocks with build-time syntax highlighting (highlight.js common set; colors themeable via `--hb-hl-*` CSS variables).
 - Highlighting with `==important text==`.
 - Math with inline `$F = ma$` and block `$$ ... $$`.
 - Footnotes with `[^1]`.
@@ -350,3 +351,31 @@ This package depends on upstream open-source projects under MIT, Apache-2.0, ISC
 Generated `dist/` output also includes `THIRD_PARTY_NOTICES.md`, because KaTeX font assets may be copied into `dist/assets/katex-fonts/`.
 
 Playwright browser binaries are not bundled in this npm package. They are downloaded only when you run `mhb install-browser`, and they remain subject to their upstream browser licenses.
+
+## Testing
+
+```bash
+npm test
+```
+
+The suite (node:test, no framework) covers `check` validation, build
+output assertions, and end-to-end official PDF regression via
+pdfjs-dist: page counts, bookmarks, metadata, TOC page numbers, footer
+numbering including `count_cover: false` logic, and a sentinel that
+fails if Chromium changes its print content-stream format (base
+background recolor). PDF tests are skipped automatically when
+Playwright Chromium is not installed.
+
+## Releasing
+
+One-time setup: create an npm Automation token and save it as the
+`NPM_TOKEN` repository secret.
+
+```bash
+npm version minor        # bumps package.json + creates the git tag
+git push --follow-tags
+```
+
+Pushing a `v*` tag triggers `.github/workflows/release.yml`: full test
+suite, showcase build, tag/version consistency check, `npm publish
+--provenance`, and a GitHub Release with generated notes.

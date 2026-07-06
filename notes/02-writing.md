@@ -42,6 +42,20 @@ $$
 
 Math is rendered by KaTeX. The CSS is inlined into the HTML, and font files are copied to `dist/assets/katex-fonts/`.
 
+## Code and Syntax Highlighting
+
+Fenced code blocks are highlighted at build time (no runtime JavaScript). Name the language after the opening fence:
+
+```python
+def kinetic_energy(m, v):
+    """Return the kinetic energy in joules."""
+    return 0.5 * m * v ** 2  # E_k = 1/2 m v^2
+
+print(kinetic_energy(70, 8.3))
+```
+
+The common highlight.js language set is included (Python, JavaScript, TypeScript, C, Java, Go, Rust, YAML, JSON, Bash, SQL, and more). Unknown languages fall back to plain escaped text. Colors adapt to light and dark themes and print into the PDF; override them with the `--hb-hl-*` CSS variables in a custom stylesheet.
+
 ## Tables
 
 Tables are useful for options, commands, and comparisons:

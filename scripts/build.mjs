@@ -21,6 +21,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
 
+import hljs from "highlight.js/lib/common";
 import MarkdownIt from "markdown-it";
 import markdownItAnchorModule from "markdown-it-anchor";
 import markdownItFootnoteModule from "markdown-it-footnote";
@@ -393,7 +394,23 @@ function buildTheme(theme) {
   const md = new MarkdownIt({
     html: false, // 禁止 Markdown 原始 HTML
     linkify: true,
-    typographer: false
+    typographer: false,
+    // 构建时语法高亮（highlight.js common 语言集，无运行时 JS）。
+    // 语言未注册或失败时返回 "" 交回 markdown-it 默认转义。
+    highlight: (source, lang) => {
+      if (lang && hljs.getLanguage(lang)) {
+        try {
+          return (
+            `<pre><code class="hljs language-${escapeHtml(lang)}">` +
+            hljs.highlight(source, { language: lang, ignoreIllegals: true }).value +
+            "</code></pre>"
+          );
+        } catch {
+          // 交回默认转义
+        }
+      }
+      return "";
+    }
   });
 
   md.use(markPlugin); // ==高亮== → <mark>
