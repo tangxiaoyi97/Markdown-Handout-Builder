@@ -1,5 +1,26 @@
 # Changelog
 
+## 1.2.0
+
+- Numbered academic environments: `::: theorem` / `definition` /
+  `example` / `exercise`, auto-numbered per chapter with linkable
+  anchors; optional figure numbering (`numbering.figures`) and block
+  equation numbering (`numbering.equations`, manual `\tag` respected).
+- Labels: English-only defaults with full localization via `labels`;
+  new keys define custom containers (tip-styled admonitions or, with
+  `numbered: true`, academic environments) with dedicated CSS classes.
+- Manual page breaks: `\pagebreak` / `\newpage` on their own line.
+- `version` field in `book.yml`: shows the handout revision on the
+  default cover, back cover, and index page, and is available as the
+  `{{version}}` placeholder in PDF header/footer slots, running
+  headers, and cover fragments.
+- Admonitions: `::: note` / `tip` / `warning` / `danger` fenced
+  containers with optional custom titles, themeable via `--hb-adm-*`
+  variables (light and dark palettes), kept unsplit across PDF pages.
+- Two new built-in themes: `theme-sepia.css` (warm paper, print-safe)
+  and `theme-academic.css` (serif typography, justified print with
+  hyphenation).
+
 ## 1.1.0
 
 - Build-time syntax highlighting for fenced code blocks (highlight.js

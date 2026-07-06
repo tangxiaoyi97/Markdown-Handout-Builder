@@ -109,6 +109,7 @@ subtitle: "Suite"
 language: "en"
 date: "2026-01-02"
 date_format: "YYYY.MM.DD"
+version: "2.1"
 authors:
   - "A"
   - "B"
@@ -137,6 +138,14 @@ const answer = 42;
 A note.[^1]
 
 [^1]: Footnote one.
+
+::: warning Check units
+Units must match.
+:::
+
+::: tip
+Use SI units.
+:::
 
 ## Kraft
 `;

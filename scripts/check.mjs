@@ -239,13 +239,23 @@ const warnings = [];
 /* ---------- pdf 页眉页脚 / 页码 / 日期格式配置校验 ---------- */
 
 const KNOWN_PLACEHOLDERS = new Set([
-  "page", "total", "title", "subtitle", "authors", "author", "date", "rawDate", "lang", "theme"
+  "page", "total", "title", "subtitle", "authors", "author", "date", "rawDate",
+  "version", "lang", "theme"
 ]);
 const KNOWN_HF_STYLE_KEYS = new Set(["font_size", "color", "font_family", "offset"]);
 
 if (book.date_format !== undefined && typeof book.date_format !== "string") {
   fail(`${configName}: "date_format" must be a string (e.g. "YYYY-MM-DD").`);
 }
+
+if (
+  book.version !== undefined &&
+  book.version !== null &&
+  !["string", "number"].includes(typeof book.version)
+) {
+  fail(`${configName}: "version" must be a string or number (e.g. "v2", "Rev. B").`);
+}
+
 
 function checkPdfConfig(scope, where) {
   const pdf = scope?.pdf;
@@ -327,6 +337,73 @@ function checkPdfConfig(scope, where) {
 checkPdfConfig(book, "");
 if (Array.isArray(book.themes)) {
   book.themes.forEach((theme, i) => checkPdfConfig(theme, `themes[${i}].`));
+}
+
+/* ---------- labels / numbering 配置校验 ---------- */
+
+// 内置标签键（可覆盖显示文本）；其余键 = 自定义容器（进 ::: 语法与 CSS class，
+// 必须是安全的 ASCII 标识符）。pagebreak 为保留字。
+const BUILTIN_LABEL_KEYS = new Set([
+  "note", "tip", "warning", "danger",
+  "theorem", "definition", "example", "exercise", "figure"
+]);
+if (book.labels !== undefined) {
+  if (!book.labels || typeof book.labels !== "object" || Array.isArray(book.labels)) {
+    fail(`${configName}: "labels" must be a mapping (e.g. labels: { note: "注意" }).`);
+  } else {
+    for (const [key, value] of Object.entries(book.labels)) {
+      const isObject = value && typeof value === "object" && !Array.isArray(value);
+
+      if (!isObject && typeof value !== "string") {
+        fail(
+          `${configName}: labels.${key} must be a string or a mapping with "text" ` +
+            `(and optional "numbered: true").`
+        );
+        continue;
+      }
+      if (isObject) {
+        if (typeof value.text !== "string" || value.text.trim() === "") {
+          fail(`${configName}: labels.${key}.text must be a non-empty string.`);
+        }
+        if (value.numbered !== undefined && typeof value.numbered !== "boolean") {
+          fail(`${configName}: labels.${key}.numbered must be true or false.`);
+        }
+        for (const sub of Object.keys(value)) {
+          if (!["text", "numbered"].includes(sub)) {
+            warnings.push(`labels.${key}.${sub}: unknown key (ignored)`);
+          }
+        }
+      }
+
+      if (!BUILTIN_LABEL_KEYS.has(key)) {
+        if (key === "pagebreak") {
+          fail(`${configName}: labels.pagebreak is reserved and cannot be a custom container.`);
+        } else if (!/^[A-Za-z][A-Za-z0-9_-]*$/.test(key)) {
+          fail(
+            `${configName}: labels.${key}: custom container keys must match ` +
+              `[A-Za-z][A-Za-z0-9_-]* (used as the ::: container name and CSS class).`
+          );
+        }
+      }
+    }
+  }
+}
+
+if (book.numbering !== undefined) {
+  if (!book.numbering || typeof book.numbering !== "object" || Array.isArray(book.numbering)) {
+    fail(`${configName}: "numbering" must be a mapping.`);
+  } else {
+    for (const key of ["theorems", "figures", "equations", "per_chapter"]) {
+      if (book.numbering[key] !== undefined && typeof book.numbering[key] !== "boolean") {
+        fail(`${configName}: numbering.${key} must be true or false.`);
+      }
+    }
+    for (const key of Object.keys(book.numbering)) {
+      if (!["theorems", "figures", "equations", "per_chapter"].includes(key)) {
+        warnings.push(`numbering.${key}: unknown key (ignored)`);
+      }
+    }
+  }
 }
 
 function* walkFiles(dir) {

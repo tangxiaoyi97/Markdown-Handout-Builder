@@ -177,9 +177,42 @@ Default document templates, print CSS, index page, and the built-in dark theme a
 
 Date formatting supports presets such as `YYYY-MM-DD`, `YYYYMMDD`, `YYMMDD`, `YYYY/MM/DD`, and `YY.MM.DD`. Put `date_format` at the top level for covers and index pages, or set `pdf.date_format` to override only generated PDF headers and footers.
 
-PDF headers and footers use three slots: `left`, `center`, and `right`. Supported placeholders are `{{title}}`, `{{subtitle}}`, `{{authors}}`, `{{author}}`, `{{date}}`, `{{rawDate}}`, `{{lang}}`, `{{theme}}`, `{{page}}`, and `{{total}}`.
+PDF headers and footers use three slots: `left`, `center`, and `right`. Supported placeholders are `{{title}}`, `{{subtitle}}`, `{{authors}}`, `{{author}}`, `{{date}}`, `{{rawDate}}`, `{{version}}`, `{{lang}}`, `{{theme}}`, `{{page}}`, and `{{total}}`.
+
+Set a top-level `version: "v2"` in `book.yml` to show a handout revision on the cover and index page; the same value is available as `{{version}}` in header/footer slots and cover fragments.
 
 `pdf.page_numbers.count_cover: false` keeps the cover in the PDF but starts generated numbering after it. `count_back_cover: false` keeps the back cover in the PDF while excluding it from `{{total}}`.
+
+### Labels and custom containers
+
+All display labels default to English — no other language pack is built in. Localize or rename any label, and define new keys to create your own containers:
+
+```yaml
+labels:
+  note: "注意"          # override a built-in label
+  theorem: "定理"
+  figure: "图"
+  keypoint: "划重点"     # new key -> ::: keypoint, a tip-styled admonition
+  lemma:                # object form -> numbered academic environment
+    text: "引理"
+    numbered: true
+```
+
+Custom containers get dedicated CSS classes: `.admonition-custom .admonition-keypoint` (default look: tip) and `.env-custom .env-lemma`. Override them in a `custom_css` file. Custom keys must match `[A-Za-z][A-Za-z0-9_-]*` because they become `:::` container names and CSS classes.
+
+### Numbering
+
+Academic environments are numbered per chapter by default. Figures and equations opt in:
+
+```yaml
+numbering:
+  theorems: true      # false disables environment numbering
+  figures: true       # "Figure 3.1" prefix on captioned figures (id figure-3-1)
+  equations: true     # \tag{3.1} on block math (manual \tag is respected)
+  per_chapter: true   # false numbers continuously through the book
+```
+
+Numbered items get linkable anchors: `#theorem-3-1`, `#figure-3-1`, `#eq-3-1`.
 
 ## Writing Markdown
 
@@ -192,6 +225,9 @@ Supported syntax includes:
 - Highlighting with `==important text==`.
 - Math with inline `$F = ma$` and block `$$ ... $$`.
 - Footnotes with `[^1]`.
+- Admonitions: `::: note` / `tip` / `warning` / `danger` with an optional custom title, closed by `:::`.
+- Numbered academic environments: `::: theorem` / `definition` / `example` / `exercise` (auto-numbered per chapter, e.g. "Theorem 3.1"; an optional name after the type is shown in parentheses).
+- Manual page breaks: a paragraph containing only `\pagebreak` (or `\newpage`).
 - Standard Markdown images.
 
 Image examples:
@@ -233,7 +269,7 @@ themes:
       custom_css: "templates/theme-dark.css"
 ```
 
-`templates/theme-dark.css` is built into the package. If a note repository has a file at the same path, the local file takes precedence.
+Built-in themes ship with the package: `templates/theme-dark.css` (neutral dark, light fallback for browser printing), `templates/theme-sepia.css` (warm paper), and `templates/theme-academic.css` (serif, justified print). If a note repository has a file at the same path, the local file takes precedence — copy any of them as a starting point for your own theme; they are plain CSS-variable files.
 
 Default theme output uses `output.html` and `output.pdf`. Other themes use `handout.<theme>.html` and `handout.<theme>.pdf` in the same output directory.
 

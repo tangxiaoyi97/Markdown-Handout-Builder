@@ -1,6 +1,6 @@
 {
   "name": "markdown-handout-builder",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Markdown Handout Builder — build a handout (HTML + official PDF) from plain Markdown via markdown-it and a Playwright Chromium print pipeline.",
   "license": "MIT",
   "type": "module",
@@ -61,6 +61,7 @@
     "katex": "^0.16.11",
     "markdown-it": "^14.1.0",
     "markdown-it-anchor": "^9.2.0",
+    "markdown-it-container": "^4.0.0",
     "markdown-it-footnote": "^4.0.0",
     "markdown-it-mark": "^4.0.0",
     "pdf-lib": "^1.17.1",

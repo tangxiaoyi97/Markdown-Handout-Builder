@@ -54,6 +54,16 @@
     --hb-hl-meta: #d2a8ff;
     --hb-hl-addition: #7ee787;
     --hb-hl-deletion: #ffa198;
+
+    /* Admonitions */
+    --hb-adm-note: #58a6ff;
+    --hb-adm-note-bg: #10203a;
+    --hb-adm-tip: #3fb950;
+    --hb-adm-tip-bg: #10261a;
+    --hb-adm-warning: #d29922;
+    --hb-adm-warning-bg: #2a2210;
+    --hb-adm-danger: #f85149;
+    --hb-adm-danger-bg: #2d1517;
   }
 
   /* Explicit html background keeps overscroll areas consistent. */
@@ -95,5 +105,15 @@
     --hb-hl-meta: #d2a8ff;
     --hb-hl-addition: #7ee787;
     --hb-hl-deletion: #ffa198;
+
+    /* Admonitions */
+    --hb-adm-note: #58a6ff;
+    --hb-adm-note-bg: #10203a;
+    --hb-adm-tip: #3fb950;
+    --hb-adm-tip-bg: #10261a;
+    --hb-adm-warning: #d29922;
+    --hb-adm-warning-bg: #2a2210;
+    --hb-adm-danger: #f85149;
+    --hb-adm-danger-bg: #2d1517;
   }
 }

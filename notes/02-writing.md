@@ -56,6 +56,52 @@ print(kinetic_energy(70, 8.3))
 
 The common highlight.js language set is included (Python, JavaScript, TypeScript, C, Java, Go, Rust, YAML, JSON, Bash, SQL, and more). Unknown languages fall back to plain escaped text. Colors adapt to light and dark themes and print into the PDF; override them with the `--hb-hl-*` CSS variables in a custom stylesheet.
 
+## Admonitions
+
+Call out notes, tips, warnings, and dangers with fenced containers:
+
+```md
+::: warning Check your units
+Mixing units is the classic exam mistake.
+:::
+```
+
+::: note
+Four types are available: `note`, `tip`, `warning`, and `danger`.
+:::
+
+::: tip Optional title
+The word after the type becomes the title; otherwise the type name is used.
+:::
+
+::: warning Check your units
+Mixing units is the classic exam mistake.
+:::
+
+::: danger
+Do not hand-edit files under `dist/` — they are overwritten on every build.
+:::
+
+## Theorems and Numbered Environments
+
+Academic environments are numbered per chapter automatically:
+
+```md
+::: theorem Cauchy inequality
+For all real numbers, $(\\sum a_i b_i)^2 \\le \\sum a_i^2 \\sum b_i^2$.
+:::
+```
+
+::: theorem Cauchy inequality
+For all real numbers, $(\sum a_i b_i)^2 \le \sum a_i^2 \sum b_i^2$.
+:::
+
+::: example
+Numbering restarts in every chapter. Disable it with `numbering: { theorems: false }`.
+:::
+
+Four built-in types: `theorem`, `definition`, `example`, `exercise`. Define your own containers (and localize every label) via `labels` in `book.yml`. Need a hard page break? Put `\pagebreak` alone on a line.
+
 ## Tables
 
 Tables are useful for options, commands, and comparisons:

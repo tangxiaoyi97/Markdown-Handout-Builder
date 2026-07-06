@@ -1,0 +1,42 @@
+/* =========================================================
+   theme-academic.css — built-in academic typesetting theme
+
+   Serif body and headings, narrower measure, slightly smaller print
+   size. Palette stays monochrome; only typography changes, so it
+   works for screen, browser printing, and the official PDF alike.
+
+   Enable via book.yml:
+     themes:
+       - name: academic
+         label: "Academic"
+         style:
+           custom_css: "templates/theme-academic.css"
+   ========================================================= */
+
+:root {
+  --hb-font-body: Georgia, "Times New Roman", "Noto Serif CJK SC",
+    "Source Han Serif SC", serif;
+  --hb-font-heading: var(--hb-font-body);
+  --hb-content-width: 760px;
+  --hb-base-font-size: 17px;
+  --hb-print-font-size: 10.5pt;
+}
+
+body {
+  line-height: 1.75;
+}
+
+h1,
+h2,
+h3 {
+  letter-spacing: -0.005em;
+}
+
+/* Justified paragraphs with hyphenation for print, like a journal. */
+@media print {
+  .chapter p {
+    text-align: justify;
+    hyphens: auto;
+    -webkit-hyphens: auto;
+  }
+}

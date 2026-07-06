@@ -124,6 +124,41 @@ back_cover:
   }
 });
 
+test("sepia (light, non-white) theme: page base fill injected without warnings", { skip: !hasChromium && "Playwright Chromium not installed" }, async () => {
+  const themes = `themes:
+  - name: sepia
+    label: "Sepia"
+    default: true
+    style:
+      accent_color: "#6b4f2a"
+      custom_css: "templates/theme-sepia.css"
+`;
+  const { dir, pdfStderr } = await buildAndRender({
+    "book.yml": baseBook(themes),
+    "notes/01-alpha.md": ALPHA_MD,
+    "notes/02-beta.md": BETA_MD,
+    "notes/assets/p.png": TINY_PNG
+  });
+
+  assert.doesNotMatch(pdfStderr, /could not restyle/);
+
+  // 浅色非白主题走"插入基底填充"分支：首个内容流以我们的整页填充开头
+  // (#f6efdf = .9647 .9373 .8745)
+  const zlib = await import("node:zlib");
+  const { PDFDocument, PDFName, PDFArray, PDFRef, PDFRawStream } = await import("pdf-lib");
+  const parsed = await PDFDocument.load(
+    await fs.readFile(path.join(dir, "dist", "handout.pdf"))
+  );
+  const page2 = parsed.getPage(1);
+  let ref = page2.node.get(PDFName.of("Contents"));
+  if (ref instanceof PDFArray) ref = ref.get(0);
+  assert.ok(ref instanceof PDFRef);
+  const stream = parsed.context.lookup(ref);
+  assert.ok(stream instanceof PDFRawStream);
+  const text = zlib.inflateSync(Buffer.from(stream.contents)).toString("latin1");
+  assert.match(text.slice(0, 120), /^q \.9647 \.9373 \.8745 rg 0 0 [\d.]+ [\d.]+ re f Q/);
+});
+
 test("dark theme PDF: variant file, title suffix, base recolor without warnings", { skip: !hasChromium && "Playwright Chromium not installed" }, async () => {
   const themes = `themes:
   - name: light

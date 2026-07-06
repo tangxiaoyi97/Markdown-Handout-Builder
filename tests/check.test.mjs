@@ -126,6 +126,16 @@ test("UTF-8 BOM chapter passes", async () => {
   assert.equal(r.code, 0, r.stderr);
 });
 
+test("non-scalar version fails", async () => {
+  const dir = await makeFixture({
+    "book.yml": 'title: "T"\nversion: [2, 1]\nchapters: [notes/a.md]\n',
+    "notes/a.md": "# A\n"
+  });
+  const r = await runScript("check.mjs", { cwd: dir });
+  assert.equal(r.code, 1);
+  assert.match(r.stderr, /"version" must be a string or number/);
+});
+
 test("missing custom_css and cover component fail", async () => {
   const dir = await makeFixture({
     "book.yml":

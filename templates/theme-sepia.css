@@ -1,0 +1,46 @@
+/* =========================================================
+   theme-sepia.css — built-in warm paper theme
+
+   A light theme: it applies to screen, browser printing, and the
+   official PDF alike (the pipeline recolors page margins to match
+   the body background automatically).
+
+   Enable via book.yml:
+     themes:
+       - name: sepia
+         label: "Sepia"
+         style:
+           accent_color: "#6b4f2a"
+           custom_css: "templates/theme-sepia.css"
+   ========================================================= */
+
+:root {
+  --hb-bg-page: #ede3cd;
+  --hb-bg-print: #f6efdf;
+  --hb-surface: #faf5e8;
+  --hb-fg: #3d3427;
+  --hb-fg-muted: #6f6353;
+  --hb-border: #e2d7bf;
+  --hb-border-strong: #d4c6a8;
+  --hb-heading-rule: #d4c6a8;
+  --hb-btn-bg: #f1e8d4;
+  --hb-btn-hover: #e9dec6;
+  --hb-btn-primary-fg: #faf5e8;
+  --hb-code-bg: #f0e8d5;
+  --hb-pre-bg: #f3ecdb;
+  --hb-quote-bg: #f3ecdb;
+  --hb-th-bg: #f0e8d5;
+  --hb-stripe: #f6f0e1;
+  --hb-mark-bg: #f5dd90;
+  --hb-leader: #c4b493;
+
+  /* Admonitions tuned to the warm palette */
+  --hb-adm-note: #5b6c9e;
+  --hb-adm-note-bg: #eceadf;
+  --hb-adm-tip: #5d7a4c;
+  --hb-adm-tip-bg: #edecd9;
+  --hb-adm-warning: #9a6700;
+  --hb-adm-warning-bg: #f5ecd0;
+  --hb-adm-danger: #a34540;
+  --hb-adm-danger-bg: #f3e3d8;
+}

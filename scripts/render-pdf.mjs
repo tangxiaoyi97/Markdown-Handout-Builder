@@ -87,6 +87,8 @@ const authors = Array.isArray(book?.authors)
     ? [String(book.authors)]
     : [];
 const keywords = Array.isArray(book?.keywords) ? book.keywords.map(String) : [];
+const bookVersion =
+  book?.version !== undefined && book?.version !== null ? String(book.version) : "";
 
 const pdfBase = book?.pdf ?? {};
 const coverBase = book?.cover ?? {};
@@ -264,6 +266,7 @@ function buildHeaderFooterTemplates(pdfCfg, theme, pageMargin) {
     author: authors[0] ?? "",
     date: displayDate,
     rawDate,
+    version: bookVersion,
     lang: language,
     theme: theme.label || theme.name || ""
   };
@@ -416,12 +419,16 @@ async function postProcessPdf(filePath, { plainBytes, cleanIndexes, themeLabel, 
   if (pageBackground) {
     const comp = (v) => (v / 255).toFixed(4).replace(/^0\./, ".");
     const bgColor = `${comp(pageBackground.r)} ${comp(pageBackground.g)} ${comp(pageBackground.b)}`;
+    // 基底填充的指纹：前置 cm 平移为 0 0（覆盖整页）。浅色主题下第一条
+    // 填充是 body 背景（带页边距平移的内容盒），不能误改写——那会变成
+    // 同色空操作，真正的页边距问题被掩盖。
     const BASE_FILL_RE =
-      /[\d.]+ [\d.]+ [\d.]+ RG [\d.]+ [\d.]+ [\d.]+ rg(?=\n\/G\d+ gs\n(?:\/Document <<\/MCID \d+ >>BDC\n)?0 0 [\d.]+ [\d.]+ re\nf)/;
+      /(q\n[\d.]+ 0 0 [\d.]+ 0 0 cm\n)([\d.]+ [\d.]+ [\d.]+ RG [\d.]+ [\d.]+ [\d.]+ rg)(?=\n\/G\d+ gs\n(?:\/Document <<\/MCID \d+ >>BDC\n)?0 0 [\d.]+ [\d.]+ re\nf)/;
     const contentsKey = PDFName.of("Contents");
-    let recolored = 0;
+    let restyled = 0;
+    const pages = doc.getPages();
 
-    for (const page of doc.getPages()) {
+    for (const page of pages) {
       let first = page.node.get(contentsKey);
       if (first instanceof PDFArray) first = first.get(0);
       if (!(first instanceof PDFRef)) continue;
@@ -437,19 +444,29 @@ async function postProcessPdf(filePath, { plainBytes, cleanIndexes, themeLabel, 
 
       const text = inflated.toString("latin1");
       const head = text.slice(0, 600);
-      if (!BASE_FILL_RE.test(head)) continue;
+      let newText;
 
-      const newText =
-        head.replace(BASE_FILL_RE, `${bgColor} RG ${bgColor} rg`) + text.slice(600);
+      if (BASE_FILL_RE.test(head)) {
+        // 深色 color-scheme：Chromium 画了基底填充（如 #121212），改写其颜色
+        newText =
+          head.replace(BASE_FILL_RE, `$1${bgColor} RG ${bgColor} rg`) + text.slice(600);
+      } else {
+        // 浅色 color-scheme：Chromium 不绘制白色基底（页边距=纸色）。
+        // 在内容流最前插入一条 body 色整页填充——此时没有基底会盖住它，
+        // 插入即最底层，页边距与正文底色统一（如 sepia 纸感主题）。
+        const { width, height } = page.getSize();
+        newText =
+          `q ${bgColor} rg 0 0 ${width.toFixed(2)} ${height.toFixed(2)} re f Q\n` + text;
+      }
+
       const deflated = zlib.deflateSync(Buffer.from(newText, "latin1"));
-
       const dict = stream.dict.clone(doc.context);
       dict.set(PDFName.of("Length"), doc.context.obj(deflated.length));
       doc.context.assign(first, PDFRawStream.of(dict, new Uint8Array(deflated)));
-      recolored += 1;
+      restyled += 1;
     }
 
-    if (recolored === 0) {
+    if (restyled === 0) {
       // Chromium 若更改了内容流的生成格式，这里会失配——提醒而不是静默退化
       console.warn(
         "Warning: could not restyle the page base background; " +
