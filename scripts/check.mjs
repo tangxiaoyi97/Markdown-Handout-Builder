@@ -240,7 +240,7 @@ const warnings = [];
 
 const KNOWN_PLACEHOLDERS = new Set([
   "page", "total", "title", "subtitle", "authors", "author", "date", "rawDate",
-  "version", "lang", "theme"
+  "version", "commit", "lang", "theme"
 ]);
 const KNOWN_HF_STYLE_KEYS = new Set(["font_size", "color", "font_family", "offset"]);
 

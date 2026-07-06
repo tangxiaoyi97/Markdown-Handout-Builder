@@ -52,8 +52,13 @@ pdf:
     right: "{{date}}"
   footer:
     left: ""
-    center: "{{page}} / {{total}}"       # Placeholders work in header and footer
-    right: ""
+    center: "{{page}} / {{total}}"       # All slots accept placeholders:
+    right: ""                            # {{title}} {{subtitle}} {{authors}} {{author}}
+                                         # {{date}} {{rawDate}} {{version}} {{commit}}
+                                         # {{lang}} {{theme}} {{page}} {{total}}
+                                         # {{commit}} = note repo's short git hash
+                                         # (build provenance; "-dirty" when uncommitted;
+                                         # empty outside a git repo)
   header_footer_style:
     font_size: "8.5px"
     color: "#8a919a"
@@ -65,7 +70,8 @@ pdf:
 cover:
   enabled: true
   # html: "templates/cover.html"         # Trusted HTML fragment with placeholders:
-  #                                      # {{title}} {{subtitle}} {{authors}} {{date}} {{lang}}
+  #                                      # {{title}} {{subtitle}} {{authors}} {{date}}
+  #                                      # {{version}} {{lang}}
   # background: "linear-gradient(160deg, #0f2c66 0%, #4527a0 100%)"
   # color: "#ffffff"
 
@@ -120,6 +126,10 @@ themes:
     style:
       accent_color: "#eaeaea"
       custom_css: "templates/theme-dark.css" # Built in. Local file wins if present.
+    # Themes may also override pdf settings (deep-merged per section):
+    # pdf:
+    #   header_footer_style:
+    #     color: "#9a9a9a"
   # More built-in themes (variable-only files, easy to copy and adapt):
   # - name: sepia
   #   label: "Sepia"

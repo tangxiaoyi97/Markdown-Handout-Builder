@@ -23,6 +23,7 @@
  *   2. 封面/封底页覆盖为无页眉页脚版本（整页图层叠加，书签与内链不受影响）。
  */
 
+import { execSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import zlib from "node:zlib";
@@ -89,6 +90,29 @@ const authors = Array.isArray(book?.authors)
 const keywords = Array.isArray(book?.keywords) ? book.keywords.map(String) : [];
 const bookVersion =
   book?.version !== undefined && book?.version !== null ? String(book.version) : "";
+
+// 构建溯源：{{commit}}（与 build.mjs 同一规则，cwd = 笔记仓库）
+function resolveGitCommit(dir) {
+  try {
+    const hash = execSync("git rev-parse --short HEAD", {
+      cwd: dir,
+      stdio: ["ignore", "pipe", "ignore"]
+    })
+      .toString()
+      .trim();
+    if (!hash) return "";
+    const dirty = execSync("git status --porcelain", {
+      cwd: dir,
+      stdio: ["ignore", "pipe", "ignore"]
+    })
+      .toString()
+      .trim();
+    return dirty ? `${hash}-dirty` : hash;
+  } catch {
+    return "";
+  }
+}
+const gitCommit = resolveGitCommit(baseDir);
 
 const pdfBase = book?.pdf ?? {};
 const coverBase = book?.cover ?? {};
@@ -267,6 +291,7 @@ function buildHeaderFooterTemplates(pdfCfg, theme, pageMargin) {
     date: displayDate,
     rawDate,
     version: bookVersion,
+    commit: gitCommit,
     lang: language,
     theme: theme.label || theme.name || ""
   };

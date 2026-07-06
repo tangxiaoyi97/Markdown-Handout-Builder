@@ -177,7 +177,9 @@ Default document templates, print CSS, index page, and the built-in dark theme a
 
 Date formatting supports presets such as `YYYY-MM-DD`, `YYYYMMDD`, `YYMMDD`, `YYYY/MM/DD`, and `YY.MM.DD`. Put `date_format` at the top level for covers and index pages, or set `pdf.date_format` to override only generated PDF headers and footers.
 
-PDF headers and footers use three slots: `left`, `center`, and `right`. Supported placeholders are `{{title}}`, `{{subtitle}}`, `{{authors}}`, `{{author}}`, `{{date}}`, `{{rawDate}}`, `{{version}}`, `{{lang}}`, `{{theme}}`, `{{page}}`, and `{{total}}`.
+PDF headers and footers use three slots: `left`, `center`, and `right`. Supported placeholders are `{{title}}`, `{{subtitle}}`, `{{authors}}`, `{{author}}`, `{{date}}`, `{{rawDate}}`, `{{version}}`, `{{commit}}`, `{{lang}}`, `{{theme}}`, `{{page}}`, and `{{total}}`.
+
+`{{commit}}` is build provenance: the note repository's short git hash, with a `-dirty` suffix when the working tree has uncommitted changes, and empty outside a git repository. Builds from the same commit stay reproducible (there is deliberately no build-timestamp placeholder).
 
 Set a top-level `version: "v2"` in `book.yml` to show a handout revision on the cover and index page; the same value is available as `{{version}}` in header/footer slots and cover fragments.
 

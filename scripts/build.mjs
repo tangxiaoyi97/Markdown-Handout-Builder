@@ -16,6 +16,7 @@
  *   ![alt](./assets/a.png "图注")     独立成段的图片包成 <figure>，title 变成 <figcaption>
  */
 
+import { execSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -102,6 +103,31 @@ const date = formatDate(rawDate, dateFormat);
 // 讲义自身的修订版次（如 "v2"、"第 3 版"、"Rev. B"），可选
 const bookVersion =
   book.version !== undefined && book.version !== null ? String(book.version) : "";
+
+// 构建溯源元数据：{{commit}} = 笔记仓库的短 hash（非 git 目录时为空串）。
+// 有未提交改动时加 -dirty 后缀，避免产物标注一个不含当前内容的 hash。
+// 注意 cwd 是 baseDir（笔记仓库），不是本工具的仓库。
+function resolveGitCommit(dir) {
+  try {
+    const hash = execSync("git rev-parse --short HEAD", {
+      cwd: dir,
+      stdio: ["ignore", "pipe", "ignore"]
+    })
+      .toString()
+      .trim();
+    if (!hash) return "";
+    const dirty = execSync("git status --porcelain", {
+      cwd: dir,
+      stdio: ["ignore", "pipe", "ignore"]
+    })
+      .toString()
+      .trim();
+    return dirty ? `${hash}-dirty` : hash;
+  } catch {
+    return "";
+  }
+}
+const gitCommit = resolveGitCommit(baseDir);
 
 const htmlOut = path.resolve(baseDir, book.output?.html ?? "dist/handout.html");
 const pdfOut = path.resolve(baseDir, book.output?.pdf ?? "dist/handout.pdf");
@@ -300,7 +326,8 @@ const metaValues = {
   subtitle: escapeHtml(subtitle),
   authors: escapeHtml(authorsText),
   date: escapeHtml(date),
-  version: escapeHtml(bookVersion)
+  version: escapeHtml(bookVersion),
+  commit: escapeHtml(gitCommit)
 };
 
 /* ---------- 静态资源与模板（读取一次，各主题共用） ---------- */
@@ -673,6 +700,7 @@ function buildTheme(theme) {
       date: displayDate,
       rawDate,
       version: bookVersion,
+      commit: gitCommit,
       lang: language,
       theme: theme.label || theme.name || ""
     };

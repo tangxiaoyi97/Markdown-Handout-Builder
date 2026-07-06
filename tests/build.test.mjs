@@ -269,6 +269,48 @@ test("labels validation; removed numbering option warns", async () => {
   assert.match(r.stderr, /numbering: this option was removed/);
 });
 
+test("{{commit}} resolves from the note repo git (dirty suffix; empty outside git)", async () => {
+  const { execSync } = await import("node:child_process");
+  const fs = await import("node:fs/promises");
+  const path = await import("node:path");
+
+  const files = {
+    "book.yml":
+      'title: "T"\nchapters: [notes/01.md]\n' +
+      'pdf:\n  header:\n    center: "{{commit}}"\n',
+    "notes/01.md": "# A\n\ntext\n"
+  };
+
+  // 非 git 目录：占位符为空
+  const plain = await makeFixture(files);
+  let r = await runScript("build.mjs", { cwd: plain });
+  assert.equal(r.code, 0, r.stderr);
+  let html = await readOut(plain, "handout.html");
+  assert.match(html, /hb-run-center"><\/span>/, "empty outside a git repo");
+
+  // git 仓库：短 hash；工作区干净无 -dirty
+  const repo = await makeFixture(files);
+  const git = (cmd) => execSync(`git ${cmd}`, { cwd: repo, stdio: "pipe" });
+  git("init -q");
+  git('config user.email "t@example.com"');
+  git('config user.name "T"');
+  git("add -A");
+  git('commit -qm "init"');
+  const hash = execSync("git rev-parse --short HEAD", { cwd: repo }).toString().trim();
+
+  r = await runScript("build.mjs", { cwd: repo });
+  assert.equal(r.code, 0, r.stderr);
+  html = await readOut(repo, "handout.html");
+  assert.match(html, new RegExp(`hb-run-center">${hash}<`), "clean tree: bare hash");
+
+  // 弄脏工作区：-dirty 后缀
+  await fs.writeFile(path.join(repo, "notes", "01.md"), "# A\n\nchanged\n");
+  r = await runScript("build.mjs", { cwd: repo });
+  assert.equal(r.code, 0, r.stderr);
+  html = await readOut(repo, "handout.html");
+  assert.match(html, new RegExp(`hb-run-center">${hash}-dirty<`), "dirty suffix");
+});
+
 test("header_footer: false removes the web-print running header", async () => {
   const dir = await makeFixture({
     "book.yml": baseBook("pdf:\n  header_footer: false\n"),
