@@ -464,7 +464,7 @@ async function postProcessPdf(filePath, { plainBytes, cleanIndexes, themeLabel, 
   if (authors.length > 0) doc.setAuthor(authors.join(", "));
   if (subtitle) doc.setSubject(subtitle);
   if (keywords.length > 0) doc.setKeywords(keywords);
-  doc.setCreator("markdown-handout-builder");
+  doc.setCreator("Markdown Handout Builder");
   doc.setProducer("Chromium (Playwright) + pdf-lib");
   if (language) doc.setLanguage(language);
   const created = rawDate ? new Date(rawDate) : new Date();

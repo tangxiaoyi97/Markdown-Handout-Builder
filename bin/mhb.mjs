@@ -18,7 +18,7 @@ const scriptByCommand = {
   serve: "serve.mjs"
 };
 
-const help = `markdown-handout-builder
+const help = `Markdown Handout Builder (mhb)
 
 Usage:
   mhb <command> [options]

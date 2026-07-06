@@ -51,7 +51,7 @@ jobs:
       - name: Upload handout artifact
         uses: actions/upload-artifact@v7
         with:
-          name: markdown-handout-builder-showcase
+          name: handout-showcase
           path: |
             dist/index.html
             dist/handout*.html

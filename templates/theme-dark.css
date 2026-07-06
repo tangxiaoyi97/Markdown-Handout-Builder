@@ -1,6 +1,18 @@
 /* =========================================================
    theme-dark.css — built-in dark theme (neutral monochrome)
-   Enable via book.yml themes:
+
+   The dark palette applies to:
+     1. screen reading, and
+     2. the official PDF pipeline (html.mhb-pdf, set by render-pdf.mjs).
+
+   Regular browser printing (Ctrl+P) intentionally falls back to the
+   light palette from print.css: the browser's print canvas (page
+   margins) is always white and cannot be painted from CSS, so a dark
+   page would print as a black box floating on white paper. The
+   official dark PDF does not have this problem because the pipeline
+   recolors the page base fill after printing.
+
+   Enable via book.yml:
      themes:
        - name: dark
          style:
@@ -8,118 +20,56 @@
            custom_css: "templates/theme-dark.css"
    ========================================================= */
 
-:root {
-  color-scheme: dark;
-}
+@media screen {
+  :root {
+    color-scheme: dark;
 
-/* html must carry the background explicitly: when printing, the page
-   canvas (including margins) is derived from it. See render-pdf.mjs
-   for the base-fill recolor that keeps margins identical. */
-html,
-body {
-  background: #111111;
-}
-
-body {
-  color: #e6e6e6;
-}
-
-.book {
-  background: #191919;
-  border-color: #2a2a2a;
-}
-
-.screen-toolbar {
-  background: #191919;
-  border-bottom-color: #2a2a2a;
-}
-
-.btn {
-  background: #202020;
-  border-color: #333333;
-  color: #e6e6e6;
-}
-
-.btn:hover {
-  background: #262626;
-}
-
-/* 浅色强调色作按钮底时，文字必须反转为深色 */
-.btn-primary {
-  color: #111111;
-}
-
-h1 {
-  border-bottom-color: #2f2f2f;
-}
-
-code {
-  background: #1f1f1f;
-}
-
-pre {
-  background: #191919;
-  border-color: #2a2a2a;
-}
-
-blockquote {
-  border-left-color: #3a3a3a;
-  background: #1a1a1a;
-  color: #a3a3a3;
-}
-
-th {
-  background: #202020;
-}
-
-th,
-td {
-  border-color: #2f2f2f;
-}
-
-tr:nth-child(2n) td {
-  background: #181818;
-}
-
-mark {
-  background: #6b5618;
-  color: #ffe9a3;
-}
-
-hr {
-  border-top-color: #2f2f2f;
-}
-
-figcaption {
-  color: #a3a3a3;
-}
-
-.footnotes {
-  color: #a3a3a3;
-}
-
-.cover-subtitle,
-.cover-authors,
-.cover-date {
-  opacity: 0.78;
-}
-
-body.toc-has-pages .toc-leader {
-  border-bottom-color: #3d3d3d;
-}
-
-body.toc-has-pages .toc-page {
-  color: #a3a3a3;
-}
-
-/* ---------- Print / PDF ---------- */
-@media print {
-  html,
-  body {
-    background: #111111;
+    --hb-bg-page: #111111;
+    --hb-surface: #191919;
+    --hb-fg: #e6e6e6;
+    --hb-fg-muted: #a3a3a3;
+    --hb-border: #2a2a2a;
+    --hb-border-strong: #333333;
+    --hb-heading-rule: #2f2f2f;
+    --hb-btn-bg: #202020;
+    --hb-btn-hover: #262626;
+    --hb-btn-primary-fg: #111111; /* light accent needs dark button text */
+    --hb-code-bg: #1f1f1f;
+    --hb-pre-bg: #191919;
+    --hb-quote-bg: #1a1a1a;
+    --hb-th-bg: #202020;
+    --hb-stripe: #181818;
+    --hb-mark-bg: #6b5618;
+    --hb-mark-fg: #ffe9a3;
+    --hb-leader: #3d3d3d;
   }
 
-  .book {
-    background: transparent;
+  /* Explicit html background keeps overscroll areas consistent. */
+  html,
+  body {
+    background: var(--hb-bg-page);
+  }
+}
+
+/* Official PDF pipeline only. Browser printing skips this block and
+   falls back to the light palette. */
+@media print {
+  html.mhb-pdf {
+    color-scheme: dark;
+
+    --hb-bg-print: #111111;
+    --hb-fg: #e6e6e6;
+    --hb-fg-muted: #a3a3a3;
+    --hb-border: #2a2a2a;
+    --hb-border-strong: #333333;
+    --hb-heading-rule: #2f2f2f;
+    --hb-code-bg: #1f1f1f;
+    --hb-pre-bg: #191919;
+    --hb-quote-bg: #1a1a1a;
+    --hb-th-bg: #202020;
+    --hb-stripe: #181818;
+    --hb-mark-bg: #6b5618;
+    --hb-mark-fg: #ffe9a3;
+    --hb-leader: #3d3d3d;
   }
 }

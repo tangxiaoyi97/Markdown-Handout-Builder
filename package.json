@@ -1,18 +1,18 @@
 {
-  "name": "mdpdftool",
+  "name": "markdown-handout-builder",
   "version": "1.0.0",
-  "description": "Build a class handout (HTML + official PDF) from plain Markdown via markdown-it and a Playwright Chromium print pipeline.",
+  "description": "Markdown Handout Builder — build a handout (HTML + official PDF) from plain Markdown via markdown-it and a Playwright Chromium print pipeline.",
   "license": "MIT",
   "type": "module",
   "packageManager": "npm@11.12.1",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/tangxiaoyi97/mdpdf-tool.git"
+    "url": "git+https://github.com/tangxiaoyi97/Markdown-Handout-Builder.git"
   },
   "bugs": {
-    "url": "https://github.com/tangxiaoyi97/mdpdf-tool/issues"
+    "url": "https://github.com/tangxiaoyi97/Markdown-Handout-Builder/issues"
   },
-  "homepage": "https://tangxiaoyi97.github.io/mdpdf-tool/",
+  "homepage": "https://tangxiaoyi97.github.io/Markdown-Handout-Builder/",
   "keywords": [
     "markdown",
     "pdf",
@@ -26,6 +26,7 @@
   },
   "bin": {
     "mhb": "bin/mhb.mjs",
+    "mdhb": "bin/mhb.mjs",
     "markdown-handout-builder": "bin/mhb.mjs"
   },
   "files": [

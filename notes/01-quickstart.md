@@ -8,13 +8,13 @@ Use Node.js 20 or newer. Install the package and the matching Playwright Chromiu
 
 ```bash
 npm install -D markdown-handout-builder
-npx markdown-handout-builder install-browser
+npx mhb install-browser
 ```
 
 On Linux CI, install browser system dependencies too:
 
 ```bash
-npx markdown-handout-builder install-browser --with-deps chromium
+npx mhb install-browser --with-deps chromium
 ```
 
 For a new repository, create the minimal scaffold:

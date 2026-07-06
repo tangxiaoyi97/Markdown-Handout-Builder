@@ -1,4 +1,4 @@
-# markdown-handout-builder
+# Markdown Handout Builder
 
 Build a polished handout from plain Markdown: HTML for reading, PDF for printing, and an optional GitHub Pages showcase.
 
@@ -15,7 +15,7 @@ In a note repository:
 
 ```bash
 npm install -D markdown-handout-builder
-npx markdown-handout-builder install-browser
+npx mhb install-browser
 ```
 
 For a new repository, generate the minimal scaffold:
@@ -59,10 +59,10 @@ Recommended `package.json`:
 You can also call the CLI directly:
 
 ```bash
-npx markdown-handout-builder check
-npx markdown-handout-builder build
-npx markdown-handout-builder pdf
-npx markdown-handout-builder serve --port 8000
+npx mhb check
+npx mhb build
+npx mhb pdf
+npx mhb serve --port 8000
 npx markdown-handout-builder init
 ```
 
@@ -162,7 +162,7 @@ pdf:
     color: "#8a919a"
 
 style:
-  # accent_color: "#1f6feb"
+  # accent_color: "#111111"
   # content_width: "860px"
   # base_font_size: "16px"
   # print_font_size: "11pt"
@@ -228,7 +228,7 @@ themes:
   - name: dark
     label: "Dark"
     style:
-      accent_color: "#6ea8ff"
+      accent_color: "#eaeaea"
       custom_css: "templates/theme-dark.css"
 ```
 
