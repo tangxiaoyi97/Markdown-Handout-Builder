@@ -77,30 +77,15 @@ back_cover:
 
 # ---------- Labels and custom containers ----------
 # Built-in labels default to English. Localize or rename them here, and
-# define NEW keys to create your own containers:
-#   string value  -> ::: key renders as a tip-styled admonition
-#                    (classes: admonition-custom admonition-<key>)
-#   object value  -> { text: "...", numbered: true } renders as a numbered
-#                    academic environment (classes: env-custom env-<key>)
-# Custom keys must match [A-Za-z][A-Za-z0-9_-]* (used in ::: syntax and CSS).
+# define NEW keys to create your own containers: ::: key renders as a
+# tip-styled admonition (classes: admonition-custom admonition-<key>,
+# restyle via custom CSS). Keys must match [A-Za-z][A-Za-z0-9_-]*.
+# The tool never generates numbers: write numbers directly in headings,
+# environment names (::: theorem 3.1 Cauchy), captions, or KaTeX \tag.
 # labels:
 #   note: "注意"
 #   theorem: "定理"
-#   figure: "图"
 #   keypoint: "划重点"
-#   lemma:
-#     text: "引理"
-#     numbered: true
-
-# ---------- Numbering ----------
-# Academic environments (theorem/definition/example/exercise and custom
-# numbered containers) are numbered per chapter ("3.1") by default.
-# numbering:
-#   theorems: true       # false disables environment numbering
-#   figures: false       # true prefixes captioned figures ("Figure 3.1")
-#   equations: false     # true injects \tag{3.1} into block math
-#                        # (equations with a manual \tag are left alone)
-#   per_chapter: true    # false numbers continuously through the book
 
 # ---------- Style ----------
 style:

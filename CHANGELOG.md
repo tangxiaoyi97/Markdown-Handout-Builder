@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.3.0
+
+Removed (breaking): the automatic numbering system introduced in 1.2.0
+(`numbering` config, per-chapter environment/figure/equation numbers,
+and generated anchors like `#theorem-3-1`). Design decision: the tool
+never generates content numbers — write them directly in headings,
+environment names (`::: theorem 3.1 Cauchy`), figure captions, or
+KaTeX `\tag{...}`. Markdown stays WYSIWYG and inserting content never
+silently shifts existing numbers. A leftover `numbering:` key now
+produces a check warning. `labels` values are plain strings; custom
+containers are always tip-styled admonitions (restyle via their
+dedicated CSS classes). Environment names now follow the label without
+parentheses so manual numbers read naturally.
+
 ## 1.2.0
 
 - Numbered academic environments: `::: theorem` / `definition` /

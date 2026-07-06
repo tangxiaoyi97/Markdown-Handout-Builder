@@ -560,11 +560,6 @@ blockquote {
   margin-bottom: 0;
 }
 
-/* ---------- Figure numbering label ---------- */
-.fig-label {
-  font-weight: 600;
-}
-
 /* ---------- Manual page break marker (a paragraph with only the
    pagebreak / newpage command) ---------- */
 .hb-pagebreak {

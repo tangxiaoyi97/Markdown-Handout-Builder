@@ -191,84 +191,82 @@ test("built-in sepia and academic themes build as variants", async () => {
   assert.match(academic, /--hb-font-body: Georgia/);
 });
 
-test("numbered environments; labels override built-ins; per-chapter reset", async () => {
+test("environments render without any auto-numbering; labels override built-ins", async () => {
   const dir = await makeFixture({
     "book.yml":
-      'title: "T"\nlabels:\n  note: "划重点"\n  theorem: "定理"\n  example: "例"\n' +
-      "chapters:\n  - notes/01.md\n  - notes/02.md\n",
+      'title: "T"\nlabels:\n  note: "划重点"\n  theorem: "定理"\n' +
+      "chapters:\n  - notes/01.md\n",
     "notes/01.md":
-      "# 甲\n\n::: theorem 柯西不等式\n内容。\n:::\n\n::: example\n例子。\n:::\n\n::: note\n要点。\n:::\n\n::: definition\n默认英文标签。\n:::\n",
-    "notes/02.md": "# 乙\n\n::: theorem\n第二章定理。\n:::\n"
+      "# 甲\n\n::: theorem 3.1 柯西不等式\n手动编号写在名称里。\n:::\n\n" +
+      "::: definition\n默认英文标签。\n:::\n\n::: note\n要点。\n:::\n"
   });
   const r = await runScript("build.mjs", { cwd: dir });
   assert.equal(r.code, 0, r.stderr);
 
   const html = await readOut(dir, "handout.html");
-  assert.match(html, /id="theorem-1-1"/);
-  assert.match(html, /<span class="env-label">定理 1\.1<\/span>/);
-  assert.match(html, /<span class="env-name">\(柯西不等式\)<\/span>/);
-  assert.match(html, /<span class="env-label">例 1\.1<\/span>/);
-  assert.match(html, /<span class="env-label">Definition 1\.1<\/span>/, "English default");
-  assert.match(html, /<span class="env-label">定理 2\.1<\/span>/, "per-chapter reset");
+  // 标签 + 作者手写的名称（含手动编号），无括号包裹
+  assert.match(html, /<span class="env-label">定理<\/span> <span class="env-name">3\.1 柯西不等式<\/span>/);
+  assert.match(html, /<span class="env-label">Definition<\/span>/, "English default");
   assert.match(html, /<p class="admonition-title">划重点<\/p>/, "labels override");
+  // 工具不生成任何编号或编号锚点
+  assert.doesNotMatch(html, /id="theorem-/);
+  assert.doesNotMatch(html, /class="fig-label"/);
+  assert.doesNotMatch(html, /class="eq-block"/);
 });
 
-test("custom containers from labels: tip-styled admonition and numbered environment", async () => {
+test("custom containers from labels are tip-styled admonitions", async () => {
   const dir = await makeFixture({
     "book.yml":
       'title: "T"\nchapters: [notes/01.md]\n' +
-      'labels:\n  keypoint: "划重点"\n  lemma:\n    text: "引理"\n    numbered: true\n',
+      'labels:\n  keypoint: "划重点"\n  lemma: "引理"\n',
     "notes/01.md":
-      "# A\n\n::: keypoint\n自定义告示。\n:::\n\n::: lemma 覆盖名\n自定义环境。\n:::\n\n::: lemma\n第二个。\n:::\n"
+      "# A\n\n::: keypoint\n自定义告示。\n:::\n\n::: lemma 3.1 辅助结论\n标题整体可覆盖。\n:::\n"
   });
   const r = await runScript("build.mjs", { cwd: dir });
   assert.equal(r.code, 0, r.stderr);
 
   const html = await readOut(dir, "handout.html");
-  // 字符串值 → 提示样式告示块 + 专属 class
   assert.match(html, /class="admonition admonition-custom admonition-keypoint"/);
   assert.match(html, /<p class="admonition-title">划重点<\/p>/);
-  // 对象值 numbered → 编号环境 + 专属 class + 锚点
-  assert.match(html, /class="env env-custom env-lemma" id="lemma-1-1"/);
-  assert.match(html, /<span class="env-label">引理 1\.1<\/span>/);
-  assert.match(html, /<span class="env-label">引理 1\.2<\/span>/);
+  assert.match(html, /class="admonition admonition-custom admonition-lemma"/);
+  assert.match(html, /<p class="admonition-title">3\.1 辅助结论<\/p>/, "inline title overrides label");
 });
 
-test("figure and equation numbering; manual \\tag skipped; pagebreak marker", async () => {
+test("captions stay verbatim; manual \\tag renders; pagebreak marker works", async () => {
   const dir = await makeFixture({
-    "book.yml":
-      'title: "T"\nlanguage: "en"\nchapters: [notes/01.md]\n' +
-      "numbering:\n  figures: true\n  equations: true\n",
+    "book.yml": 'title: "T"\nlanguage: "en"\nchapters: [notes/01.md]\n',
     "notes/01.md":
-      "# A\n\n![alt](./assets/p.png \"A caption\")\n\n$$\nE = mc^2\n$$\n\n$$\nF = ma \\tag{X}\n$$\n\n\\pagebreak\n\nAfter the break.\n",
+      "# A\n\n![alt](./assets/p.png \"Fig. 3: my caption\")\n\n$$\nF = ma \\tag{3.1}\n$$\n\n\\pagebreak\n\nAfter the break.\n\n\\newpage\n\nEnd.\n",
     "notes/assets/p.png": TINY_PNG
   });
   const r = await runScript("build.mjs", { cwd: dir });
   assert.equal(r.code, 0, r.stderr);
 
   const html = await readOut(dir, "handout.html");
-  assert.match(html, /<span class="fig-label">Figure 1\.1<\/span> A caption/);
-  assert.match(html, /<figure id="figure-1-1">/);
-  assert.match(html, /<div class="eq-block" id="eq-1-1">/);
-  assert.equal(html.match(/class="eq-block"/g).length, 1, "manual \\tag not auto-numbered");
-  assert.match(html, /<div class="hb-pagebreak"/);
+  // 图注原样输出——作者写的编号就是最终编号
+  assert.match(html, /<figcaption>Fig\. 3: my caption<\/figcaption>/);
+  assert.doesNotMatch(html, /fig-label/);
+  // KaTeX 原生 \tag 渲染（工具不注入）
+  assert.match(html, /class="tag"/);
+  assert.doesNotMatch(html, /eq-block/);
+  // 两种分页别名
+  assert.equal(html.match(/class="hb-pagebreak"/g).length, 2);
   assert.doesNotMatch(html, /\\pagebreak/, "marker consumed");
 });
 
-test("numbering and labels validation", async () => {
+test("labels validation; removed numbering option warns", async () => {
   const dir = await makeFixture({
     "book.yml":
       'title: "T"\nchapters: [notes/a.md]\n' +
-      'numbering:\n  figures: "yes"\n' +
-      'labels:\n  note: 5\n  "bad key": "x"\n  lemma:\n    numbered: true\n',
+      "numbering:\n  figures: true\n" +
+      'labels:\n  note: 5\n  "bad key": "x"\n',
     "notes/a.md": "# A\n"
   });
   const r = await runScript("check.mjs", { cwd: dir });
   assert.equal(r.code, 1);
-  assert.match(r.stderr, /numbering\.figures must be true or false/);
-  assert.match(r.stderr, /labels\.note must be a string or a mapping/);
+  assert.match(r.stderr, /labels\.note must be a string/);
   assert.match(r.stderr, /custom container keys must match/);
-  assert.match(r.stderr, /labels\.lemma\.text must be a non-empty string/);
+  assert.match(r.stderr, /numbering: this option was removed/);
 });
 
 test("header_footer: false removes the web-print running header", async () => {

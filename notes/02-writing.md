@@ -82,25 +82,25 @@ Mixing units is the classic exam mistake.
 Do not hand-edit files under `dist/` — they are overwritten on every build.
 :::
 
-## Theorems and Numbered Environments
+## Theorems and Environments
 
-Academic environments are numbered per chapter automatically:
+Semantic blocks for theorems, definitions, examples, and exercises. The tool never auto-numbers them — write the number in the name when you want one, so the Markdown source always matches the output:
 
 ```md
-::: theorem Cauchy inequality
+::: theorem 3.1 Cauchy inequality
 For all real numbers, $(\\sum a_i b_i)^2 \\le \\sum a_i^2 \\sum b_i^2$.
 :::
 ```
 
-::: theorem Cauchy inequality
+::: theorem 3.1 Cauchy inequality
 For all real numbers, $(\sum a_i b_i)^2 \le \sum a_i^2 \sum b_i^2$.
 :::
 
 ::: example
-Numbering restarts in every chapter. Disable it with `numbering: { theorems: false }`.
+Numbers, when present, are part of your text — inserting content never shifts them behind your back.
 :::
 
-Four built-in types: `theorem`, `definition`, `example`, `exercise`. Define your own containers (and localize every label) via `labels` in `book.yml`. Need a hard page break? Put `\pagebreak` alone on a line.
+Four built-in types: `theorem`, `definition`, `example`, `exercise`. Define your own containers (and localize every label) via `labels` in `book.yml`. Equations number the same way, with KaTeX's native `\tag{3.1}`. Need a hard page break? Put `\pagebreak` alone on a line.
 
 ## Tables
 

@@ -342,39 +342,21 @@ if (Array.isArray(book.themes)) {
 /* ---------- labels / numbering 配置校验 ---------- */
 
 // 内置标签键（可覆盖显示文本）；其余键 = 自定义容器（进 ::: 语法与 CSS class，
-// 必须是安全的 ASCII 标识符）。pagebreak 为保留字。
+// 必须是安全的 ASCII 标识符）。pagebreak 为保留字。值一律为字符串——
+// 工具不做任何自动编号，编号由作者直接写在标题/名称/图注/\tag 里。
 const BUILTIN_LABEL_KEYS = new Set([
   "note", "tip", "warning", "danger",
-  "theorem", "definition", "example", "exercise", "figure"
+  "theorem", "definition", "example", "exercise"
 ]);
 if (book.labels !== undefined) {
   if (!book.labels || typeof book.labels !== "object" || Array.isArray(book.labels)) {
     fail(`${configName}: "labels" must be a mapping (e.g. labels: { note: "注意" }).`);
   } else {
     for (const [key, value] of Object.entries(book.labels)) {
-      const isObject = value && typeof value === "object" && !Array.isArray(value);
-
-      if (!isObject && typeof value !== "string") {
-        fail(
-          `${configName}: labels.${key} must be a string or a mapping with "text" ` +
-            `(and optional "numbered: true").`
-        );
+      if (typeof value !== "string") {
+        fail(`${configName}: labels.${key} must be a string.`);
         continue;
       }
-      if (isObject) {
-        if (typeof value.text !== "string" || value.text.trim() === "") {
-          fail(`${configName}: labels.${key}.text must be a non-empty string.`);
-        }
-        if (value.numbered !== undefined && typeof value.numbered !== "boolean") {
-          fail(`${configName}: labels.${key}.numbered must be true or false.`);
-        }
-        for (const sub of Object.keys(value)) {
-          if (!["text", "numbered"].includes(sub)) {
-            warnings.push(`labels.${key}.${sub}: unknown key (ignored)`);
-          }
-        }
-      }
-
       if (!BUILTIN_LABEL_KEYS.has(key)) {
         if (key === "pagebreak") {
           fail(`${configName}: labels.pagebreak is reserved and cannot be a custom container.`);
@@ -389,21 +371,12 @@ if (book.labels !== undefined) {
   }
 }
 
+// numbering 已移除：编号由作者写在内容里（标题、环境名称、图注、\tag）
 if (book.numbering !== undefined) {
-  if (!book.numbering || typeof book.numbering !== "object" || Array.isArray(book.numbering)) {
-    fail(`${configName}: "numbering" must be a mapping.`);
-  } else {
-    for (const key of ["theorems", "figures", "equations", "per_chapter"]) {
-      if (book.numbering[key] !== undefined && typeof book.numbering[key] !== "boolean") {
-        fail(`${configName}: numbering.${key} must be true or false.`);
-      }
-    }
-    for (const key of Object.keys(book.numbering)) {
-      if (!["theorems", "figures", "equations", "per_chapter"].includes(key)) {
-        warnings.push(`numbering.${key}: unknown key (ignored)`);
-      }
-    }
-  }
+  warnings.push(
+    'numbering: this option was removed — write numbers directly in headings, ' +
+      'environment names, figure captions, or KaTeX \\tag{...}'
+  );
 }
 
 function* walkFiles(dir) {

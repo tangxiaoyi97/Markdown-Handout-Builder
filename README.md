@@ -191,28 +191,19 @@ All display labels default to English — no other language pack is built in. Lo
 labels:
   note: "注意"          # override a built-in label
   theorem: "定理"
-  figure: "图"
   keypoint: "划重点"     # new key -> ::: keypoint, a tip-styled admonition
-  lemma:                # object form -> numbered academic environment
-    text: "引理"
-    numbered: true
 ```
 
-Custom containers get dedicated CSS classes: `.admonition-custom .admonition-keypoint` (default look: tip) and `.env-custom .env-lemma`. Override them in a `custom_css` file. Custom keys must match `[A-Za-z][A-Za-z0-9_-]*` because they become `:::` container names and CSS classes.
+Custom containers get dedicated CSS classes (`.admonition-custom .admonition-keypoint`, default look: tip) — restyle them in a `custom_css` file. Custom keys must match `[A-Za-z][A-Za-z0-9_-]*` because they become `:::` container names and CSS classes.
 
-### Numbering
+### Numbering philosophy
 
-Academic environments are numbered per chapter by default. Figures and equations opt in:
+The tool never generates content numbers. Numbers belong to the content, so write them where readers see them — Markdown stays WYSIWYG and inserting a chapter never silently shifts existing numbers:
 
-```yaml
-numbering:
-  theorems: true      # false disables environment numbering
-  figures: true       # "Figure 3.1" prefix on captioned figures (id figure-3-1)
-  equations: true     # \tag{3.1} on block math (manual \tag is respected)
-  per_chapter: true   # false numbers continuously through the book
-```
-
-Numbered items get linkable anchors: `#theorem-3-1`, `#figure-3-1`, `#eq-3-1`.
+- Chapter/section numbers: write them in headings (`## 3.2 Kinetic Energy`).
+- Environments: put the number in the name (`::: theorem 3.1 Cauchy`).
+- Figures: put it in the caption (`![x](a.png "Fig. 3: setup")`).
+- Equations: use KaTeX's native `\tag{3.1}`.
 
 ## Writing Markdown
 
@@ -226,7 +217,7 @@ Supported syntax includes:
 - Math with inline `$F = ma$` and block `$$ ... $$`.
 - Footnotes with `[^1]`.
 - Admonitions: `::: note` / `tip` / `warning` / `danger` with an optional custom title, closed by `:::`.
-- Numbered academic environments: `::: theorem` / `definition` / `example` / `exercise` (auto-numbered per chapter, e.g. "Theorem 3.1"; an optional name after the type is shown in parentheses).
+- Academic environments: `::: theorem` / `definition` / `example` / `exercise` with an optional name after the type — write numbers yourself when you want them (`::: theorem 3.1 Cauchy` renders as "Theorem 3.1 Cauchy").
 - Manual page breaks: a paragraph containing only `\pagebreak` (or `\newpage`).
 - Standard Markdown images.
 

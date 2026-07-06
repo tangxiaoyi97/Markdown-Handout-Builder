@@ -117,11 +117,13 @@ const tocDepth = Math.min(3, Math.max(1, Number(tocCfg.depth) || 2));
 
 /* ---------- 标签与自定义容器 ---------- */
 
+// 设计原则：工具不生成任何内容编号——编号属于内容，由作者直接写在
+// 标题、环境名称、图注或公式 \tag 里，Markdown 所见即所得。
+//
 // 内置标签只有英文默认值——不内置任何其他语言包，任何语言的显示文本
 // 都通过 book.yml 的 labels 逐项定义。labels 里的"新键"会注册为自定义
-// 容器（::: key）：字符串值 → 提示（tip）样式的告示块，渲染时附加
-// admonition-custom admonition-<key> class 供 custom CSS 定制；
-// 对象值 { text, numbered: true } → 按章编号的学术环境（env-<key>）。
+// 容器（::: key）：提示（tip）样式的告示块，渲染时附加
+// admonition-custom admonition-<key> class 供 custom CSS 定制。
 const DEFAULT_LABELS = {
   note: "Note",
   tip: "Tip",
@@ -130,25 +132,20 @@ const DEFAULT_LABELS = {
   theorem: "Theorem",
   definition: "Definition",
   example: "Example",
-  exercise: "Exercise",
-  figure: "Figure"
+  exercise: "Exercise"
 };
 const BUILTIN_ADMONITIONS = ["note", "tip", "warning", "danger"];
 const BUILTIN_ENVS = ["theorem", "definition", "example", "exercise"];
 const RESERVED_CONTAINER_KEYS = new Set([
   ...BUILTIN_ADMONITIONS,
   ...BUILTIN_ENVS,
-  "figure",
   "pagebreak"
 ]);
 
 const labels = { ...DEFAULT_LABELS };
 const customContainers = [];
 for (const [key, raw] of Object.entries(book.labels ?? {})) {
-  const value =
-    raw && typeof raw === "object" && !Array.isArray(raw) ? raw : { text: raw };
-  const text =
-    value.text === undefined || value.text === null ? "" : String(value.text);
+  const text = raw === undefined || raw === null ? "" : String(raw);
 
   if (RESERVED_CONTAINER_KEYS.has(key)) {
     if (text) labels[key] = text;
@@ -156,16 +153,8 @@ for (const [key, raw] of Object.entries(book.labels ?? {})) {
   }
   // 新键作为容器名与 CSS class，必须是安全的 ASCII 标识符（check 会报错，此处兜底）
   if (!/^[A-Za-z][A-Za-z0-9_-]*$/.test(key)) continue;
-  customContainers.push({ key, text: text || key, numbered: value.numbered === true });
+  customContainers.push({ key, text: text || key });
 }
-
-// 编号：环境（定理/定义/例/练习）默认开启；图与公式默认关闭（避免
-// 改变既有文档的输出），按章编号（3.1）为默认，可切换为全书连续。
-const numberingCfg = book.numbering ?? {};
-const numberEnvs = numberingCfg.theorems ?? true;
-const numberFigures = numberingCfg.figures ?? false;
-const numberEquations = numberingCfg.equations ?? false;
-const numberingPerChapter = numberingCfg.per_chapter ?? true;
 
 const styleBase = book.style ?? {};
 const pdfBase = book.pdf ?? {};
@@ -451,20 +440,6 @@ function buildTheme(theme) {
 
   const tocEntries = [];
 
-  // 编号计数器：按章编号时在每章开始前重置（章节顺序渲染，闭包状态安全）
-  const counters = Object.create(null);
-  let currentChapterNo = 0;
-  const nextNumber = (key) => {
-    counters[key] = (counters[key] ?? 0) + 1;
-    return numberingPerChapter
-      ? `${currentChapterNo}.${counters[key]}`
-      : String(counters[key]);
-  };
-  const resetCounters = () => {
-    for (const key of Object.keys(counters)) counters[key] = 0;
-  };
-  const anchorId = (type, no) => `${type}-${no.replaceAll(".", "-")}`;
-
   const md = new MarkdownIt({
     html: false, // 禁止 Markdown 原始 HTML
     linkify: true,
@@ -490,12 +465,14 @@ function buildTheme(theme) {
   md.use(markPlugin); // ==高亮== → <mark>
   md.use(footnotePlugin); // 脚注 [^1]
 
-  // 告示块：内置四类 + labels 定义的自定义容器（非编号，默认提示样式）
+  // 告示块：内置四类 + labels 定义的自定义容器（默认提示样式）
   const admonitionDefs = [
     ...BUILTIN_ADMONITIONS.map((key) => ({ key, extraClass: "" })),
-    ...customContainers
-      .filter((c) => !c.numbered)
-      .map((c) => ({ key: c.key, extraClass: " admonition-custom", text: c.text }))
+    ...customContainers.map((c) => ({
+      key: c.key,
+      extraClass: " admonition-custom",
+      text: c.text
+    }))
   ];
   for (const def of admonitionDefs) {
     md.use(containerPlugin, def.key, {
@@ -514,32 +491,21 @@ function buildTheme(theme) {
     });
   }
 
-  // 学术环境：内置四类 + labels 定义的编号容器（{ text, numbered: true }）。
-  // 默认按章自动编号（"Theorem 3.1"），numbering.theorems: false 关闭编号。
-  const envDefs = [
-    ...BUILTIN_ENVS.map((key) => ({ key, extraClass: "" })),
-    ...customContainers
-      .filter((c) => c.numbered)
-      .map((c) => ({ key: c.key, extraClass: " env-custom", text: c.text }))
-  ];
-  for (const def of envDefs) {
-    md.use(containerPlugin, def.key, {
+  // 学术环境：::: theorem|definition|example|exercise [名称]。
+  // 不做任何自动编号——需要编号时作者直接写进名称，
+  // 例如 "::: theorem 3.1 柯西不等式" 渲染为 "Theorem 3.1 柯西不等式"。
+  for (const envType of BUILTIN_ENVS) {
+    md.use(containerPlugin, envType, {
       render(tokens, idx) {
         const token = tokens[idx];
         if (token.nesting === 1) {
-          const name = token.info.trim().slice(def.key.length).trim();
-          let labelText = def.text || labels[def.key] || def.key;
-          let anchor = "";
-          if (numberEnvs) {
-            const no = nextNumber(def.key);
-            labelText += ` ${no}`;
-            anchor = ` id="${anchorId(def.key, no)}"`;
-          }
+          const name = token.info.trim().slice(envType.length).trim();
+          const labelText = labels[envType] || envType;
           const nameHtml = name
-            ? ` <span class="env-name">(${escapeHtml(name)})</span>`
+            ? ` <span class="env-name">${escapeHtml(name)}</span>`
             : "";
           return (
-            `<div class="env${def.extraClass} env-${def.key}"${anchor}>\n` +
+            `<div class="env env-${envType}">\n` +
             `<p class="env-title"><span class="env-label">${escapeHtml(labelText)}</span>${nameHtml}</p>\n`
           );
         }
@@ -548,25 +514,7 @@ function buildTheme(theme) {
     });
   }
 
-  md.use(katexPlugin, { throwOnError: false, errorColor: "#cc0000" }); // $...$ / $$...$$
-
-  // 块级公式编号：注入 \tag{N.M}；已手写 \tag 的公式跳过。
-  // 必须在 katexPlugin 注册之后包装，否则 math_block 规则尚不存在。
-  if (numberEquations) {
-    const defaultMathBlock = md.renderer.rules.math_block;
-    if (defaultMathBlock) {
-      md.renderer.rules.math_block = (tokens, idx, options, env, self) => {
-        const token = tokens[idx];
-        if (!/\\tag\b/.test(token.content)) {
-          const no = nextNumber("equation");
-          token.content = `${token.content.trim()} \\tag{${no}}`;
-          const rendered = defaultMathBlock(tokens, idx, options, env, self);
-          return `<div class="eq-block" id="${anchorId("eq", no)}">${rendered}</div>\n`;
-        }
-        return defaultMathBlock(tokens, idx, options, env, self);
-      };
-    }
-  }
+  md.use(katexPlugin, { throwOnError: false, errorColor: "#cc0000" }); // $...$ / $$...$$（公式编号请用 KaTeX 原生 \tag{...}）
   md.use(anchorPlugin, {
     slugify: uniqueSlug,
     callback: (token, info) => {
@@ -701,16 +649,6 @@ function buildTheme(theme) {
         const capText = new Token("text", "", 0);
         capText.content = captionText;
         capInline.children = [capText];
-
-        // 图表编号（numbering.figures）：仅对带图注的 figure 编号
-        if (numberFigures) {
-          const no = nextNumber("figure");
-          const labelToken = new Token("html_inline", "", 0);
-          labelToken.content = `<span class="fig-label">${escapeHtml(labels.figure)} ${no}</span> `;
-          capInline.children = [labelToken, capText];
-          open.attrSet("id", anchorId("figure", no));
-        }
-
         const capClose = new Token("figcaption_close", "figcaption", -1);
         tokens.splice(i + 2, 0, capOpen, capInline, capClose);
         i += 3;
@@ -785,8 +723,6 @@ function buildTheme(theme) {
 
     // docId 用于给脚注 ID 加章节前缀，避免跨章节 ID 冲突
     const env = { docId: `ch${i + 1}`, chapterDir: path.dirname(absPath) };
-    currentChapterNo = i + 1;
-    if (numberingPerChapter) resetCounters();
     const bodyHtml = md.render(source, env);
     sections.push(
       `<section class="chapter" data-chapter="${i + 1}">\n${wrapWithRunningHeader(bodyHtml)}</section>`
