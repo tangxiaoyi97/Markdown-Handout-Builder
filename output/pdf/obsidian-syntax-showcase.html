@@ -1,0 +1,2117 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Obsidian Markdown</title>
+    <style>
+/* ===== KaTeX ===== */
+@font-face{font-display:block;font-family:KaTeX_AMS;font-style:normal;font-weight:400;src:url(assets/katex-fonts/KaTeX_AMS-Regular.woff2) format("woff2"),url(assets/katex-fonts/KaTeX_AMS-Regular.woff) format("woff"),url(assets/katex-fonts/KaTeX_AMS-Regular.ttf) format("truetype")}@font-face{font-display:block;font-family:KaTeX_Caligraphic;font-style:normal;font-weight:700;src:url(assets/katex-fonts/KaTeX_Caligraphic-Bold.woff2) format("woff2"),url(assets/katex-fonts/KaTeX_Caligraphic-Bold.woff) format("woff"),url(assets/katex-fonts/KaTeX_Caligraphic-Bold.ttf) format("truetype")}@font-face{font-display:block;font-family:KaTeX_Caligraphic;font-style:normal;font-weight:400;src:url(assets/katex-fonts/KaTeX_Caligraphic-Regular.woff2) format("woff2"),url(assets/katex-fonts/KaTeX_Caligraphic-Regular.woff) format("woff"),url(assets/katex-fonts/KaTeX_Caligraphic-Regular.ttf) format("truetype")}@font-face{font-display:block;font-family:KaTeX_Fraktur;font-style:normal;font-weight:700;src:url(assets/katex-fonts/KaTeX_Fraktur-Bold.woff2) format("woff2"),url(assets/katex-fonts/KaTeX_Fraktur-Bold.woff) format("woff"),url(assets/katex-fonts/KaTeX_Fraktur-Bold.ttf) format("truetype")}@font-face{font-display:block;font-family:KaTeX_Fraktur;font-style:normal;font-weight:400;src:url(assets/katex-fonts/KaTeX_Fraktur-Regular.woff2) format("woff2"),url(assets/katex-fonts/KaTeX_Fraktur-Regular.woff) format("woff"),url(assets/katex-fonts/KaTeX_Fraktur-Regular.ttf) format("truetype")}@font-face{font-display:block;font-family:KaTeX_Main;font-style:normal;font-weight:700;src:url(assets/katex-fonts/KaTeX_Main-Bold.woff2) format("woff2"),url(assets/katex-fonts/KaTeX_Main-Bold.woff) format("woff"),url(assets/katex-fonts/KaTeX_Main-Bold.ttf) format("truetype")}@font-face{font-display:block;font-family:KaTeX_Main;font-style:italic;font-weight:700;src:url(assets/katex-fonts/KaTeX_Main-BoldItalic.woff2) format("woff2"),url(assets/katex-fonts/KaTeX_Main-BoldItalic.woff) format("woff"),url(assets/katex-fonts/KaTeX_Main-BoldItalic.ttf) format("truetype")}@font-face{font-display:block;font-family:KaTeX_Main;font-style:italic;font-weight:400;src:url(assets/katex-fonts/KaTeX_Main-Italic.woff2) format("woff2"),url(assets/katex-fonts/KaTeX_Main-Italic.woff) format("woff"),url(assets/katex-fonts/KaTeX_Main-Italic.ttf) format("truetype")}@font-face{font-display:block;font-family:KaTeX_Main;font-style:normal;font-weight:400;src:url(assets/katex-fonts/KaTeX_Main-Regular.woff2) format("woff2"),url(assets/katex-fonts/KaTeX_Main-Regular.woff) format("woff"),url(assets/katex-fonts/KaTeX_Main-Regular.ttf) format("truetype")}@font-face{font-display:block;font-family:KaTeX_Math;font-style:italic;font-weight:700;src:url(assets/katex-fonts/KaTeX_Math-BoldItalic.woff2) format("woff2"),url(assets/katex-fonts/KaTeX_Math-BoldItalic.woff) format("woff"),url(assets/katex-fonts/KaTeX_Math-BoldItalic.ttf) format("truetype")}@font-face{font-display:block;font-family:KaTeX_Math;font-style:italic;font-weight:400;src:url(assets/katex-fonts/KaTeX_Math-Italic.woff2) format("woff2"),url(assets/katex-fonts/KaTeX_Math-Italic.woff) format("woff"),url(assets/katex-fonts/KaTeX_Math-Italic.ttf) format("truetype")}@font-face{font-display:block;font-family:"KaTeX_SansSerif";font-style:normal;font-weight:700;src:url(assets/katex-fonts/KaTeX_SansSerif-Bold.woff2) format("woff2"),url(assets/katex-fonts/KaTeX_SansSerif-Bold.woff) format("woff"),url(assets/katex-fonts/KaTeX_SansSerif-Bold.ttf) format("truetype")}@font-face{font-display:block;font-family:"KaTeX_SansSerif";font-style:italic;font-weight:400;src:url(assets/katex-fonts/KaTeX_SansSerif-Italic.woff2) format("woff2"),url(assets/katex-fonts/KaTeX_SansSerif-Italic.woff) format("woff"),url(assets/katex-fonts/KaTeX_SansSerif-Italic.ttf) format("truetype")}@font-face{font-display:block;font-family:"KaTeX_SansSerif";font-style:normal;font-weight:400;src:url(assets/katex-fonts/KaTeX_SansSerif-Regular.woff2) format("woff2"),url(assets/katex-fonts/KaTeX_SansSerif-Regular.woff) format("woff"),url(assets/katex-fonts/KaTeX_SansSerif-Regular.ttf) format("truetype")}@font-face{font-display:block;font-family:KaTeX_Script;font-style:normal;font-weight:400;src:url(assets/katex-fonts/KaTeX_Script-Regular.woff2) format("woff2"),url(assets/katex-fonts/KaTeX_Script-Regular.woff) format("woff"),url(assets/katex-fonts/KaTeX_Script-Regular.ttf) format("truetype")}@font-face{font-display:block;font-family:KaTeX_Size1;font-style:normal;font-weight:400;src:url(assets/katex-fonts/KaTeX_Size1-Regular.woff2) format("woff2"),url(assets/katex-fonts/KaTeX_Size1-Regular.woff) format("woff"),url(assets/katex-fonts/KaTeX_Size1-Regular.ttf) format("truetype")}@font-face{font-display:block;font-family:KaTeX_Size2;font-style:normal;font-weight:400;src:url(assets/katex-fonts/KaTeX_Size2-Regular.woff2) format("woff2"),url(assets/katex-fonts/KaTeX_Size2-Regular.woff) format("woff"),url(assets/katex-fonts/KaTeX_Size2-Regular.ttf) format("truetype")}@font-face{font-display:block;font-family:KaTeX_Size3;font-style:normal;font-weight:400;src:url(assets/katex-fonts/KaTeX_Size3-Regular.woff2) format("woff2"),url(assets/katex-fonts/KaTeX_Size3-Regular.woff) format("woff"),url(assets/katex-fonts/KaTeX_Size3-Regular.ttf) format("truetype")}@font-face{font-display:block;font-family:KaTeX_Size4;font-style:normal;font-weight:400;src:url(assets/katex-fonts/KaTeX_Size4-Regular.woff2) format("woff2"),url(assets/katex-fonts/KaTeX_Size4-Regular.woff) format("woff"),url(assets/katex-fonts/KaTeX_Size4-Regular.ttf) format("truetype")}@font-face{font-display:block;font-family:KaTeX_Typewriter;font-style:normal;font-weight:400;src:url(assets/katex-fonts/KaTeX_Typewriter-Regular.woff2) format("woff2"),url(assets/katex-fonts/KaTeX_Typewriter-Regular.woff) format("woff"),url(assets/katex-fonts/KaTeX_Typewriter-Regular.ttf) format("truetype")}.katex{font:normal 1.21em KaTeX_Main,Times New Roman,serif;line-height:1.2;position:relative;text-indent:0;text-rendering:auto}.katex *{-ms-high-contrast-adjust:none!important;border-color:currentColor}.katex .katex-version:after{content:"0.16.47"}.katex .katex-mathml{border:0;-webkit-clip-path:inset(50%);clip-path:inset(50%);height:1px;overflow:hidden;padding:0;position:absolute;width:1px}.katex .katex-html>.newline{display:block}.katex .base{position:relative;white-space:nowrap;width:-webkit-min-content;width:-moz-min-content;width:min-content}.katex .base,.katex .strut{display:inline-block}.katex .textbf{font-weight:700}.katex .textit{font-style:italic}.katex .textrm{font-family:KaTeX_Main}.katex .textsf{font-family:KaTeX_SansSerif}.katex .texttt{font-family:KaTeX_Typewriter}.katex .mathnormal{font-family:KaTeX_Math;font-style:italic}.katex .mathit{font-family:KaTeX_Main;font-style:italic}.katex .mathrm{font-style:normal}.katex .mathbf{font-family:KaTeX_Main;font-weight:700}.katex .boldsymbol{font-family:KaTeX_Math;font-style:italic;font-weight:700}.katex .amsrm,.katex .mathbb,.katex .textbb{font-family:KaTeX_AMS}.katex .mathcal{font-family:KaTeX_Caligraphic}.katex .mathfrak,.katex .textfrak{font-family:KaTeX_Fraktur}.katex .mathboldfrak,.katex .textboldfrak{font-family:KaTeX_Fraktur;font-weight:700}.katex .mathtt{font-family:KaTeX_Typewriter}.katex .mathscr,.katex .textscr{font-family:KaTeX_Script}.katex .mathsf,.katex .textsf{font-family:KaTeX_SansSerif}.katex .mathboldsf,.katex .textboldsf{font-family:KaTeX_SansSerif;font-weight:700}.katex .mathitsf,.katex .mathsfit,.katex .textitsf{font-family:KaTeX_SansSerif;font-style:italic}.katex .mainrm{font-family:KaTeX_Main;font-style:normal}.katex .vlist-t{border-collapse:collapse;display:inline-table;table-layout:fixed}.katex .vlist-r{display:table-row}.katex .vlist{display:table-cell;position:relative;vertical-align:bottom}.katex .vlist>span{display:block;height:0;position:relative}.katex .vlist>span>span{display:inline-block}.katex .vlist>span>.pstrut{overflow:hidden;width:0}.katex .vlist-t2{margin-right:-2px}.katex .vlist-s{display:table-cell;font-size:1px;min-width:2px;vertical-align:bottom;width:2px}.katex .vbox{align-items:baseline;display:inline-flex;flex-direction:column}.katex .hbox{width:100%}.katex .hbox,.katex .thinbox{display:inline-flex;flex-direction:row}.katex .thinbox{max-width:0;width:0}.katex .msupsub{text-align:left}.katex .mfrac>span>span{text-align:center}.katex .mfrac .frac-line{border-bottom-style:solid;display:inline-block;width:100%}.katex .hdashline,.katex .hline,.katex .mfrac .frac-line,.katex .overline .overline-line,.katex .rule,.katex .underline .underline-line{min-height:1px}.katex .mspace{display:inline-block}.katex .smash{display:inline;line-height:0}.katex .clap,.katex .llap,.katex .rlap{position:relative;width:0}.katex .clap>.inner,.katex .llap>.inner,.katex .rlap>.inner{position:absolute}.katex .clap>.fix,.katex .llap>.fix,.katex .rlap>.fix{display:inline-block}.katex .llap>.inner{right:0}.katex .clap>.inner,.katex .rlap>.inner{left:0}.katex .clap>.inner>span{margin-left:-50%;margin-right:50%}.katex .rule{border:0 solid;display:inline-block;position:relative}.katex .hline,.katex .overline .overline-line,.katex .underline .underline-line{border-bottom-style:solid;display:inline-block;width:100%}.katex .hdashline{border-bottom-style:dashed;display:inline-block;width:100%}.katex .sqrt>.root{margin-left:.2777777778em;margin-right:-.5555555556em}.katex .fontsize-ensurer.reset-size1.size1,.katex .sizing.reset-size1.size1{font-size:1em}.katex .fontsize-ensurer.reset-size1.size2,.katex .sizing.reset-size1.size2{font-size:1.2em}.katex .fontsize-ensurer.reset-size1.size3,.katex .sizing.reset-size1.size3{font-size:1.4em}.katex .fontsize-ensurer.reset-size1.size4,.katex .sizing.reset-size1.size4{font-size:1.6em}.katex .fontsize-ensurer.reset-size1.size5,.katex .sizing.reset-size1.size5{font-size:1.8em}.katex .fontsize-ensurer.reset-size1.size6,.katex .sizing.reset-size1.size6{font-size:2em}.katex .fontsize-ensurer.reset-size1.size7,.katex .sizing.reset-size1.size7{font-size:2.4em}.katex .fontsize-ensurer.reset-size1.size8,.katex .sizing.reset-size1.size8{font-size:2.88em}.katex .fontsize-ensurer.reset-size1.size9,.katex .sizing.reset-size1.size9{font-size:3.456em}.katex .fontsize-ensurer.reset-size1.size10,.katex .sizing.reset-size1.size10{font-size:4.148em}.katex .fontsize-ensurer.reset-size1.size11,.katex .sizing.reset-size1.size11{font-size:4.976em}.katex .fontsize-ensurer.reset-size2.size1,.katex .sizing.reset-size2.size1{font-size:.8333333333em}.katex .fontsize-ensurer.reset-size2.size2,.katex .sizing.reset-size2.size2{font-size:1em}.katex .fontsize-ensurer.reset-size2.size3,.katex .sizing.reset-size2.size3{font-size:1.1666666667em}.katex .fontsize-ensurer.reset-size2.size4,.katex .sizing.reset-size2.size4{font-size:1.3333333333em}.katex .fontsize-ensurer.reset-size2.size5,.katex .sizing.reset-size2.size5{font-size:1.5em}.katex .fontsize-ensurer.reset-size2.size6,.katex .sizing.reset-size2.size6{font-size:1.6666666667em}.katex .fontsize-ensurer.reset-size2.size7,.katex .sizing.reset-size2.size7{font-size:2em}.katex .fontsize-ensurer.reset-size2.size8,.katex .sizing.reset-size2.size8{font-size:2.4em}.katex .fontsize-ensurer.reset-size2.size9,.katex .sizing.reset-size2.size9{font-size:2.88em}.katex .fontsize-ensurer.reset-size2.size10,.katex .sizing.reset-size2.size10{font-size:3.4566666667em}.katex .fontsize-ensurer.reset-size2.size11,.katex .sizing.reset-size2.size11{font-size:4.1466666667em}.katex .fontsize-ensurer.reset-size3.size1,.katex .sizing.reset-size3.size1{font-size:.7142857143em}.katex .fontsize-ensurer.reset-size3.size2,.katex .sizing.reset-size3.size2{font-size:.8571428571em}.katex .fontsize-ensurer.reset-size3.size3,.katex .sizing.reset-size3.size3{font-size:1em}.katex .fontsize-ensurer.reset-size3.size4,.katex .sizing.reset-size3.size4{font-size:1.1428571429em}.katex .fontsize-ensurer.reset-size3.size5,.katex .sizing.reset-size3.size5{font-size:1.2857142857em}.katex .fontsize-ensurer.reset-size3.size6,.katex .sizing.reset-size3.size6{font-size:1.4285714286em}.katex .fontsize-ensurer.reset-size3.size7,.katex .sizing.reset-size3.size7{font-size:1.7142857143em}.katex .fontsize-ensurer.reset-size3.size8,.katex .sizing.reset-size3.size8{font-size:2.0571428571em}.katex .fontsize-ensurer.reset-size3.size9,.katex .sizing.reset-size3.size9{font-size:2.4685714286em}.katex .fontsize-ensurer.reset-size3.size10,.katex .sizing.reset-size3.size10{font-size:2.9628571429em}.katex .fontsize-ensurer.reset-size3.size11,.katex .sizing.reset-size3.size11{font-size:3.5542857143em}.katex .fontsize-ensurer.reset-size4.size1,.katex .sizing.reset-size4.size1{font-size:.625em}.katex .fontsize-ensurer.reset-size4.size2,.katex .sizing.reset-size4.size2{font-size:.75em}.katex .fontsize-ensurer.reset-size4.size3,.katex .sizing.reset-size4.size3{font-size:.875em}.katex .fontsize-ensurer.reset-size4.size4,.katex .sizing.reset-size4.size4{font-size:1em}.katex .fontsize-ensurer.reset-size4.size5,.katex .sizing.reset-size4.size5{font-size:1.125em}.katex .fontsize-ensurer.reset-size4.size6,.katex .sizing.reset-size4.size6{font-size:1.25em}.katex .fontsize-ensurer.reset-size4.size7,.katex .sizing.reset-size4.size7{font-size:1.5em}.katex .fontsize-ensurer.reset-size4.size8,.katex .sizing.reset-size4.size8{font-size:1.8em}.katex .fontsize-ensurer.reset-size4.size9,.katex .sizing.reset-size4.size9{font-size:2.16em}.katex .fontsize-ensurer.reset-size4.size10,.katex .sizing.reset-size4.size10{font-size:2.5925em}.katex .fontsize-ensurer.reset-size4.size11,.katex .sizing.reset-size4.size11{font-size:3.11em}.katex .fontsize-ensurer.reset-size5.size1,.katex .sizing.reset-size5.size1{font-size:.5555555556em}.katex .fontsize-ensurer.reset-size5.size2,.katex .sizing.reset-size5.size2{font-size:.6666666667em}.katex .fontsize-ensurer.reset-size5.size3,.katex .sizing.reset-size5.size3{font-size:.7777777778em}.katex .fontsize-ensurer.reset-size5.size4,.katex .sizing.reset-size5.size4{font-size:.8888888889em}.katex .fontsize-ensurer.reset-size5.size5,.katex .sizing.reset-size5.size5{font-size:1em}.katex .fontsize-ensurer.reset-size5.size6,.katex .sizing.reset-size5.size6{font-size:1.1111111111em}.katex .fontsize-ensurer.reset-size5.size7,.katex .sizing.reset-size5.size7{font-size:1.3333333333em}.katex .fontsize-ensurer.reset-size5.size8,.katex .sizing.reset-size5.size8{font-size:1.6em}.katex .fontsize-ensurer.reset-size5.size9,.katex .sizing.reset-size5.size9{font-size:1.92em}.katex .fontsize-ensurer.reset-size5.size10,.katex .sizing.reset-size5.size10{font-size:2.3044444444em}.katex .fontsize-ensurer.reset-size5.size11,.katex .sizing.reset-size5.size11{font-size:2.7644444444em}.katex .fontsize-ensurer.reset-size6.size1,.katex .sizing.reset-size6.size1{font-size:.5em}.katex .fontsize-ensurer.reset-size6.size2,.katex .sizing.reset-size6.size2{font-size:.6em}.katex .fontsize-ensurer.reset-size6.size3,.katex .sizing.reset-size6.size3{font-size:.7em}.katex .fontsize-ensurer.reset-size6.size4,.katex .sizing.reset-size6.size4{font-size:.8em}.katex .fontsize-ensurer.reset-size6.size5,.katex .sizing.reset-size6.size5{font-size:.9em}.katex .fontsize-ensurer.reset-size6.size6,.katex .sizing.reset-size6.size6{font-size:1em}.katex .fontsize-ensurer.reset-size6.size7,.katex .sizing.reset-size6.size7{font-size:1.2em}.katex .fontsize-ensurer.reset-size6.size8,.katex .sizing.reset-size6.size8{font-size:1.44em}.katex .fontsize-ensurer.reset-size6.size9,.katex .sizing.reset-size6.size9{font-size:1.728em}.katex .fontsize-ensurer.reset-size6.size10,.katex .sizing.reset-size6.size10{font-size:2.074em}.katex .fontsize-ensurer.reset-size6.size11,.katex .sizing.reset-size6.size11{font-size:2.488em}.katex .fontsize-ensurer.reset-size7.size1,.katex .sizing.reset-size7.size1{font-size:.4166666667em}.katex .fontsize-ensurer.reset-size7.size2,.katex .sizing.reset-size7.size2{font-size:.5em}.katex .fontsize-ensurer.reset-size7.size3,.katex .sizing.reset-size7.size3{font-size:.5833333333em}.katex .fontsize-ensurer.reset-size7.size4,.katex .sizing.reset-size7.size4{font-size:.6666666667em}.katex .fontsize-ensurer.reset-size7.size5,.katex .sizing.reset-size7.size5{font-size:.75em}.katex .fontsize-ensurer.reset-size7.size6,.katex .sizing.reset-size7.size6{font-size:.8333333333em}.katex .fontsize-ensurer.reset-size7.size7,.katex .sizing.reset-size7.size7{font-size:1em}.katex .fontsize-ensurer.reset-size7.size8,.katex .sizing.reset-size7.size8{font-size:1.2em}.katex .fontsize-ensurer.reset-size7.size9,.katex .sizing.reset-size7.size9{font-size:1.44em}.katex .fontsize-ensurer.reset-size7.size10,.katex .sizing.reset-size7.size10{font-size:1.7283333333em}.katex .fontsize-ensurer.reset-size7.size11,.katex .sizing.reset-size7.size11{font-size:2.0733333333em}.katex .fontsize-ensurer.reset-size8.size1,.katex .sizing.reset-size8.size1{font-size:.3472222222em}.katex .fontsize-ensurer.reset-size8.size2,.katex .sizing.reset-size8.size2{font-size:.4166666667em}.katex .fontsize-ensurer.reset-size8.size3,.katex .sizing.reset-size8.size3{font-size:.4861111111em}.katex .fontsize-ensurer.reset-size8.size4,.katex .sizing.reset-size8.size4{font-size:.5555555556em}.katex .fontsize-ensurer.reset-size8.size5,.katex .sizing.reset-size8.size5{font-size:.625em}.katex .fontsize-ensurer.reset-size8.size6,.katex .sizing.reset-size8.size6{font-size:.6944444444em}.katex .fontsize-ensurer.reset-size8.size7,.katex .sizing.reset-size8.size7{font-size:.8333333333em}.katex .fontsize-ensurer.reset-size8.size8,.katex .sizing.reset-size8.size8{font-size:1em}.katex .fontsize-ensurer.reset-size8.size9,.katex .sizing.reset-size8.size9{font-size:1.2em}.katex .fontsize-ensurer.reset-size8.size10,.katex .sizing.reset-size8.size10{font-size:1.4402777778em}.katex .fontsize-ensurer.reset-size8.size11,.katex .sizing.reset-size8.size11{font-size:1.7277777778em}.katex .fontsize-ensurer.reset-size9.size1,.katex .sizing.reset-size9.size1{font-size:.2893518519em}.katex .fontsize-ensurer.reset-size9.size2,.katex .sizing.reset-size9.size2{font-size:.3472222222em}.katex .fontsize-ensurer.reset-size9.size3,.katex .sizing.reset-size9.size3{font-size:.4050925926em}.katex .fontsize-ensurer.reset-size9.size4,.katex .sizing.reset-size9.size4{font-size:.462962963em}.katex .fontsize-ensurer.reset-size9.size5,.katex .sizing.reset-size9.size5{font-size:.5208333333em}.katex .fontsize-ensurer.reset-size9.size6,.katex .sizing.reset-size9.size6{font-size:.5787037037em}.katex .fontsize-ensurer.reset-size9.size7,.katex .sizing.reset-size9.size7{font-size:.6944444444em}.katex .fontsize-ensurer.reset-size9.size8,.katex .sizing.reset-size9.size8{font-size:.8333333333em}.katex .fontsize-ensurer.reset-size9.size9,.katex .sizing.reset-size9.size9{font-size:1em}.katex .fontsize-ensurer.reset-size9.size10,.katex .sizing.reset-size9.size10{font-size:1.2002314815em}.katex .fontsize-ensurer.reset-size9.size11,.katex .sizing.reset-size9.size11{font-size:1.4398148148em}.katex .fontsize-ensurer.reset-size10.size1,.katex .sizing.reset-size10.size1{font-size:.2410800386em}.katex .fontsize-ensurer.reset-size10.size2,.katex .sizing.reset-size10.size2{font-size:.2892960463em}.katex .fontsize-ensurer.reset-size10.size3,.katex .sizing.reset-size10.size3{font-size:.337512054em}.katex .fontsize-ensurer.reset-size10.size4,.katex .sizing.reset-size10.size4{font-size:.3857280617em}.katex .fontsize-ensurer.reset-size10.size5,.katex .sizing.reset-size10.size5{font-size:.4339440694em}.katex .fontsize-ensurer.reset-size10.size6,.katex .sizing.reset-size10.size6{font-size:.4821600771em}.katex .fontsize-ensurer.reset-size10.size7,.katex .sizing.reset-size10.size7{font-size:.5785920926em}.katex .fontsize-ensurer.reset-size10.size8,.katex .sizing.reset-size10.size8{font-size:.6943105111em}.katex .fontsize-ensurer.reset-size10.size9,.katex .sizing.reset-size10.size9{font-size:.8331726133em}.katex .fontsize-ensurer.reset-size10.size10,.katex .sizing.reset-size10.size10{font-size:1em}.katex .fontsize-ensurer.reset-size10.size11,.katex .sizing.reset-size10.size11{font-size:1.1996142719em}.katex .fontsize-ensurer.reset-size11.size1,.katex .sizing.reset-size11.size1{font-size:.2009646302em}.katex .fontsize-ensurer.reset-size11.size2,.katex .sizing.reset-size11.size2{font-size:.2411575563em}.katex .fontsize-ensurer.reset-size11.size3,.katex .sizing.reset-size11.size3{font-size:.2813504823em}.katex .fontsize-ensurer.reset-size11.size4,.katex .sizing.reset-size11.size4{font-size:.3215434084em}.katex .fontsize-ensurer.reset-size11.size5,.katex .sizing.reset-size11.size5{font-size:.3617363344em}.katex .fontsize-ensurer.reset-size11.size6,.katex .sizing.reset-size11.size6{font-size:.4019292605em}.katex .fontsize-ensurer.reset-size11.size7,.katex .sizing.reset-size11.size7{font-size:.4823151125em}.katex .fontsize-ensurer.reset-size11.size8,.katex .sizing.reset-size11.size8{font-size:.578778135em}.katex .fontsize-ensurer.reset-size11.size9,.katex .sizing.reset-size11.size9{font-size:.6945337621em}.katex .fontsize-ensurer.reset-size11.size10,.katex .sizing.reset-size11.size10{font-size:.8336012862em}.katex .fontsize-ensurer.reset-size11.size11,.katex .sizing.reset-size11.size11{font-size:1em}.katex .delimsizing.size1{font-family:KaTeX_Size1}.katex .delimsizing.size2{font-family:KaTeX_Size2}.katex .delimsizing.size3{font-family:KaTeX_Size3}.katex .delimsizing.size4{font-family:KaTeX_Size4}.katex .delimsizing.mult .delim-size1>span{font-family:KaTeX_Size1}.katex .delimsizing.mult .delim-size4>span{font-family:KaTeX_Size4}.katex .nulldelimiter{display:inline-block;width:.12em}.katex .delimcenter,.katex .op-symbol{position:relative}.katex .op-symbol.small-op{font-family:KaTeX_Size1}.katex .op-symbol.large-op{font-family:KaTeX_Size2}.katex .accent>.vlist-t,.katex .op-limits>.vlist-t{text-align:center}.katex .accent .accent-body{position:relative}.katex .accent .accent-body:not(.accent-full){width:0}.katex .overlay{display:block}.katex .mtable .vertical-separator{display:inline-block;min-width:1px}.katex .mtable .arraycolsep{display:inline-block}.katex .mtable .col-align-c>.vlist-t{text-align:center}.katex .mtable .col-align-l>.vlist-t{text-align:left}.katex .mtable .col-align-r>.vlist-t{text-align:right}.katex .svg-align{text-align:left}.katex svg{fill:currentColor;stroke:currentColor;display:block;height:inherit;position:absolute;width:100%}.katex svg path{stroke:none}.katex svg{fill-rule:nonzero;fill-opacity:1;stroke-width:1;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1}.katex img{border-style:none;max-height:none;max-width:none;min-height:0;min-width:0}.katex .stretchy{display:block;overflow:hidden;position:relative;width:100%}.katex .stretchy:after,.katex .stretchy:before{content:""}.katex .hide-tail{overflow:hidden;position:relative;width:100%}.katex .halfarrow-left{left:0;overflow:hidden;position:absolute;width:50.2%}.katex .halfarrow-right{overflow:hidden;position:absolute;right:0;width:50.2%}.katex .brace-left{left:0;overflow:hidden;position:absolute;width:25.1%}.katex .brace-center{left:25%;overflow:hidden;position:absolute;width:50%}.katex .brace-right{overflow:hidden;position:absolute;right:0;width:25.1%}.katex .x-arrow-pad{padding:0 .5em}.katex .cd-arrow-pad{padding:0 .55556em 0 .27778em}.katex .mover,.katex .munder,.katex .x-arrow{text-align:center}.katex .boxpad{padding:0 .3em}.katex .fbox,.katex .fcolorbox{border:.04em solid;box-sizing:border-box}.katex .cancel-pad{padding:0 .2em}.katex .cancel-lap{margin-left:-.2em;margin-right:-.2em}.katex .sout{border-bottom-style:solid;border-bottom-width:.08em}.katex .angl{border-right:.049em solid;border-top:.049em solid;box-sizing:border-box;margin-right:.03889em}.katex .anglpad{padding:0 .03889em}.katex .eqn-num:before{content:"(" counter(katexEqnNo) ")";counter-increment:katexEqnNo}.katex .mml-eqn-num:before{content:"(" counter(mmlEqnNo) ")";counter-increment:mmlEqnNo}.katex .mtr-glue{width:50%}.katex .cd-vert-arrow{display:inline-block;position:relative}.katex .cd-label-left{display:inline-block;position:absolute;right:calc(50% + .3em);text-align:left}.katex .cd-label-right{display:inline-block;left:calc(50% + .3em);position:absolute;text-align:right}.katex-display{display:block;margin:1em 0;text-align:center}.katex-display>.katex{display:block;text-align:center;white-space:nowrap}.katex-display>.katex>.katex-html{display:block;position:relative}.katex-display>.katex>.katex-html>.tag{position:absolute;right:0}.katex-display.leqno>.katex>.katex-html>.tag{left:0;right:auto}.katex-display.fleqn>.katex{padding-left:2em;text-align:left}body{counter-reset:katexEqnNo mmlEqnNo}
+
+/* ===== print.css ===== */
+/* =========================================================
+   print.css
+   Shared styles for screen reading and print/PDF output.
+   This file is inlined into dist/handout.html during build.
+   ========================================================= */
+
+/* ---------- Page setup for print / PDF ---------- */
+@page {
+  size: A4;
+  margin: 18mm 16mm 20mm 16mm;
+}
+
+/* The cover and named back-cover page use zero page margin so
+   backgrounds can bleed to the page edge. Content is positioned by
+   .cover / .back-cover padding in the print rules. */
+@page :first {
+  margin: 0;
+}
+
+@page hb-backcover {
+  margin: 0;
+}
+
+/* ---------- Theme variables, overridable from book.yml style ---------- */
+:root {
+  --hb-accent: #111111;          /* Links and primary buttons (monochrome default) */
+  --hb-content-width: 860px;     /* Max screen reading width */
+  --hb-base-font-size: 16px;     /* Screen font size */
+  --hb-print-font-size: 11pt;    /* PDF / print font size */
+
+  /* Font stacks, overridable from book.yml style.fonts */
+  --hb-font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, "PingFang SC", "Hiragino Sans GB",
+    "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+  --hb-font-heading: var(--hb-font-body);
+  --hb-font-code: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+    "Liberation Mono", monospace;
+
+  /* Mirror values for @page margins. pdf.margin overrides them so
+     cover/back-cover content can be positioned on zero-margin pages. */
+  --hb-page-margin-top: 18mm;
+  --hb-page-margin-right: 16mm;
+  --hb-page-margin-bottom: 20mm;
+  --hb-page-margin-left: 16mm;
+
+  /* ---------- Palette (light defaults) ----------
+     Themes override these variables. Dark themes must scope their
+     overrides to screen + html.mhb-pdf print (see theme-dark.css):
+     regular browser printing always falls back to this light palette,
+     because the browser's print canvas (page margins) is always white
+     and cannot be painted from CSS. */
+  --hb-bg-page: #f2f3f5;         /* Screen canvas around the book */
+  --hb-bg-print: #ffffff;        /* Print page background */
+  --hb-surface: #ffffff;         /* Book card and toolbar */
+  --hb-fg: #1f2328;
+  --hb-fg-muted: #57606a;
+  --hb-border: #e4e7eb;
+  --hb-border-strong: #d0d7de;
+  --hb-heading-rule: #d8dee4;
+  --hb-btn-bg: #f6f8fa;
+  --hb-btn-hover: #eef1f4;
+  --hb-btn-primary-fg: #ffffff;
+  --hb-code-bg: #eff1f3;
+  --hb-pre-bg: #f6f8fa;
+  --hb-quote-bg: #f8f9fa;
+  --hb-th-bg: #f6f8fa;
+  --hb-stripe: #fafbfc;
+  --hb-mark-bg: #fff1a8;
+  --hb-leader: #b6bec7;
+}
+
+/* ---------- Base ---------- */
+* {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--hb-font-body);
+  font-size: var(--hb-base-font-size);
+  line-height: 1.7;
+  color: var(--hb-fg);
+  background: var(--hb-bg-page);
+}
+
+/* ---------- Screen toolbar, hidden when printing ---------- */
+.screen-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  background: var(--hb-surface);
+  border-bottom: 1px solid var(--hb-border-strong);
+}
+
+.toolbar-title {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.spacer {
+  flex: 1;
+}
+
+.btn {
+  display: inline-block;
+  padding: 6px 14px;
+  border: 1px solid var(--hb-border-strong);
+  border-radius: 6px;
+  background: var(--hb-btn-bg);
+  color: var(--hb-fg);
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.4;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.btn:hover {
+  background: var(--hb-btn-hover);
+}
+
+.btn-primary {
+  background: var(--hb-accent);
+  border-color: var(--hb-accent);
+  color: var(--hb-btn-primary-fg);
+}
+
+.btn-primary:hover {
+  filter: brightness(0.92);
+}
+
+/* ---------- Book container ---------- */
+.book {
+  max-width: var(--hb-content-width);
+  margin: 24px auto 48px;
+  padding: 40px 48px 64px;
+  background: var(--hb-surface);
+  border: 1px solid var(--hb-border);
+  border-radius: 8px;
+}
+
+/* ---------- Cover / back cover ----------
+   Background and text color can be configured from book.yml cover /
+   back_cover. Solid colors and gradients are both supported. */
+.cover {
+  text-align: center;
+  padding: 72px 24px 48px;
+  background: var(--hb-cover-bg, transparent);
+  color: var(--hb-cover-color, inherit);
+}
+
+.back-cover {
+  margin-top: 48px;
+  padding: 96px 24px;
+  text-align: center;
+  background: var(--hb-back-bg, transparent);
+  color: var(--hb-back-color, inherit);
+}
+
+.back-cover-title {
+  font-size: 1.25em;
+  font-weight: 600;
+  margin: 0 0 8px;
+}
+
+.back-cover-meta {
+  margin: 4px 0;
+  opacity: 0.75;
+}
+
+.cover-title {
+  font-size: 2.4em;
+  margin: 0 0 12px;
+  border: none;
+  padding: 0;
+}
+
+.cover-subtitle {
+  font-size: 1.25em;
+  color: inherit;
+  opacity: 0.72;
+  margin: 0 0 32px;
+}
+
+.cover-authors,
+.cover-date,
+.cover-version {
+  color: inherit;
+  opacity: 0.72;
+  margin: 4px 0;
+}
+
+/* ---------- Table of contents ---------- */
+.toc {
+  margin: 24px 0 48px;
+}
+
+.toc-list,
+.toc-list ol {
+  list-style: none;
+  margin: 0;
+  padding-left: 0;
+}
+
+.toc-list ol {
+  padding-left: 1.6em;
+}
+
+.toc-list li {
+  margin: 6px 0;
+}
+
+.toc-list a {
+  color: var(--hb-accent);
+  text-decoration: none;
+}
+
+.toc-list a:hover {
+  text-decoration: underline;
+}
+
+/* TOC row: title + dotted leader + page number.
+   Page numbers are injected by render-pdf.mjs for official PDFs.
+   They stay hidden for screen reading and regular browser printing. */
+.toc-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.toc-title {
+  min-width: 0;
+}
+
+.toc-leader,
+.toc-page {
+  display: none;
+}
+
+body.toc-has-pages .toc-leader {
+  display: block;
+  flex: 1;
+  min-width: 24px;
+  align-self: flex-end;
+  margin-bottom: 5px;
+  border-bottom: 1px dotted var(--hb-leader);
+}
+
+body.toc-has-pages .toc-page {
+  display: inline-block;
+  color: var(--hb-fg-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Per-chapter mini table of contents ----------
+   Isolated from the main .toc so it can be styled independently. It reuses the
+   shared .toc-page[data-target] hook, so render-pdf fills it with real page
+   numbers in the same pass as the main TOC. */
+.chapter-toc {
+  margin: 0 0 1.6em;
+  padding: 12px 18px;
+  border: 1px solid var(--hb-border);
+  border-left: 3px solid var(--hb-border-strong);
+  border-radius: 0 6px 6px 0;
+  background: var(--hb-quote-bg);
+}
+
+.chapter-toc-heading {
+  margin: 0 0 6px;
+  font-size: 0.78em;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--hb-fg-muted);
+}
+
+.chapter-toc-list {
+  list-style: none;
+  margin: 0;
+  padding-left: 0;
+}
+
+.chapter-toc-list li {
+  margin: 3px 0;
+}
+
+.chapter-toc-l1 {
+  padding-left: 1.4em;
+}
+
+.chapter-toc-l2 {
+  padding-left: 2.8em;
+}
+
+.chapter-toc-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.chapter-toc-title {
+  min-width: 0;
+}
+
+.chapter-toc a {
+  color: var(--hb-accent);
+  text-decoration: none;
+}
+
+.chapter-toc a:hover {
+  text-decoration: underline;
+}
+
+.chapter-toc-leader,
+.chapter-toc .toc-page {
+  display: none;
+}
+
+body.toc-has-pages .chapter-toc-leader {
+  display: block;
+  flex: 1;
+  min-width: 24px;
+  align-self: flex-end;
+  margin-bottom: 5px;
+  border-bottom: 1px dotted var(--hb-leader);
+}
+
+body.toc-has-pages .chapter-toc .toc-page {
+  display: inline-block;
+  color: var(--hb-fg-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Raw-HTML insert page (a .html chapters entry) ---------- */
+.insert {
+  margin: 0;
+}
+
+/* ---------- Headings ---------- */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--hb-font-heading);
+}
+
+h1 {
+  font-size: 1.85em;
+  line-height: 1.3;
+  margin: 1.4em 0 0.6em;
+  padding-bottom: 0.3em;
+  border-bottom: 1px solid var(--hb-heading-rule);
+}
+
+h2 {
+  font-size: 1.45em;
+  line-height: 1.35;
+  margin: 1.4em 0 0.6em;
+}
+
+h3 {
+  font-size: 1.2em;
+  margin: 1.2em 0 0.5em;
+}
+
+h4,
+h5,
+h6 {
+  margin: 1.2em 0 0.5em;
+}
+
+.chapter > h1:first-child,
+.hb-sheet > tbody > tr > td > h1:first-child {
+  margin-top: 0.6em;
+}
+
+/* ---------- 网页打印运行页眉的包裹表格 ----------
+   每章 / 目录包一层单格表格，<thead> 在浏览器打印时逐页重复，
+   充当运行页眉（官方 PDF 管线用 html.mhb-pdf 隐藏它，改由
+   Chromium headerTemplate 在页边距区绘制，二者内容一致）。
+   包裹表格必须完全中性化：不吃数据表样式，也不参与防拆页规则。 */
+.hb-sheet {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0;
+}
+
+.hb-sheet > thead > tr > td,
+.hb-sheet > tbody > tr > td {
+  border: none;
+  padding: 0;
+  background: none;
+  text-align: inherit;
+}
+
+.hb-sheet > thead {
+  display: none;
+}
+
+/* ---------- Body elements ---------- */
+p {
+  margin: 0.75em 0;
+}
+
+a {
+  color: var(--hb-accent);
+}
+
+/* 黑白灰方案下正文链接需要形态提示：下划线（打印时统一去除） */
+.chapter a,
+.footnotes a {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Standalone images are wrapped as figure; the title becomes caption. */
+figure {
+  margin: 1.5em auto;
+  text-align: center;
+}
+
+figcaption {
+  font-size: 0.9em;
+  color: var(--hb-fg-muted);
+  margin-top: 8px;
+}
+
+code {
+  font-family: var(--hb-font-code);
+  font-size: 0.9em;
+  background: var(--hb-code-bg);
+  padding: 0.15em 0.4em;
+  border-radius: 4px;
+}
+
+pre {
+  background: var(--hb-pre-bg);
+  border: 1px solid var(--hb-border);
+  border-radius: 6px;
+  padding: 12px 16px;
+  overflow-x: auto;
+  line-height: 1.55;
+}
+
+pre code {
+  background: none;
+  padding: 0;
+  font-size: 0.88em;
+}
+
+/* ---------- Syntax highlighting (highlight.js token classes) ----------
+   Colors are variables so themes can override them; print keeps them
+   via print-color-adjust: exact. */
+.hljs-comment,
+.hljs-quote {
+  color: var(--hb-hl-comment, #6e7781);
+  font-style: italic;
+}
+
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-doctag,
+.hljs-template-tag {
+  color: var(--hb-hl-keyword, #cf222e);
+}
+
+.hljs-string,
+.hljs-regexp,
+.hljs-template-variable {
+  color: var(--hb-hl-string, #0a3069);
+}
+
+.hljs-number,
+.hljs-literal,
+.hljs-symbol,
+.hljs-bullet {
+  color: var(--hb-hl-number, #0550ae);
+}
+
+.hljs-title,
+.hljs-title.function_,
+.hljs-title.class_,
+.hljs-section,
+.hljs-name {
+  color: var(--hb-hl-title, #8250df);
+}
+
+.hljs-built_in,
+.hljs-type {
+  color: var(--hb-hl-type, #953800);
+}
+
+.hljs-attr,
+.hljs-attribute,
+.hljs-variable,
+.hljs-selector-attr,
+.hljs-selector-class,
+.hljs-selector-id {
+  color: var(--hb-hl-attr, #116329);
+}
+
+.hljs-meta,
+.hljs-meta .hljs-keyword {
+  color: var(--hb-hl-meta, #6639ba);
+}
+
+.hljs-addition {
+  color: var(--hb-hl-addition, #116329);
+}
+
+.hljs-deletion {
+  color: var(--hb-hl-deletion, #82071e);
+}
+
+.hljs-emphasis {
+  font-style: italic;
+}
+
+.hljs-strong {
+  font-weight: 600;
+}
+
+blockquote {
+  margin: 1em 0;
+  padding: 0.4em 16px;
+  border-left: 4px solid var(--hb-border-strong);
+  background: var(--hb-quote-bg);
+  color: var(--hb-fg-muted);
+}
+
+/* ---------- Admonitions: ::: note | tip | warning | danger ---------- */
+.admonition {
+  margin: 1em 0;
+  padding: 10px 16px 12px;
+  border-left: 4px solid var(--hb-border-strong);
+  border-radius: 0 6px 6px 0;
+}
+
+.admonition-title {
+  margin: 0 0 4px;
+  font-weight: 600;
+  font-size: 0.92em;
+  letter-spacing: 0.02em;
+}
+
+.admonition > :nth-child(2) {
+  margin-top: 0;
+}
+
+.admonition > :last-child {
+  margin-bottom: 0;
+}
+
+.admonition-note {
+  border-color: var(--hb-adm-note, #0969da);
+  background: var(--hb-adm-note-bg, #f0f6ff);
+}
+
+.admonition-note > .admonition-title {
+  color: var(--hb-adm-note, #0969da);
+}
+
+.admonition-tip {
+  border-color: var(--hb-adm-tip, #1a7f37);
+  background: var(--hb-adm-tip-bg, #effaf2);
+}
+
+.admonition-tip > .admonition-title {
+  color: var(--hb-adm-tip, #1a7f37);
+}
+
+.admonition-warning {
+  border-color: var(--hb-adm-warning, #9a6700);
+  background: var(--hb-adm-warning-bg, #fff8e6);
+}
+
+.admonition-warning > .admonition-title {
+  color: var(--hb-adm-warning, #9a6700);
+}
+
+.admonition-danger {
+  border-color: var(--hb-adm-danger, #cf222e);
+  background: var(--hb-adm-danger-bg, #fff1f2);
+}
+
+.admonition-danger > .admonition-title {
+  color: var(--hb-adm-danger, #cf222e);
+}
+
+/* labels 里定义的自定义容器：默认提示（tip）样式；
+   用 .admonition-<key> 在 custom CSS 中覆盖 */
+.admonition-custom {
+  border-color: var(--hb-adm-tip, #1a7f37);
+  background: var(--hb-adm-tip-bg, #effaf2);
+}
+
+.admonition-custom > .admonition-title {
+  color: var(--hb-adm-tip, #1a7f37);
+}
+
+/* ---------- Academic environments: theorem / definition / example / exercise ---------- */
+.env {
+  margin: 1.1em 0;
+  padding: 8px 16px 10px;
+  border-left: 3px solid var(--hb-fg);
+  background: var(--hb-quote-bg);
+}
+
+.env-title {
+  margin: 0 0 4px;
+}
+
+.env-label {
+  font-weight: 700;
+}
+
+.env-name {
+  font-weight: 600;
+}
+
+.env > :nth-child(2) {
+  margin-top: 0;
+}
+
+.env > :last-child {
+  margin-bottom: 0;
+}
+
+/* ---------- Obsidian Flavored Markdown (opt-in dialect) ---------- */
+.internal-link.unresolved,
+.obsidian-embed.unresolved,
+.obsidian-note-embed.unresolved {
+  color: var(--hb-fg-muted);
+  text-decoration: underline dotted;
+  cursor: not-allowed;
+}
+
+.obsidian-properties {
+  margin: 0 0 1.25em;
+  padding: 10px 14px;
+  border: 1px solid var(--hb-border);
+  border-radius: 6px;
+  background: var(--hb-quote-bg);
+  font-size: 0.88em;
+}
+
+.obsidian-property {
+  display: grid;
+  grid-template-columns: minmax(7em, 0.3fr) 1fr;
+  gap: 12px;
+  padding: 3px 0;
+}
+
+.obsidian-property dt {
+  color: var(--hb-fg-muted);
+  font-weight: 600;
+}
+
+.obsidian-property dd {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin: 0;
+}
+
+.obsidian-properties-source {
+  margin-top: 0;
+}
+
+.obsidian-tag {
+  display: inline-block;
+  padding: 0.04em 0.45em;
+  border: 1px solid color-mix(in srgb, var(--hb-accent) 35%, var(--hb-border));
+  border-radius: 999px;
+  color: var(--hb-accent);
+  background: color-mix(in srgb, var(--hb-accent) 8%, transparent);
+  font-size: 0.88em;
+  line-height: 1.45;
+}
+
+.contains-task-list {
+  list-style: none;
+  padding-left: 1.35em;
+}
+
+.task-list-item {
+  list-style: none;
+}
+
+.task-list-item-checkbox {
+  width: 1em;
+  height: 1em;
+  margin: 0 0.35em 0 -1.25em;
+  vertical-align: -0.08em;
+  accent-color: var(--hb-accent);
+}
+
+.task-list-item[data-task]:not([data-task=" "]) {
+  color: var(--hb-fg-muted);
+  text-decoration: line-through;
+}
+
+.callout {
+  --hb-callout-color: var(--hb-adm-note, #0969da);
+  --hb-callout-bg: var(--hb-adm-note-bg, #f0f6ff);
+  margin: 1em 0;
+  border: 1px solid color-mix(in srgb, var(--hb-callout-color) 42%, var(--hb-border));
+  border-left: 4px solid var(--hb-callout-color);
+  border-radius: 0 6px 6px 0;
+  background: var(--hb-callout-bg);
+  color: var(--hb-fg);
+}
+
+.callout-title {
+  padding: 8px 12px 6px;
+  color: var(--hb-callout-color);
+  font-weight: 650;
+  line-height: 1.4;
+}
+
+summary.callout-title {
+  cursor: pointer;
+}
+
+.callout-content {
+  padding: 0 12px 9px;
+}
+
+.callout-content > :first-child {
+  margin-top: 0;
+}
+
+.callout-content > :last-child {
+  margin-bottom: 0;
+}
+
+.callout-content > p:empty {
+  display: none;
+}
+
+.callout-tip,
+.callout-hint,
+.callout-important,
+.callout-success,
+.callout-check,
+.callout-done {
+  --hb-callout-color: var(--hb-adm-tip, #1a7f37);
+  --hb-callout-bg: var(--hb-adm-tip-bg, #effaf2);
+}
+
+.callout-warning,
+.callout-caution,
+.callout-attention,
+.callout-question,
+.callout-help,
+.callout-faq {
+  --hb-callout-color: var(--hb-adm-warning, #9a6700);
+  --hb-callout-bg: var(--hb-adm-warning-bg, #fff8e6);
+}
+
+.callout-failure,
+.callout-fail,
+.callout-missing,
+.callout-danger,
+.callout-error,
+.callout-bug {
+  --hb-callout-color: var(--hb-adm-danger, #cf222e);
+  --hb-callout-bg: var(--hb-adm-danger-bg, #fff1f2);
+}
+
+.callout-abstract,
+.callout-summary,
+.callout-tldr,
+.callout-quote,
+.callout-cite,
+.callout-example {
+  --hb-callout-color: #8250df;
+  --hb-callout-bg: color-mix(in srgb, #8250df 8%, var(--hb-surface));
+}
+
+.obsidian-note-embed {
+  margin: 1em 0;
+  padding: 8px 16px;
+  border: 1px solid var(--hb-border);
+  border-left: 3px solid var(--hb-accent);
+  border-radius: 0 6px 6px 0;
+  background: var(--hb-quote-bg);
+}
+
+.obsidian-note-embed > :first-child {
+  margin-top: 0;
+}
+
+.obsidian-note-embed > :last-child {
+  margin-bottom: 0;
+}
+
+.obsidian-embed-image,
+.obsidian-embed-video,
+.obsidian-embed-pdf {
+  display: block;
+  max-width: 100%;
+  margin: 1em auto;
+}
+
+.obsidian-embed-video,
+.obsidian-embed-pdf {
+  width: 100%;
+}
+
+.obsidian-embed-audio {
+  display: block;
+  width: min(100%, 560px);
+  margin: 1em auto;
+}
+
+.obsidian-file-embed {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 1em 0;
+  padding: 10px 12px;
+  border: 1px solid var(--hb-border);
+  border-radius: 6px;
+  background: var(--hb-quote-bg);
+  text-decoration: none;
+}
+
+.obsidian-file-embed-kind {
+  color: var(--hb-fg-muted);
+  font-size: 0.78em;
+  letter-spacing: 0.08em;
+}
+
+.obsidian-block-anchor {
+  display: block;
+  position: relative;
+  top: -1em;
+  visibility: hidden;
+}
+
+.mermaid {
+  overflow: visible;
+  text-align: center;
+  background: transparent;
+}
+
+.mermaid svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* ---------- Manual page break marker (a paragraph with only the
+   pagebreak / newpage command) ---------- */
+.hb-pagebreak {
+  border-top: 1px dashed var(--hb-border-strong);
+  margin: 28px 0;
+}
+
+blockquote > :first-child {
+  margin-top: 0;
+}
+
+blockquote > :last-child {
+  margin-bottom: 0;
+}
+
+ul,
+ol {
+  margin: 0.75em 0;
+  padding-left: 1.9em;
+}
+
+li {
+  margin: 0.25em 0;
+}
+
+table {
+  border-collapse: collapse;
+  margin: 1em 0;
+  max-width: 100%;
+}
+
+th,
+td {
+  border: 1px solid var(--hb-border-strong);
+  padding: 6px 13px;
+  text-align: left;
+}
+
+th {
+  background: var(--hb-th-bg);
+}
+
+tr:nth-child(2n) td {
+  background: var(--hb-stripe);
+}
+
+mark {
+  background: var(--hb-mark-bg);
+  color: var(--hb-mark-fg, inherit);
+  padding: 0.05em 0.25em;
+  border-radius: 3px;
+}
+
+hr {
+  border: none;
+  border-top: 1px solid var(--hb-heading-rule);
+  margin: 2em 0;
+}
+
+/* ---------- Math ---------- */
+.katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.2em 0;
+}
+
+/* ---------- Footnotes ---------- */
+.footnotes {
+  font-size: 0.9em;
+  color: var(--hb-fg-muted);
+}
+
+hr.footnotes-sep {
+  margin: 2em 0 1em;
+}
+
+/* =========================================================
+   Print styles
+   ========================================================= */
+@media print {
+  .screen-only {
+    display: none !important;
+  }
+
+  body {
+    font-size: var(--hb-print-font-size);
+    background: var(--hb-bg-print);
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  .book {
+    max-width: none;
+    margin: 0;
+    padding: 0;
+    border: none;
+    border-radius: 0;
+    background: transparent; /* Page background comes from body. */
+  }
+
+  .cover {
+    break-after: page;
+    min-height: 100vh; /* First page has margin:0; 100vh spans the page. */
+    padding: var(--hb-cover-pad-top, calc(var(--hb-page-margin-top) + 60mm))
+      var(--hb-page-margin-right) var(--hb-page-margin-bottom)
+      var(--hb-page-margin-left);
+  }
+
+  .back-cover {
+    page: hb-backcover; /* Named zero-margin page for full bleed. */
+    break-before: page;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    margin-top: 0;
+    padding: var(--hb-page-margin-top) var(--hb-page-margin-right)
+      var(--hb-page-margin-bottom) var(--hb-page-margin-left);
+  }
+
+  .toc {
+    break-after: page;
+  }
+
+  /* Each chapter and each raw insert page starts on a new page. The first body
+     section (chapter or insert) does not, so it follows the cover / TOC without
+     a blank page. */
+  .chapter,
+  .insert {
+    break-before: page;
+  }
+
+  .hb-lead {
+    break-before: auto;
+  }
+
+  h1,
+  h2,
+  h3 {
+    break-after: avoid;
+  }
+
+  table:not(.hb-sheet),
+  pre,
+  blockquote,
+  img,
+  figure,
+  .admonition,
+  .callout,
+  .env,
+  .obsidian-note-embed,
+  .obsidian-properties,
+  .obsidian-file-embed,
+  .chapter-toc,
+  .katex-display {
+    break-inside: avoid;
+  }
+
+  .hb-pagebreak {
+    break-after: page;
+    border: none;
+    margin: 0;
+    height: 0;
+  }
+
+  /* 运行页眉：浏览器打印时每页重复；官方 PDF 管线隐藏 */
+  .hb-sheet {
+    break-inside: auto;
+  }
+
+  .hb-sheet > thead {
+    display: table-header-group;
+  }
+
+  html.mhb-pdf .hb-sheet > thead {
+    display: none !important;
+  }
+
+  .hb-run {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    font-family: var(--hb-hf-font-family, var(--hb-font-body));
+    font-size: var(--hb-hf-font-size, 8.5px);
+    color: var(--hb-hf-color, #8a919a);
+    letter-spacing: 0.02em;
+    border-bottom: 0.5pt solid rgba(140, 150, 160, 0.45);
+    padding-bottom: 4px;
+    margin-bottom: 14px;
+  }
+
+  .hb-run-slot {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .hb-run-left {
+    text-align: left;
+  }
+
+  .hb-run-center {
+    text-align: center;
+  }
+
+  .hb-run-right {
+    text-align: right;
+  }
+
+  pre {
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  a,
+  .toc-list a {
+    color: inherit;
+    text-decoration: none;
+  }
+}
+
+/* ===== book.yml overrides ===== */
+:root {
+  --hb-accent: #5f58b6;
+  --hb-content-width: 920px;
+  --hb-base-font-size: 16px;
+  --hb-print-font-size: 10.5pt;
+  --hb-hf-font-size: 8px;
+  --hb-hf-color: #667085;
+  --hb-cover-bg: linear-gradient(145deg, #f4f0e7 0%, #e8edf7 58%, #eee4df 100%);
+  --hb-cover-color: #25304a;
+  --hb-back-bg: linear-gradient(145deg, #25304a 0%, #4a4d86 100%);
+  --hb-back-color: #ffffff;
+  --hb-page-margin-top: 17mm;
+  --hb-page-margin-right: 16mm;
+  --hb-page-margin-bottom: 19mm;
+  --hb-page-margin-left: 16mm;
+}
+@page {
+  size: A4;
+  margin: 17mm 16mm 19mm 16mm;
+}
+
+/* ===== custom css ===== */
+/* =========================================================
+   theme-clay.css — built-in warm-neutral theme
+
+   Near-black ink on warm off-white paper, with soft blue, clay, and
+   sage accents. A light theme: it applies to screen, browser printing,
+   and the official PDF alike (the pipeline recolors page margins to the
+   body background automatically).
+
+   Palette:
+     ink      #0D0D0D  #1A1A19      (headings / body text)
+     paper    #FCFCFB  #F9F9F7  #F0EEE7
+     blue     #7AA5E6   sage #C0D0CA   clay #E49D7E
+   The three accent hues are used as-is where contrast allows (button,
+   highlight, rules, borders) and deepened for text-level roles (links,
+   callout titles, code) so everything stays readable.
+
+   Enable via book.yml:
+     themes:
+       - name: clay
+         label: "Clay"
+         style:
+           accent_color: "#3f6cae"
+           custom_css: "templates/theme-clay.css"
+   ========================================================= */
+
+:root {
+  --hb-bg-page: #f0eee7; /* warm canvas around the book (screen) */
+  --hb-bg-print: #fcfcfb; /* print / PDF page background */
+  --hb-surface: #f9f9f7; /* book card and toolbar */
+  --hb-fg: #1a1a19;
+  --hb-fg-muted: #6d6a60;
+  --hb-border: #e5e2d8;
+  --hb-border-strong: #d7d3c6;
+  --hb-heading-rule: #ddd9cd;
+  --hb-btn-bg: #f0eee7;
+  --hb-btn-hover: #e9e6db;
+  --hb-btn-primary-fg: #fcfcfb;
+  --hb-code-bg: #f0eee7;
+  --hb-pre-bg: #f4f2ea;
+  --hb-quote-bg: #f4f2ea;
+  --hb-th-bg: #f0eee7;
+  --hb-stripe: #f5f3ec;
+  --hb-mark-bg: #e49d7e; /* clay highlight (==mark==) */
+  --hb-mark-fg: #1a1a19;
+  --hb-leader: #c9c4b5;
+
+  --hb-accent: #3f6cae; /* deepened blue: links + focus */
+
+  /* Syntax highlighting — harmonized with the palette, all >= 4.5:1 on paper */
+  --hb-hl-comment: #6a6456;
+  --hb-hl-keyword: #a5482f; /* clay-red */
+  --hb-hl-string: #45705c; /* sage */
+  --hb-hl-number: #3f6cae; /* blue */
+  --hb-hl-title: #5a5ba0; /* muted violet */
+  --hb-hl-type: #8a5324; /* amber */
+  --hb-hl-attr: #45705c;
+  --hb-hl-meta: #5a5ba0;
+  --hb-hl-addition: #45705c;
+  --hb-hl-deletion: #a5372c;
+
+  /* Admonitions — deepened hue for the title/border on a light tint */
+  --hb-adm-note: #3f6cae;
+  --hb-adm-note-bg: #edf2fb;
+  --hb-adm-tip: #45705c;
+  --hb-adm-tip-bg: #eef4f0;
+  --hb-adm-warning: #8a5324;
+  --hb-adm-warning-bg: #f8efe2;
+  --hb-adm-danger: #b0392e;
+  --hb-adm-danger-bg: #f8e8e3;
+}
+
+/* Headings a touch inkier than the body text. */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  color: #0d0d0d;
+}
+
+/* Use the accent hues at full strength where there is no text-contrast
+   requirement: the screen primary button, soft sage rules, and a blue tie
+   between the chapter mini-TOC and the accent. */
+.btn-primary {
+  background: #7aa5e6;
+  border-color: #7aa5e6;
+  color: #0d0d0d;
+}
+
+blockquote {
+  border-left-color: #c0d0ca;
+}
+
+hr {
+  border-top-color: #c0d0ca;
+}
+
+.chapter-toc {
+  border-left-color: #7aa5e6;
+}
+
+:root {
+  --hb-accent: #5f58b6;
+  --hb-content-width: 920px;
+  --showcase-purple: #5f58b6;
+  --showcase-blue: #3f6cae;
+  --showcase-clay: #c87052;
+  --showcase-sage: #4f7c68;
+}
+
+.cover {
+  position: relative;
+  overflow: hidden;
+}
+
+.cover::before,
+.cover::after {
+  content: "";
+  position: absolute;
+  border: 1px solid rgba(95, 88, 182, 0.22);
+  transform: rotate(45deg);
+}
+
+.cover::before {
+  width: 220px;
+  height: 220px;
+  top: -105px;
+  right: -80px;
+}
+
+.cover::after {
+  width: 130px;
+  height: 130px;
+  bottom: -60px;
+  left: -48px;
+}
+
+.cover-title {
+  letter-spacing: -0.035em;
+}
+
+.cover-version {
+  display: inline-block;
+  margin-top: 20px;
+  padding: 4px 10px;
+  border: 1px solid rgba(37, 48, 74, 0.25);
+  border-radius: 999px;
+  font-size: 0.82em;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.showcase-opening .obsidian-properties {
+  border-left: 4px solid var(--showcase-purple);
+}
+
+.syntax-card {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45em;
+  margin: 0.1em 0.25em 0.1em 0;
+  padding: 0.2em 0.65em;
+  border: 1px solid var(--hb-border);
+  border-radius: 999px;
+  background: var(--hb-quote-bg);
+  font-size: 0.88em;
+}
+
+.callout-catalog .callout {
+  margin: 0.42em 0;
+}
+
+.callout-catalog .callout-title {
+  padding-top: 6px;
+  padding-bottom: 5px;
+}
+
+.callout-catalog .callout-content {
+  padding-bottom: 7px;
+}
+
+.callout[data-callout="custom-showcase"] {
+  --hb-callout-color: #5f58b6;
+  --hb-callout-bg: color-mix(in srgb, #5f58b6 9%, var(--hb-surface));
+}
+
+.media-demo .obsidian-embed-video {
+  max-width: 520px;
+  border: 1px solid var(--hb-border);
+  border-radius: 8px;
+  background: #25304a;
+}
+
+.media-demo .obsidian-embed-pdf {
+  border: 1px solid var(--hb-border);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.coverage-table td:first-child {
+  white-space: nowrap;
+  font-weight: 650;
+}
+
+kbd {
+  display: inline-block;
+  padding: 0.08em 0.45em;
+  border: 1px solid var(--hb-border-strong);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: var(--hb-btn-bg);
+  font: 0.86em var(--hb-font-code);
+}
+
+.showcase-status {
+  padding: 10px 14px;
+  border: 1px solid var(--hb-border);
+  border-radius: 8px;
+  background: linear-gradient(90deg, rgba(95, 88, 182, 0.08), rgba(63, 108, 174, 0.05));
+}
+
+@media print {
+  /* Keep the two densest coverage chapters together without creating
+     one-line continuation pages. These adjustments are scoped to the
+     showcase's own chapter markers and do not affect the package theme. */
+  .showcase-opening {
+    font-size: 0.98em;
+  }
+
+  .showcase-opening h2 {
+    margin-top: 1em;
+    margin-bottom: 0.4em;
+  }
+
+  .chapter[data-chapter="5"] {
+    font-size: 0.95em;
+  }
+
+  .back-cover {
+    page: auto;
+    box-sizing: border-box;
+    min-height: 252mm;
+    padding: 24mm;
+    background:
+      radial-gradient(circle at 82% 18%, rgba(255, 255, 255, 0.16), transparent 28%),
+      linear-gradient(145deg, #25304a 0%, #5f58b6 58%, #8d4f73 100%) !important;
+    color: #ffffff !important;
+  }
+
+  .back-cover-inner {
+    width: 100%;
+    max-width: 132mm;
+    margin: auto;
+    text-align: center;
+  }
+
+  .back-cover-title,
+  .back-cover-subtitle,
+  .back-cover-note {
+    color: inherit !important;
+  }
+
+  .syntax-card {
+    border-color: #c8ccd5;
+  }
+
+  audio,
+  video,
+  object,
+  .obsidian-file-embed {
+    break-inside: avoid;
+  }
+
+  p:has(> .obsidian-embed-audio),
+  p:has(> .obsidian-embed-video),
+  p:has(> .obsidian-embed-pdf) {
+    display: flex;
+    min-height: 76px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    border: 1px solid #cfd4df;
+    border-radius: 8px;
+    color: #25304a;
+    background: linear-gradient(135deg, #f4f0e7, #e8edf7);
+    font-size: 0;
+    text-align: center;
+  }
+
+  p:has(> .obsidian-embed-video),
+  p:has(> .obsidian-embed-pdf) {
+    min-height: 118px;
+  }
+
+  p:has(> .obsidian-embed-audio)::before,
+  p:has(> .obsidian-embed-video)::before,
+  p:has(> .obsidian-embed-pdf)::before {
+    color: #5f58b6;
+    font: 700 12pt var(--hb-font-heading);
+    letter-spacing: 0.08em;
+  }
+
+  p:has(> .obsidian-embed-audio)::after,
+  p:has(> .obsidian-embed-video)::after,
+  p:has(> .obsidian-embed-pdf)::after {
+    color: #667085;
+    font: 9pt var(--hb-font-code);
+  }
+
+  p:has(> .obsidian-embed-audio)::before {
+    content: "AUDIO ATTACHMENT";
+  }
+
+  p:has(> .obsidian-embed-audio)::after {
+    content: "showcase-tone.wav - interactive controls in HTML";
+  }
+
+  p:has(> .obsidian-embed-video)::before {
+    content: "VIDEO ATTACHMENT";
+  }
+
+  p:has(> .obsidian-embed-video)::after {
+    content: "showcase-loop.mp4 - 480 x 270 - playable in HTML";
+  }
+
+  p:has(> .obsidian-embed-pdf)::before {
+    content: "EMBEDDED PDF";
+  }
+
+  p:has(> .obsidian-embed-pdf)::after {
+    content: "reference-card.pdf - page 1 - packaged offline";
+  }
+
+  p > .obsidian-embed-audio,
+  p > .obsidian-embed-video,
+  p > .obsidian-embed-pdf {
+    display: none !important;
+  }
+}
+
+    </style>
+  </head>
+  <body>
+    <div class="screen-toolbar screen-only">
+      <a class="btn" href="./index.html">&larr; Index</a>
+      <span class="toolbar-title">Obsidian Markdown</span>
+      <span class="spacer"></span>
+      <a class="btn" href="./obsidian-syntax-showcase.pdf" download>Download official PDF</a>
+      <button class="btn btn-primary" type="button" onclick="window.print()"
+        title="Tip: turn off the browser's own headers and footers in the print dialog — this page prints its own running header. Page numbers are only in the official PDF.">Print</button>
+    </div>
+
+    <main class="book">
+      <header id="cover" class="cover">
+<h1 class="cover-title">Obsidian Markdown</h1>
+<p class="cover-subtitle">静态语法全覆盖 · HTML / PDF Showcase</p>
+<p class="cover-authors">Markdown Handout Builder</p>
+<p class="cover-date">2026.07.10</p>
+<p class="cover-version">dialects preview</p>
+</header>
+
+      <nav class="toc" id="toc">
+<table class="hb-sheet"><thead class="hb-running"><tr><td><div class="hb-run" aria-hidden="true"><span class="hb-run-slot hb-run-left">Obsidian Markdown</span><span class="hb-run-slot hb-run-center">Obsidian dialect</span><span class="hb-run-slot hb-run-right">dialects preview</span></div></td></tr></thead><tbody><tr><td>
+<h2 class="toc-heading">Showcase 目录</h2>
+<ol class="toc-list">
+<li><div class="toc-row"><span class="toc-title"><a href="#01-从这里开始">01 · 从这里开始</a></span><span class="toc-leader"></span><span class="toc-page" data-target="01-从这里开始"></span></div></li>
+<li><div class="toc-row"><span class="toc-title"><a href="#02-内部链接与块引用">02 · 内部链接与块引用</a></span><span class="toc-leader"></span><span class="toc-page" data-target="02-内部链接与块引用"></span></div></li>
+<li><div class="toc-row"><span class="toc-title"><a href="#03-任务与-callouts">03 · 任务与 Callouts</a></span><span class="toc-leader"></span><span class="toc-page" data-target="03-任务与-callouts"></span></div></li>
+<li><div class="toc-row"><span class="toc-title"><a href="#04-笔记与媒体嵌入">04 · 笔记与媒体嵌入</a></span><span class="toc-leader"></span><span class="toc-page" data-target="04-笔记与媒体嵌入"></span></div></li>
+<li><div class="toc-row"><span class="toc-title"><a href="#05-表格-代码-脚注与数学">05 · 表格、代码、脚注与数学</a></span><span class="toc-leader"></span><span class="toc-page" data-target="05-表格-代码-脚注与数学"></span></div></li>
+<li><div class="toc-row"><span class="toc-title"><a href="#06-mermaid-与静态边界">06 · Mermaid 与静态边界</a></span><span class="toc-leader"></span><span class="toc-page" data-target="06-mermaid-与静态边界"></span></div></li>
+<li><div class="toc-row"><span class="toc-title"><a href="#07-reference-library">07 · Reference Library</a></span><span class="toc-leader"></span><span class="toc-page" data-target="07-reference-library"></span></div></li>
+</ol>
+</td></tr></tbody></table>
+</nav>
+
+      <section class="chapter showcase-opening hb-lead" data-chapter="1">
+<table class="hb-sheet"><thead class="hb-running"><tr><td><div class="hb-run" aria-hidden="true"><span class="hb-run-slot hb-run-left">Obsidian Markdown</span><span class="hb-run-slot hb-run-center">Obsidian dialect</span><span class="hb-run-slot hb-run-right">dialects preview</span></div></td></tr></thead><tbody><tr><td>
+<dl class="obsidian-properties" aria-label="Properties"><div class="obsidian-property"><dt>aliases</dt><dd><span class="obsidian-property-value">Start Here</span><span class="obsidian-property-value">OFM Showcase</span></dd></div><div class="obsidian-property"><dt>tags</dt><dd><span class="obsidian-property-value"><span class="obsidian-tag" data-tag="showcase">#showcase</span></span><span class="obsidian-property-value"><span class="obsidian-tag" data-tag="obsidian/markdown">#obsidian/markdown</span></span></dd></div><div class="obsidian-property"><dt>cssclasses</dt><dd><span class="obsidian-property-value">showcase-opening</span></dd></div><div class="obsidian-property"><dt>status</dt><dd><span class="obsidian-property-value">Published</span></dd></div><div class="obsidian-property"><dt>created</dt><dd><span class="obsidian-property-value">2026-07-10</span></dd></div><div class="obsidian-property"><dt>featured</dt><dd><span class="obsidian-property-value"><input type="checkbox" disabled checked></span></dd></div><div class="obsidian-property"><dt>score</dt><dd><span class="obsidian-property-value">100</span></dd></div><div class="obsidian-property"><dt>related</dt><dd><span class="obsidian-property-value"><a class="internal-link" href="#07-reference-library" data-href="Reference Library">Reference Library</a></span></dd></div><div class="obsidian-property"><dt>source</dt><dd><span class="obsidian-property-value"><a href="https://obsidian.md/help/obsidian-flavored-markdown" target="_blank" rel="noopener noreferrer">https://obsidian.md/help/obsidian-flavored-markdown</a></span></dd></div></dl>
+<h1 id="01-从这里开始" tabindex="-1">01 · 从这里开始</h1>
+<nav class="chapter-toc">
+<p class="chapter-toc-heading">本章覆盖</p>
+<ul class="chapter-toc-list">
+<li class="chapter-toc-row"><span class="chapter-toc-title"><a href="#properties-frontmatter">Properties / frontmatter</a></span><span class="chapter-toc-leader"></span><span class="toc-page" data-target="properties-frontmatter"></span></li>
+<li class="chapter-toc-row"><span class="chapter-toc-title"><a href="#基础内联格式">基础内联格式</a></span><span class="chapter-toc-leader"></span><span class="toc-page" data-target="基础内联格式"></span></li>
+<li class="chapter-toc-row"><span class="chapter-toc-title"><a href="#段落-换行与分隔线">段落、换行与分隔线</a></span><span class="chapter-toc-leader"></span><span class="toc-page" data-target="段落-换行与分隔线"></span></li>
+<li class="chapter-toc-row"><span class="chapter-toc-title"><a href="#标题层级">标题层级</a></span><span class="chapter-toc-leader"></span><span class="toc-page" data-target="标题层级"></span></li>
+<li class="chapter-toc-row chapter-toc-l1"><span class="chapter-toc-title"><a href="#heading-3">Heading 3</a></span><span class="chapter-toc-leader"></span><span class="toc-page" data-target="heading-3"></span></li>
+<li class="chapter-toc-row"><span class="chapter-toc-title"><a href="#标签与注释">标签与注释</a></span><span class="chapter-toc-leader"></span><span class="toc-page" data-target="标签与注释"></span></li>
+<li class="chapter-toc-row"><span class="chapter-toc-title"><a href="#导航">导航</a></span><span class="chapter-toc-leader"></span><span class="toc-page" data-target="导航"></span></li>
+</ul>
+</nav>
+<p>这是一份由当前项目中的 <code>mhb</code> 包直接生成的 Obsidian Markdown 静态渲染成品。所有章节均来自一个真实的迷你 vault，并经过 <code>check → build → pdf</code> 完整流水线。</p>
+<p><span class="syntax-card">CommonMark</span>
+<span class="syntax-card">GFM</span>
+<span class="syntax-card">Obsidian extensions</span>
+<span class="syntax-card">Offline assets</span>
+<span class="syntax-card">A4 PDF</span></p>
+<h2 id="properties-frontmatter" tabindex="-1">Properties / frontmatter</h2>
+<p>本页顶部展示了 YAML properties：文本、列表、数字、布尔值、日期、标签、<code>aliases</code>、<code>cssclasses</code> 与内部链接均被识别。<code>showcase-opening</code> 类也已应用到当前章节。</p>
+<div class="callout callout-info" data-callout="info"><div class="callout-title">方言为显式启用</div><div class="callout-content">
+<p>默认模式仍保持严格、可移植的 Markdown；本成品通过 <code>markdown.dialect: obsidian</code> 启用 vault 感知解析。</p>
+</div></div>
+<h2 id="基础内联格式" tabindex="-1">基础内联格式</h2>
+<p><strong>粗体</strong>、<em>斜体</em>、<em><strong>粗斜体</strong></em>、<strong>粗体中的 <em>嵌套斜体</em></strong>、<s>删除线</s>、<mark>高亮文本</mark> 与 <code>inline code</code> 可以组合出现。</p>
+<p>反斜杠可转义 Markdown：*这些星号保持可见*，而 <code>Ctrl</code> + <kbd>P</kbd> 使用了可信 Raw HTML。</p>
+<p>普通 URL 会自动链接：<a href="https://obsidian.md" target="_blank" rel="noopener noreferrer">https://obsidian.md</a> ，标准链接也可用：<a href="https://obsidian.md/help" target="_blank" rel="noopener noreferrer">Obsidian Help</a>。</p>
+<h2 id="段落-换行与分隔线" tabindex="-1">段落、换行与分隔线</h2>
+<p>单个换行遵循 Markdown 的软换行规则。
+这一行仍属于同一段。</p>
+<p>行尾两个空格会产生硬换行。<br>
+这里已经换到下一行。</p>
+<hr>
+<p>分隔线之后是普通引用：</p>
+<blockquote>
+<p>“纯文本文件应该保持长久、可移植，并能在不同工具之间流动。”</p>
+<p>— Showcase note</p>
+</blockquote>
+<h2 id="标题层级" tabindex="-1">标题层级</h2>
+<h3 id="heading-3" tabindex="-1">Heading 3</h3>
+<h4 id="heading-4" tabindex="-1">Heading 4</h4>
+<h5 id="heading-5" tabindex="-1">Heading 5</h5>
+<h6 id="heading-6" tabindex="-1">Heading 6</h6>
+<p>六级 ATX 标题都会生成稳定锚点；主目录只收录一级标题，本章小目录展示到三级。</p>
+<h2 id="标签与注释" tabindex="-1">标签与注释</h2>
+<p>内联标签支持 ASCII、Unicode 与嵌套形式：#showcase <span class="obsidian-tag" data-tag="工作流/发布">#工作流/发布</span> <span class="obsidian-tag" data-tag="obsidian_pdf">#obsidian_pdf</span>。纯数字 <code>#1984</code> 不会被误识别为标签。</p>
+<p>注释前可见，                                  注释后仍可见。</p>
+<h2 id="导航" tabindex="-1">导航</h2>
+<ul>
+<li>前往 <a class="internal-link" href="#07-reference-library" data-href="Reference Library|引用目标库">引用目标库</a></li>
+<li>查看 <a class="internal-link" href="#02-内部链接与块引用" data-href="02 · 内部链接与块引用">02 · 内部链接与块引用</a></li>
+<li>跳到 <a class="internal-link" href="#canonical-heading-2" data-href="Reference Library#Canonical Heading|规范标题">规范标题</a></li>
+<li>打开 <a class="internal-link" href="#obsidian-block-notes-reference-library-md-fact-block-ch7" data-href="Reference Library#^fact-block|事实块">事实块</a></li>
+</ul>
+<p>下一章会逐一展示这些链接的解析结果。</p>
+
+</td></tr></tbody></table></section>
+
+<section class="chapter" data-chapter="2">
+<table class="hb-sheet"><thead class="hb-running"><tr><td><div class="hb-run" aria-hidden="true"><span class="hb-run-slot hb-run-left">Obsidian Markdown</span><span class="hb-run-slot hb-run-center">Obsidian dialect</span><span class="hb-run-slot hb-run-right">dialects preview</span></div></td></tr></thead><tbody><tr><td>
+<dl class="obsidian-properties" aria-label="Properties"><div class="obsidian-property"><dt>aliases</dt><dd><span class="obsidian-property-value">02 · 内部链接与块引用</span><span class="obsidian-property-value">Link Lab</span></dd></div><div class="obsidian-property"><dt>tags</dt><dd><span class="obsidian-property-value"><span class="obsidian-tag" data-tag="showcase/links">#showcase/links</span></span></dd></div><div class="obsidian-property"><dt>status</dt><dd><span class="obsidian-property-value">Complete</span></dd></div></dl>
+<h1 id="02-内部链接与块引用" tabindex="-1">02 · 内部链接与块引用</h1>
+<nav class="chapter-toc">
+<p class="chapter-toc-heading">本章覆盖</p>
+<ul class="chapter-toc-list">
+<li class="chapter-toc-row"><span class="chapter-toc-title"><a href="#note-links-与-aliases">Note links 与 aliases</a></span><span class="chapter-toc-leader"></span><span class="toc-page" data-target="note-links-与-aliases"></span></li>
+<li class="chapter-toc-row"><span class="chapter-toc-title"><a href="#heading-links">Heading links</a></span><span class="chapter-toc-leader"></span><span class="toc-page" data-target="heading-links"></span></li>
+<li class="chapter-toc-row chapter-toc-l1"><span class="chapter-toc-title"><a href="#local-heading">Local Heading</a></span><span class="chapter-toc-leader"></span><span class="toc-page" data-target="local-heading"></span></li>
+<li class="chapter-toc-row"><span class="chapter-toc-title"><a href="#block-links">Block links</a></span><span class="chapter-toc-leader"></span><span class="toc-page" data-target="block-links"></span></li>
+<li class="chapter-toc-row"><span class="chapter-toc-title"><a href="#forward-links-与稳定锚点">Forward links 与稳定锚点</a></span><span class="chapter-toc-leader"></span><span class="toc-page" data-target="forward-links-与稳定锚点"></span></li>
+</ul>
+</nav>
+<p>Obsidian 的内部链接既可以使用紧凑的 wikilink，也可以使用标准 Markdown 链接。本章的所有目标都由 vault resolver 在构建前验证。</p>
+<h2 id="note-links-与-aliases" tabindex="-1">Note links 与 aliases</h2>
+<ul>
+<li>文件名：<a class="internal-link" href="#07-reference-library" data-href="Reference Library">Reference Library</a></li>
+<li>自定义显示文本：<a class="internal-link" href="#07-reference-library" data-href="Reference Library|知识库">知识库</a></li>
+<li>通过 alias：<a class="internal-link" href="#07-reference-library" data-href="Knowledge Base">Knowledge Base</a></li>
+<li>同页标题：<a class="internal-link" href="#local-heading" data-href="#Local Heading">#Local Heading</a></li>
+<li>标准 Markdown 路径：<a href="#canonical-heading-2" class="internal-link">Markdown form</a></li>
+<li>外部 Obsidian URI：<a href="obsidian://open?vault=Showcase&amp;file=Reference%20Library.md">Open in Obsidian</a></li>
+</ul>
+<h2 id="heading-links" tabindex="-1">Heading links</h2>
+<ul>
+<li>标题：<a class="internal-link" href="#canonical-heading-2" data-href="Reference Library#Canonical Heading">Reference Library#Canonical Heading</a></li>
+<li>自定义标题文本：<a class="internal-link" href="#canonical-heading-2" data-href="Reference Library#Canonical Heading|规范标题">规范标题</a></li>
+<li>层级子标题：<a class="internal-link" href="#nested-section" data-href="Reference Library#Canonical Heading#Nested Section">Reference Library#Canonical Heading#Nested Section</a></li>
+</ul>
+<h3 id="local-heading" tabindex="-1">Local Heading</h3>
+<p>这个标题是同页 <code>[[#Local Heading]]</code> 的目标。</p>
+<h2 id="block-links" tabindex="-1">Block links</h2>
+<p id="obsidian-block-notes-01-links-and-blocks-md-local-block-ch2">简单段落可在行尾定义人类可读的块 ID；标识符本身在阅读视图和 PDF 中隐藏。</p>
+<ul>
+<li>跳到当前段落：<a class="internal-link" href="#obsidian-block-notes-01-links-and-blocks-md-local-block-ch2" data-href="01-links-and-blocks#^local-block|本地段落块">本地段落块</a></li>
+<li>跳到其他笔记：<a class="internal-link" href="#obsidian-block-notes-reference-library-md-fact-block-ch7" data-href="Reference Library#^fact-block|事实块">事实块</a></li>
+</ul>
+<p>结构化内容使用独立的块标识符：</p>
+<ul>
+<li>列表项 A</li>
+<li>列表项 B</li>
+<li>列表项 C</li>
+</ul>
+<span class="obsidian-block-anchor" id="obsidian-block-notes-01-links-and-blocks-md-local-list-ch2"></span>
+<p>这个完整列表可通过 <a class="internal-link" href="#obsidian-block-notes-01-links-and-blocks-md-local-list-ch2" data-href="01-links-and-blocks#^local-list|本地列表块">本地列表块</a> 定位。</p>
+<h2 id="forward-links-与稳定锚点" tabindex="-1">Forward links 与稳定锚点</h2>
+<p>链接可以指向尚未渲染的后续章节。构建器完成全部章节后统一回填锚点，因此 <a class="internal-link" href="#nested-section" data-href="Reference Library#Canonical Heading#Nested Section|前向层级链接">前向层级链接</a> 仍能得到正确目的地。</p>
+<div class="callout callout-success" data-callout="success"><div class="callout-title">解析策略</div><div class="callout-content">
+<p>精确 vault 路径优先，其次是相对当前笔记的路径，最后按最近目录解析文件名与 alias；歧义会在 <code>mhb check</code> 中报告。</p>
+</div></div>
+
+</td></tr></tbody></table></section>
+
+<section class="chapter callout-catalog" data-chapter="3">
+<table class="hb-sheet"><thead class="hb-running"><tr><td><div class="hb-run" aria-hidden="true"><span class="hb-run-slot hb-run-left">Obsidian Markdown</span><span class="hb-run-slot hb-run-center">Obsidian dialect</span><span class="hb-run-slot hb-run-right">dialects preview</span></div></td></tr></thead><tbody><tr><td>
+<dl class="obsidian-properties" aria-label="Properties"><div class="obsidian-property"><dt>aliases</dt><dd><span class="obsidian-property-value">Tasks and Callouts</span></dd></div><div class="obsidian-property"><dt>tags</dt><dd><span class="obsidian-property-value"><span class="obsidian-tag" data-tag="showcase/callouts">#showcase/callouts</span></span></dd></div><div class="obsidian-property"><dt>cssclasses</dt><dd><span class="obsidian-property-value">callout-catalog</span></dd></div><div class="obsidian-property"><dt>status</dt><dd><span class="obsidian-property-value">Complete</span></dd></div></dl>
+<h1 id="03-任务与-callouts" tabindex="-1">03 · 任务与 Callouts</h1>
+<nav class="chapter-toc">
+<p class="chapter-toc-heading">本章覆盖</p>
+<ul class="chapter-toc-list">
+<li class="chapter-toc-row"><span class="chapter-toc-title"><a href="#task-lists">Task lists</a></span><span class="chapter-toc-leader"></span><span class="toc-page" data-target="task-lists"></span></li>
+<li class="chapter-toc-row"><span class="chapter-toc-title"><a href="#官方-callout-类型目录">官方 Callout 类型目录</a></span><span class="chapter-toc-leader"></span><span class="toc-page" data-target="官方-callout-类型目录"></span></li>
+<li class="chapter-toc-row"><span class="chapter-toc-title"><a href="#自定义标题与-markdown-正文">自定义标题与 Markdown 正文</a></span><span class="chapter-toc-leader"></span><span class="toc-page" data-target="自定义标题与-markdown-正文"></span></li>
+<li class="chapter-toc-row"><span class="chapter-toc-title"><a href="#折叠状态">折叠状态</a></span><span class="chapter-toc-leader"></span><span class="toc-page" data-target="折叠状态"></span></li>
+<li class="chapter-toc-row"><span class="chapter-toc-title"><a href="#嵌套-callouts">嵌套 Callouts</a></span><span class="chapter-toc-leader"></span><span class="toc-page" data-target="嵌套-callouts"></span></li>
+</ul>
+</nav>
+<h2 id="task-lists" tabindex="-1">Task lists</h2>
+<p>Obsidian 允许方括号内使用任意字符表示自定义任务状态；静态 PDF 将它们渲染为不可编辑但语义清晰的复选框。</p>
+<ul class="contains-task-list contains-task-list contains-task-list contains-task-list contains-task-list">
+<li class="task-list-item" data-task=" "><input class="task-list-item-checkbox" type="checkbox" disabled data-task=" "> 未完成：整理 vault</li>
+<li class="task-list-item" data-task="x"><input class="task-list-item-checkbox" type="checkbox" disabled checked data-task="x"> 已完成：解析 wikilinks</li>
+<li class="task-list-item" data-task="?"><input class="task-list-item-checkbox" type="checkbox" disabled checked data-task="?"> 待确认：检查 alias</li>
+<li class="task-list-item" data-task="!"><input class="task-list-item-checkbox" type="checkbox" disabled checked data-task="!"> 重要：复验 PDF</li>
+<li class="task-list-item" data-task="-"><input class="task-list-item-checkbox" type="checkbox" disabled checked data-task="-"> 已取消：旧的导出路径</li>
+</ul>
+<p>嵌套任务可以和普通列表混合：</p>
+<ol>
+<li>构建流水线
+<ul class="contains-task-list contains-task-list contains-task-list">
+<li class="task-list-item" data-task="x"><input class="task-list-item-checkbox" type="checkbox" disabled checked data-task="x"> check</li>
+<li class="task-list-item" data-task="x"><input class="task-list-item-checkbox" type="checkbox" disabled checked data-task="x"> build</li>
+<li class="task-list-item" data-task="x"><input class="task-list-item-checkbox" type="checkbox" disabled checked data-task="x"> pdf</li>
+</ul>
+</li>
+<li>视觉验收
+<ul class="contains-task-list contains-task-list">
+<li class="task-list-item" data-task="x"><input class="task-list-item-checkbox" type="checkbox" disabled checked data-task="x"> 页眉页脚</li>
+<li class="task-list-item" data-task="x"><input class="task-list-item-checkbox" type="checkbox" disabled checked data-task="x"> 目录与书签</li>
+</ul>
+</li>
+</ol>
+<h2 id="官方-callout-类型目录" tabindex="-1">官方 Callout 类型目录</h2>
+<div class="callout callout-note" data-callout="note"><div class="callout-title">Note</div><div class="callout-content">
+<p></p>
+</div></div>
+<div class="callout callout-abstract" data-callout="abstract"><div class="callout-title">Abstract / Summary / TLDR</div><div class="callout-content">
+<p></p>
+</div></div>
+<div class="callout callout-info" data-callout="info"><div class="callout-title">Info</div><div class="callout-content">
+<p></p>
+</div></div>
+<div class="callout callout-todo" data-callout="todo"><div class="callout-title">Todo</div><div class="callout-content">
+<p></p>
+</div></div>
+<div class="callout callout-tip" data-callout="tip"><div class="callout-title">Tip / Hint / Important</div><div class="callout-content">
+<p></p>
+</div></div>
+<div class="callout callout-success" data-callout="success"><div class="callout-title">Success / Check / Done</div><div class="callout-content">
+<p></p>
+</div></div>
+<div class="callout callout-question" data-callout="question"><div class="callout-title">Question / Help / FAQ</div><div class="callout-content">
+<p></p>
+</div></div>
+<div class="callout callout-warning" data-callout="warning"><div class="callout-title">Warning / Caution / Attention</div><div class="callout-content">
+<p></p>
+</div></div>
+<div class="callout callout-failure" data-callout="failure"><div class="callout-title">Failure / Fail / Missing</div><div class="callout-content">
+<p></p>
+</div></div>
+<div class="callout callout-danger" data-callout="danger"><div class="callout-title">Danger / Error</div><div class="callout-content">
+<p></p>
+</div></div>
+<div class="callout callout-bug" data-callout="bug"><div class="callout-title">Bug</div><div class="callout-content">
+<p></p>
+</div></div>
+<div class="callout callout-example" data-callout="example"><div class="callout-title">Example</div><div class="callout-content">
+<p></p>
+</div></div>
+<div class="callout callout-quote" data-callout="quote"><div class="callout-title">Quote / Cite</div><div class="callout-content">
+<p></p>
+</div></div>
+<div class="callout callout-custom-showcase" data-callout="custom-showcase"><div class="callout-title">Custom type</div><div class="callout-content">
+<p></p>
+</div></div>
+<h2 id="自定义标题与-markdown-正文" tabindex="-1">自定义标题与 Markdown 正文</h2>
+<div class="callout callout-tip" data-callout="tip"><div class="callout-title">自定义标题：内容可组合</div><div class="callout-content">
+<p>Callout 正文支持 <strong>粗体</strong>、<mark>高亮</mark>、列表、<a class="internal-link" href="#07-reference-library" data-href="Reference Library|wikilinks">wikilinks</a> 和嵌入语法。</p>
+<ul>
+<li>第一项</li>
+<li>第二项</li>
+</ul>
+</div></div>
+<h2 id="折叠状态" tabindex="-1">折叠状态</h2>
+<details class="callout callout-success is-collapsible" data-callout="success" open><summary class="callout-title">默认展开</summary><div class="callout-content">
+<p><code>+</code> 表示可折叠且初始展开；这段正文进入 HTML 与 PDF。</p>
+</div></details>
+<details class="callout callout-faq is-collapsible" data-callout="faq"><summary class="callout-title">默认折叠</summary><div class="callout-content">
+<p><code>-</code> 表示初始折叠；PDF 中保留标题，以展示静态折叠状态。</p>
+</div></details>
+<h2 id="嵌套-callouts" tabindex="-1">嵌套 Callouts</h2>
+<div class="callout callout-question" data-callout="question"><div class="callout-title">Callout 可以嵌套吗？</div><div class="callout-content">
+<p></p>
+<div class="callout callout-todo" data-callout="todo"><div class="callout-title">可以</div><div class="callout-content">
+<p></p>
+<div class="callout callout-example" data-callout="example"><div class="callout-title">任意层级</div><div class="callout-content">
+<p>内层仍可使用 <strong>Markdown</strong>、#nested/tag 与 <a class="internal-link" href="#obsidian-block-notes-reference-library-md-fact-block-ch7" data-href="Reference Library#^fact-block|块链接">块链接</a>。</p>
+</div></div>
+</div></div>
+</div></div>
+<p>普通 blockquote 不带 <code>[!type]</code>，因此仍保持为标准引用样式。</p>
+<blockquote>
+<p>这是普通引用，不是 callout。</p>
+</blockquote>
+
+</td></tr></tbody></table></section>
+
+<section class="chapter media-demo" data-chapter="4">
+<table class="hb-sheet"><thead class="hb-running"><tr><td><div class="hb-run" aria-hidden="true"><span class="hb-run-slot hb-run-left">Obsidian Markdown</span><span class="hb-run-slot hb-run-center">Obsidian dialect</span><span class="hb-run-slot hb-run-right">dialects preview</span></div></td></tr></thead><tbody><tr><td>
+<dl class="obsidian-properties" aria-label="Properties"><div class="obsidian-property"><dt>aliases</dt><dd><span class="obsidian-property-value">Embeds and Media</span></dd></div><div class="obsidian-property"><dt>tags</dt><dd><span class="obsidian-property-value"><span class="obsidian-tag" data-tag="showcase/embeds">#showcase/embeds</span></span></dd></div><div class="obsidian-property"><dt>cssclasses</dt><dd><span class="obsidian-property-value">media-demo</span></dd></div><div class="obsidian-property"><dt>status</dt><dd><span class="obsidian-property-value">Complete</span></dd></div></dl>
+<h1 id="04-笔记与媒体嵌入" tabindex="-1">04 · 笔记与媒体嵌入</h1>
+<nav class="chapter-toc">
+<p class="chapter-toc-heading">本章覆盖</p>
+<ul class="chapter-toc-list">
+<li class="chapter-toc-row"><span class="chapter-toc-title"><a href="#image-embeds">Image embeds</a></span><span class="chapter-toc-leader"></span><span class="toc-page" data-target="image-embeds"></span></li>
+<li class="chapter-toc-row"><span class="chapter-toc-title"><a href="#whole-note-transclusion">Whole-note transclusion</a></span><span class="chapter-toc-leader"></span><span class="toc-page" data-target="whole-note-transclusion"></span></li>
+<li class="chapter-toc-row"><span class="chapter-toc-title"><a href="#heading-block-list-transclusion">Heading / block / list transclusion</a></span><span class="chapter-toc-leader"></span><span class="toc-page" data-target="heading-block-list-transclusion"></span></li>
+<li class="chapter-toc-row"><span class="chapter-toc-title"><a href="#audio-embed">Audio embed</a></span><span class="chapter-toc-leader"></span><span class="toc-page" data-target="audio-embed"></span></li>
+<li class="chapter-toc-row"><span class="chapter-toc-title"><a href="#video-embed">Video embed</a></span><span class="chapter-toc-leader"></span><span class="toc-page" data-target="video-embed"></span></li>
+<li class="chapter-toc-row"><span class="chapter-toc-title"><a href="#pdf-embed">PDF embed</a></span><span class="chapter-toc-leader"></span><span class="toc-page" data-target="pdf-embed"></span></li>
+<li class="chapter-toc-row"><span class="chapter-toc-title"><a href="#canvas-与-bases">Canvas 与 Bases</a></span><span class="chapter-toc-leader"></span><span class="toc-page" data-target="canvas-与-bases"></span></li>
+</ul>
+</nav>
+<p>Obsidian 使用感叹号前缀把内部链接变成嵌入。构建器会复制所有引用附件到成品目录，使 HTML 与 PDF 构建保持离线、可复现。</p>
+<h2 id="image-embeds" tabindex="-1">Image embeds</h2>
+<p>Wikilink 图片支持宽度与宽高：</p>
+<p><img class="obsidian-embed-image" src="vault/attachments/obsidian-pipeline.svg" alt="obsidian-pipeline.svg" style="width: 720px; height: 315px;"></p>
+<p>标准 Markdown 图片同样支持 Obsidian 的 <code>alt|width</code> 形式，并把 title 作为图注：</p>
+<figure><img src="vault/attachments/prism-mark.svg" alt="Prism mark" style="width: 150px;"><figcaption>Figure 1 · Standard Markdown image with Obsidian sizing</figcaption></figure>
+<h2 id="whole-note-transclusion" tabindex="-1">Whole-note transclusion</h2>
+<p>下面整篇嵌入一个未列入 chapters 的笔记；它会被递归检查，但不会额外成为手册章节。</p>
+<div class="obsidian-note-embed" data-source="notes/Transclusion Source.md">
+<h1 id="transclusion-source" tabindex="-1">Transclusion Source</h1>
+<p>这段内容来自未列入章节清单的独立笔记。整篇 transclusion 会保留 Markdown 结构，并避免把嵌入标题加入主目录。</p>
+<div class="callout callout-note" data-callout="note"><div class="callout-title">Embedded callout<hr class="footnotes-sep">
+<section class="footnotes">
+<ol class="footnotes-list">
+<li id="fn-ch4-embed1-1" class="footnote-item"><p>这是嵌入笔记里的 inline footnote。 <a href="#fnref-ch4-embed1-1" class="footnote-backref">↩︎</a></p>
+</li>
+</ol>
+</section>
+</div><div class="callout-content">
+<p>嵌入笔记内部仍可使用 <a class="internal-link" href="#07-reference-library" data-href="Reference Library|wikilink">wikilink</a>、<strong>格式化</strong>与 <span class="obsidian-tag" data-tag="embedded/tag">#embedded/tag</span>。</p>
+</div></div>
+<h2 id="nested-content" tabindex="-1">Nested content</h2>
+<p>递归渲染具有独立脚注命名空间，因此多个来源不会产生 ID 冲突。<sup class="footnote-ref"><a href="#fn-ch4-embed1-1" id="fnref-ch4-embed1-1">[1]</a></sup></p>
+<hr class="footnotes-sep">
+<section class="footnotes">
+<ol class="footnotes-list">
+<li id="fn-ch4-embed1-1" class="footnote-item"><p>这是嵌入笔记里的 inline footnote。 <a href="#fnref-ch4-embed1-1" class="footnote-backref">↩︎</a></p>
+</li>
+</ol>
+</section>
+
+</div>
+<h2 id="heading-block-list-transclusion" tabindex="-1">Heading / block / list transclusion</h2>
+<p>只嵌入目标标题区段：</p>
+<div class="obsidian-note-embed" data-source="notes/Reference Library.md#Canonical Heading">
+<h2 id="canonical-heading" tabindex="-1">Canonical Heading</h2>
+<p>“静态”并不意味着“丢失语义”：链接目标、标题层级、块锚点、属性与附件关系都在构建时被解析并验证。</p>
+<h3 id="nested-section" tabindex="-1">Nested Section</h3>
+<p>层级标题链接 <code>[[Reference Library#Canonical Heading#Nested Section]]</code> 会精确落到这里。</p>
+<h4 id="deep-anchor" tabindex="-1">Deep Anchor</h4>
+<p>更深层标题仍然有稳定 ID，并可用于标准 Markdown fragment。</p>
+
+</div>
+<p>只嵌入一个段落块：</p>
+<div class="obsidian-note-embed" data-source="notes/Reference Library.md#^fact-block">
+<p id="obsidian-block-notes-reference-library-md-fact-block-ch4-embed3">这是一条带人类可读 ID 的事实段落：Obsidian Markdown 是 CommonMark、GFM、LaTeX 与 Obsidian 扩展的组合。</p>
+
+</div>
+<p>只嵌入一个结构化列表：</p>
+<div class="obsidian-note-embed" data-source="notes/Reference Library.md#^reference-list">
+<ul>
+<li>CommonMark foundation</li>
+<li>GitHub Flavored Markdown tables and strikethrough</li>
+<li>Obsidian wikilinks, embeds, blocks, comments, tasks and callouts</li>
+<li>Properties, tags, Mermaid and accepted attachments</li>
+</ul>
+
+</div>
+<h2 id="audio-embed" tabindex="-1">Audio embed</h2>
+<p>真实 WAV 附件使用浏览器原生 controls；PDF 保留静态控件外观和附件语义。</p>
+<p><audio class="obsidian-embed-audio" controls preload="metadata" src="vault/attachments/showcase-tone.wav"><a href="vault/attachments/showcase-tone.wav">showcase-tone.wav</a></audio></p>
+<h2 id="video-embed" tabindex="-1">Video embed</h2>
+<p>真实 MP4 附件带宽高参数，HTML 可播放，PDF 捕获首帧：</p>
+<p><video class="obsidian-embed-video" controls preload="metadata" src="vault/attachments/showcase-loop.mp4" style="width: 480px; height: 270px;"><a href="vault/attachments/showcase-loop.mp4">showcase-loop.mp4</a></video></p>
+<h2 id="pdf-embed" tabindex="-1">PDF embed</h2>
+<p><code>#page=N</code> 与 <code>#height=N</code> 可同时使用：</p>
+<p><object class="obsidian-embed-pdf" data="vault/attachments/reference-card.pdf#page=1" type="application/pdf" style="height: 260px"><a href="vault/attachments/reference-card.pdf#page=1">reference-card.pdf</a></object></p>
+<h2 id="canvas-与-bases" tabindex="-1">Canvas 与 Bases</h2>
+<p>Canvas 和 Bases 是独立文件格式而不是 Markdown。静态手册将它们打包并显示为可访问文件卡片：</p>
+<p><a class="obsidian-file-embed" href="vault/attachments/knowledge-map.canvas" data-extension="canvas"><span class="obsidian-file-embed-name">knowledge-map.canvas</span><span class="obsidian-file-embed-kind">CANVAS</span></a></p>
+<p><a class="obsidian-file-embed" href="vault/attachments/library.base" data-extension="base"><span class="obsidian-file-embed-name">library.base</span><span class="obsidian-file-embed-kind">BASE</span></a></p>
+<div class="callout callout-info" data-callout="info"><div class="callout-title">静态输出边界</div><div class="callout-content">
+<p>Canvas/Bases 的交互式应用视图不会在 PDF 中伪造；文件本体被保留并可从 HTML 成品访问。</p>
+</div></div>
+
+</td></tr></tbody></table></section>
+
+<section class="chapter" data-chapter="5">
+<table class="hb-sheet"><thead class="hb-running"><tr><td><div class="hb-run" aria-hidden="true"><span class="hb-run-slot hb-run-left">Obsidian Markdown</span><span class="hb-run-slot hb-run-center">Obsidian dialect</span><span class="hb-run-slot hb-run-right">dialects preview</span></div></td></tr></thead><tbody><tr><td>
+<dl class="obsidian-properties" aria-label="Properties"><div class="obsidian-property"><dt>aliases</dt><dd><span class="obsidian-property-value">Tables Code Math</span></dd></div><div class="obsidian-property"><dt>tags</dt><dd><span class="obsidian-property-value"><span class="obsidian-tag" data-tag="showcase/advanced">#showcase/advanced</span></span></dd></div><div class="obsidian-property"><dt>status</dt><dd><span class="obsidian-property-value">Complete</span></dd></div></dl>
+<h1 id="05-表格-代码-脚注与数学" tabindex="-1">05 · 表格、代码、脚注与数学</h1>
+<nav class="chapter-toc">
+<p class="chapter-toc-heading">本章覆盖</p>
+<ul class="chapter-toc-list">
+<li class="chapter-toc-row"><span class="chapter-toc-title"><a href="#tables">Tables</a></span><span class="chapter-toc-leader"></span><span class="toc-page" data-target="tables"></span></li>
+<li class="chapter-toc-row"><span class="chapter-toc-title"><a href="#code-spans-与-fenced-code">Code spans 与 fenced code</a></span><span class="chapter-toc-leader"></span><span class="toc-page" data-target="code-spans-与-fenced-code"></span></li>
+<li class="chapter-toc-row"><span class="chapter-toc-title"><a href="#footnotes">Footnotes</a></span><span class="chapter-toc-leader"></span><span class="toc-page" data-target="footnotes"></span></li>
+<li class="chapter-toc-row"><span class="chapter-toc-title"><a href="#math-latex">Math / LaTeX</a></span><span class="chapter-toc-leader"></span><span class="toc-page" data-target="math-latex"></span></li>
+<li class="chapter-toc-row"><span class="chapter-toc-title"><a href="#raw-html">Raw HTML</a></span><span class="chapter-toc-leader"></span><span class="toc-page" data-target="raw-html"></span></li>
+<li class="chapter-toc-row"><span class="chapter-toc-title"><a href="#lists-与-escaping">Lists 与 escaping</a></span><span class="chapter-toc-leader"></span><span class="toc-page" data-target="lists-与-escaping"></span></li>
+</ul>
+</nav>
+<h2 id="tables" tabindex="-1">Tables</h2>
+<p>表格支持对齐、内联格式、wikilink 与图片。表格中的 alias 分隔符需要写成 <code>\|</code>，以免和列分隔符冲突。</p>
+<table>
+<thead>
+<tr>
+<th style="text-align:left">语法</th>
+<th style="text-align:left">示例</th>
+<th style="text-align:right">状态</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left">Wikilink alias</td>
+<td style="text-align:left"><a class="internal-link" href="#07-reference-library" data-href="Reference Library|Reference alias">Reference alias</a></td>
+<td style="text-align:right">✓</td>
+</tr>
+<tr>
+<td style="text-align:left">强调 / 高亮</td>
+<td style="text-align:left"><strong>bold</strong> / <mark>mark</mark></td>
+<td style="text-align:right">✓</td>
+</tr>
+<tr>
+<td style="text-align:left">嵌套标签</td>
+<td style="text-align:left"><span class="obsidian-tag" data-tag="table/demo">#table/demo</span></td>
+<td style="text-align:right">✓</td>
+</tr>
+<tr>
+<td style="text-align:left">数学</td>
+<td style="text-align:left"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>E</mi><mo>=</mo><mi>m</mi><msup><mi>c</mi><mn>2</mn></msup></mrow><annotation encoding="application/x-tex">E=mc^2</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6833em;"></span><span class="mord mathnormal" style="margin-right:0.0576em;">E</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.8141em;"></span><span class="mord mathnormal">m</span><span class="mord"><span class="mord mathnormal">c</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.8141em;"><span style="top:-3.063em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">2</span></span></span></span></span></span></span></span></span></span></span></td>
+<td style="text-align:right">✓</td>
+</tr>
+</tbody>
+</table>
+<h2 id="code-spans-与-fenced-code" tabindex="-1">Code spans 与 fenced code</h2>
+<p>Inline code 保留字面量：<code>[[not a link]]</code>、<code>%% not a comment %%</code>、<code>#not-a-tag</code>。</p>
+<pre><code class="hljs language-js"><span class="hljs-keyword">const</span> dialect = {
+  <span class="hljs-attr">name</span>: <span class="hljs-string">&quot;obsidian&quot;</span>,
+  <span class="hljs-attr">links</span>: <span class="hljs-string">&quot;[[Reference Library]]&quot;</span>,
+  <span class="hljs-attr">comment</span>: <span class="hljs-string">&quot;%% preserved inside code %%&quot;</span>
+};
+
+<span class="hljs-variable language_">console</span>.<span class="hljs-title function_">log</span>(dialect.<span class="hljs-property">name</span>);
+</code></pre>
+<p>未知语言会安全回退为转义后的普通代码块：</p>
+<pre><code class="language-vault-config">markdown:
+  dialect: obsidian
+  obsidian:
+    vault_root: &quot;.&quot;
+</code></pre>
+<h2 id="footnotes" tabindex="-1">Footnotes</h2>
+<p>命名脚注与数字脚注都会按章节命名空间化。这里引用一个脚注。<sup class="footnote-ref"><a href="#fn-ch5-1" id="fnref-ch5-1">[1]</a></sup></p>
+<p>Inline footnote 不需要单独定义。<sup class="footnote-ref"><a href="#fn-ch5-2" id="fnref-ch5-2">[2]</a></sup></p>
+<h2 id="math-latex" tabindex="-1">Math / LaTeX</h2>
+<p>行内公式：<span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>F</mi><mo>=</mo><mi>m</mi><mi>a</mi></mrow><annotation encoding="application/x-tex">F = ma</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6833em;"></span><span class="mord mathnormal" style="margin-right:0.1389em;">F</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.4306em;"></span><span class="mord mathnormal">ma</span></span></span></span>，矩阵：<span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mrow><mo fence="true">∣</mo><mtable rowspacing="0.16em" columnalign="center center" columnspacing="1em"><mtr><mtd><mstyle scriptlevel="0" displaystyle="false"><mi>a</mi></mstyle></mtd><mtd><mstyle scriptlevel="0" displaystyle="false"><mi>b</mi></mstyle></mtd></mtr><mtr><mtd><mstyle scriptlevel="0" displaystyle="false"><mi>c</mi></mstyle></mtd><mtd><mstyle scriptlevel="0" displaystyle="false"><mi>d</mi></mstyle></mtd></mtr></mtable><mo fence="true">∣</mo></mrow><mo>=</mo><mi>a</mi><mi>d</mi><mo>−</mo><mi>b</mi><mi>c</mi></mrow><annotation encoding="application/x-tex">\begin{vmatrix}a &amp; b\\ c &amp; d\end{vmatrix}=ad-bc</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:2.4em;vertical-align:-0.95em;"></span><span class="minner"><span class="mopen"><span class="delimsizing mult"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:1.45em;"><span style="top:-3.45em;"><span class="pstrut" style="height:4.4em;"></span><span style="width:0.333em;height:2.4em;"><svg xmlns="http://www.w3.org/2000/svg" width="0.333em" height="2.4em" viewBox="0 0 333 2400"><path d="M145 15 v585 v1200 v585 c2.667,10,9.667,15,21,15
+c10,0,16.667,-5,20,-15 v-585 v-1200 v-585 c-2.667,-10,-9.667,-15,-21,-15
+c-10,0,-16.667,5,-20,15z M188 15 H145 v585 v1200 v585 h43z"/></svg></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.95em;"><span></span></span></span></span></span></span><span class="mord"><span class="mtable"><span class="col-align-c"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:1.45em;"><span style="top:-3.61em;"><span class="pstrut" style="height:3em;"></span><span class="mord"><span class="mord mathnormal">a</span></span></span><span style="top:-2.41em;"><span class="pstrut" style="height:3em;"></span><span class="mord"><span class="mord mathnormal">c</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.95em;"><span></span></span></span></span></span><span class="arraycolsep" style="width:0.5em;"></span><span class="arraycolsep" style="width:0.5em;"></span><span class="col-align-c"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:1.45em;"><span style="top:-3.61em;"><span class="pstrut" style="height:3em;"></span><span class="mord"><span class="mord mathnormal">b</span></span></span><span style="top:-2.41em;"><span class="pstrut" style="height:3em;"></span><span class="mord"><span class="mord mathnormal">d</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.95em;"><span></span></span></span></span></span></span></span><span class="mclose"><span class="delimsizing mult"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:1.45em;"><span style="top:-3.45em;"><span class="pstrut" style="height:4.4em;"></span><span style="width:0.333em;height:2.4em;"><svg xmlns="http://www.w3.org/2000/svg" width="0.333em" height="2.4em" viewBox="0 0 333 2400"><path d="M145 15 v585 v1200 v585 c2.667,10,9.667,15,21,15
+c10,0,16.667,-5,20,-15 v-585 v-1200 v-585 c-2.667,-10,-9.667,-15,-21,-15
+c-10,0,-16.667,5,-20,15z M188 15 H145 v585 v1200 v585 h43z"/></svg></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.95em;"><span></span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.7778em;vertical-align:-0.0833em;"></span><span class="mord mathnormal">a</span><span class="mord mathnormal">d</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">−</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:0.6944em;"></span><span class="mord mathnormal">b</span><span class="mord mathnormal">c</span></span></span></span>。</p>
+<p>块公式使用 KaTeX，并保留作者手写的公式编号：</p>
+<p class="katex-block"><span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mtable width="100%"><mtr><mtd width="50%"></mtd><mtd><mrow><mi mathvariant="bold">F</mi><mo>=</mo><mi>m</mi><mo>⋅</mo><mi mathvariant="bold">a</mi></mrow></mtd><mtd width="50%"></mtd><mtd><mtext>(5.1)</mtext></mtd></mtr></mtable><annotation encoding="application/x-tex">\mathbf{F} = m \cdot \mathbf{a} \tag{5.1}
+</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6861em;"></span><span class="mord mathbf">F</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.4445em;"></span><span class="mord mathnormal">m</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">⋅</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:0.4444em;"></span><span class="mord mathbf">a</span></span><span class="tag"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord text"><span class="mord">(</span><span class="mord"><span class="mord">5.1</span></span><span class="mord">)</span></span></span></span></span></span></p>
+<p class="katex-block"><span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mtable width="100%"><mtr><mtd width="50%"></mtd><mtd><mrow><msubsup><mo>∫</mo><mrow><mo>−</mo><mi mathvariant="normal">∞</mi></mrow><mi mathvariant="normal">∞</mi></msubsup><msup><mi>e</mi><mrow><mo>−</mo><msup><mi>x</mi><mn>2</mn></msup></mrow></msup><mtext> </mtext><mi>d</mi><mi>x</mi><mo>=</mo><msqrt><mi>π</mi></msqrt></mrow></mtd><mtd width="50%"></mtd><mtd><mtext>(5.2)</mtext></mtd></mtr></mtable><annotation encoding="application/x-tex">\int_{-\infty}^{\infty} e^{-x^2}\,dx = \sqrt{\pi} \tag{5.2}
+</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:2.3846em;vertical-align:-0.9703em;"></span><span class="mop"><span class="mop op-symbol large-op" style="margin-right:0.4445em;position:relative;top:-0.0011em;">∫</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:1.4143em;"><span style="top:-1.7881em;margin-left:-0.4445em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mtight">−</span><span class="mord mtight">∞</span></span></span></span><span style="top:-3.8129em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mtight">∞</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.9703em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord"><span class="mord mathnormal">e</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:1.0369em;"><span style="top:-3.113em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mtight">−</span><span class="mord mtight"><span class="mord mathnormal mtight">x</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.8913em;"><span style="top:-2.931em;margin-right:0.0714em;"><span class="pstrut" style="height:2.5em;"></span><span class="sizing reset-size3 size1 mtight"><span class="mord mtight">2</span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord mathnormal">d</span><span class="mord mathnormal">x</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:1.04em;vertical-align:-0.1908em;"></span><span class="mord sqrt"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.8492em;"><span class="svg-align" style="top:-3em;"><span class="pstrut" style="height:3em;"></span><span class="mord" style="padding-left:0.833em;"><span class="mord mathnormal" style="margin-right:0.0359em;">π</span></span></span><span style="top:-2.8092em;"><span class="pstrut" style="height:3em;"></span><span class="hide-tail" style="min-width:0.853em;height:1.08em;"><svg xmlns="http://www.w3.org/2000/svg" width="400em" height="1.08em" viewBox="0 0 400000 1080" preserveAspectRatio="xMinYMin slice"><path d="M95,702
+c-2.7,0,-7.17,-2.7,-13.5,-8c-5.8,-5.3,-9.5,-10,-9.5,-14
+c0,-2,0.3,-3.3,1,-4c1.3,-2.7,23.83,-20.7,67.5,-54
+c44.2,-33.3,65.8,-50.3,66.5,-51c1.3,-1.3,3,-2,5,-2c4.7,0,8.7,3.3,12,10
+s173,378,173,378c0.7,0,35.3,-71,104,-213c68.7,-142,137.5,-285,206.5,-429
+c69,-144,104.5,-217.7,106.5,-221
+l0 -0
+c5.3,-9.3,12,-14,20,-14
+H400000v40H845.2724
+s-225.272,467,-225.272,467s-235,486,-235,486c-2.7,4.7,-9,7,-19,7
+c-6,0,-10,-1,-12,-3s-194,-422,-194,-422s-65,47,-65,47z
+M834 80h400000v40h-400000z"/></svg></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.1908em;"><span></span></span></span></span></span></span><span class="tag"><span class="strut" style="height:2.3846em;vertical-align:-0.9703em;"></span><span class="mord text"><span class="mord">(</span><span class="mord"><span class="mord">5.2</span></span><span class="mord">)</span></span></span></span></span></span></p>
+<h2 id="raw-html" tabindex="-1">Raw HTML</h2>
+<p>Obsidian 方言允许可信 Raw HTML；Markdown 不会在 HTML 元素内部二次解析，这与 Obsidian 行为一致。</p>
+<details open>
+  <summary><strong>Trusted HTML details</strong></summary>
+  <p>这里的 <code>**asterisks**</code> 保持字面量；HTML 标签由浏览器解释。</p>
+</details>
+<h2 id="lists-与-escaping" tabindex="-1">Lists 与 escaping</h2>
+<ul>
+<li>无序列表
+<ul>
+<li>嵌套项目
+<ol>
+<li>有序子项</li>
+<li>第二项</li>
+</ol>
+</li>
+</ul>
+</li>
+<li>转义字符：#not-a-tag、*not emphasis*、1. not an ordered item</li>
+</ul>
+<hr class="footnotes-sep">
+<section class="footnotes">
+<ol class="footnotes-list">
+<li id="fn-ch5-1" class="footnote-item"><p>这条脚注包含 <strong>Markdown</strong>、<a class="internal-link" href="#07-reference-library" data-href="Reference Library|内部链接">内部链接</a> 与第二行内容。<br>
+缩进后的内容仍属于同一脚注。 <a href="#fnref-ch5-1" class="footnote-backref">↩︎</a></p>
+</li>
+<li id="fn-ch5-2" class="footnote-item"><p>Inline footnotes 是 Obsidian reading view 支持的扩展形式。 <a href="#fnref-ch5-2" class="footnote-backref">↩︎</a></p>
+</li>
+</ol>
+</section>
+
+</td></tr></tbody></table></section>
+
+<section class="chapter" data-chapter="6">
+<table class="hb-sheet"><thead class="hb-running"><tr><td><div class="hb-run" aria-hidden="true"><span class="hb-run-slot hb-run-left">Obsidian Markdown</span><span class="hb-run-slot hb-run-center">Obsidian dialect</span><span class="hb-run-slot hb-run-right">dialects preview</span></div></td></tr></thead><tbody><tr><td>
+<dl class="obsidian-properties" aria-label="Properties"><div class="obsidian-property"><dt>aliases</dt><dd><span class="obsidian-property-value">Mermaid and Boundaries</span></dd></div><div class="obsidian-property"><dt>tags</dt><dd><span class="obsidian-property-value"><span class="obsidian-tag" data-tag="showcase/mermaid">#showcase/mermaid</span></span></dd></div><div class="obsidian-property"><dt>status</dt><dd><span class="obsidian-property-value">Complete</span></dd></div></dl>
+<h1 id="06-mermaid-与静态边界" tabindex="-1">06 · Mermaid 与静态边界</h1>
+<nav class="chapter-toc">
+<p class="chapter-toc-heading">本章覆盖</p>
+<ul class="chapter-toc-list">
+<li class="chapter-toc-row"><span class="chapter-toc-title"><a href="#flowchart-internal-link">Flowchart + internal-link</a></span><span class="chapter-toc-leader"></span><span class="toc-page" data-target="flowchart-internal-link"></span></li>
+<li class="chapter-toc-row"><span class="chapter-toc-title"><a href="#sequence-diagram">Sequence diagram</a></span><span class="chapter-toc-leader"></span><span class="toc-page" data-target="sequence-diagram"></span></li>
+<li class="chapter-toc-row"><span class="chapter-toc-title"><a href="#search-query-fence">Search query fence</a></span><span class="chapter-toc-leader"></span><span class="toc-page" data-target="search-query-fence"></span></li>
+<li class="chapter-toc-row"><span class="chapter-toc-title"><a href="#dataview-fence">Dataview fence</a></span><span class="chapter-toc-leader"></span><span class="toc-page" data-target="dataview-fence"></span></li>
+<li class="chapter-toc-row"><span class="chapter-toc-title"><a href="#覆盖边界">覆盖边界</a></span><span class="chapter-toc-leader"></span><span class="toc-page" data-target="覆盖边界"></span></li>
+</ul>
+</nav>
+<h2 id="flowchart-internal-link" tabindex="-1">Flowchart + internal-link</h2>
+<p>Mermaid 在 HTML 中离线转换为 SVG；PDF 管线会等待图表完成后再分页。带 <code>internal-link</code> class 的 flowchart 节点会解析为 vault 内部链接。</p>
+<pre class="mermaid">flowchart LR
+  A[&quot;Start Here&quot;] --&gt; B[&quot;Tasks and Callouts&quot;]
+  B --&gt; C[&quot;Embeds and Media&quot;]
+  C --&gt; D[&quot;Reference Library&quot;]
+  class A,B,C,D internal-link;
+click A href &quot;#01-从这里开始&quot; &quot;Start Here&quot; _self
+click B href &quot;#03-任务与-callouts&quot; &quot;Tasks and Callouts&quot; _self
+click C href &quot;#04-笔记与媒体嵌入&quot; &quot;Embeds and Media&quot; _self
+click D href &quot;#07-reference-library&quot; &quot;Reference Library&quot; _self
+</pre>
+<h2 id="sequence-diagram" tabindex="-1">Sequence diagram</h2>
+<pre class="mermaid">sequenceDiagram
+  participant V as Vault
+  participant C as mhb check
+  participant H as HTML
+  participant P as PDF
+  V-&gt;&gt;C: Markdown + attachments
+  C-&gt;&gt;H: resolved dialect tokens
+  H-&gt;&gt;P: rendered SVG + print CSS
+  P--&gt;&gt;V: portable showcase
+</pre>
+<h2 id="search-query-fence" tabindex="-1">Search query fence</h2>
+<p>Obsidian Search 是 core plugin 的动态能力，不属于 Obsidian Flavored Markdown 扩展表。Showcase 保留其源码，但不会伪造实时搜索结果：</p>
+<pre><code class="language-query">tag:#showcase path:notes
+</code></pre>
+<h2 id="dataview-fence" tabindex="-1">Dataview fence</h2>
+<p>Dataview 是社区插件语言，同样只作为代码展示：</p>
+<pre><code class="language-dataview">TABLE status, created
+FROM #showcase
+SORT file.name ASC
+</code></pre>
+<h2 id="覆盖边界" tabindex="-1">覆盖边界</h2>
+<table>
+<thead>
+<tr>
+<th style="text-align:left">能力</th>
+<th style="text-align:left">静态 PDF 行为</th>
+<th style="text-align:left">分类</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left">Wikilinks / embeds / blocks</td>
+<td style="text-align:left">完整解析与验证</td>
+<td style="text-align:left">Obsidian Markdown</td>
+</tr>
+<tr>
+<td style="text-align:left">Callouts / tasks / comments</td>
+<td style="text-align:left">完整静态渲染</td>
+<td style="text-align:left">Obsidian Markdown</td>
+</tr>
+<tr>
+<td style="text-align:left">Properties / tags / Mermaid</td>
+<td style="text-align:left">结构化或 SVG 输出</td>
+<td style="text-align:left">官方静态内容</td>
+</tr>
+<tr>
+<td style="text-align:left">Search query</td>
+<td style="text-align:left">保留源码，不执行</td>
+<td style="text-align:left">Core plugin</td>
+</tr>
+<tr>
+<td style="text-align:left">Dataview</td>
+<td style="text-align:left">保留源码，不执行</td>
+<td style="text-align:left">Community plugin</td>
+</tr>
+<tr>
+<td style="text-align:left">Canvas / Bases</td>
+<td style="text-align:left">打包为文件卡片</td>
+<td style="text-align:left">独立文件格式</td>
+</tr>
+</tbody>
+</table>
+<p class="showcase-status"><strong>Coverage statement:</strong> 本成品覆盖 Obsidian Flavored Markdown 官方扩展表以及 properties、tags、Mermaid 和官方附件类型；应用级动态行为被明确标注，而不是模拟。</p>
+
+</td></tr></tbody></table></section>
+
+<section class="chapter reference-library" data-chapter="7">
+<table class="hb-sheet"><thead class="hb-running"><tr><td><div class="hb-run" aria-hidden="true"><span class="hb-run-slot hb-run-left">Obsidian Markdown</span><span class="hb-run-slot hb-run-center">Obsidian dialect</span><span class="hb-run-slot hb-run-right">dialects preview</span></div></td></tr></thead><tbody><tr><td>
+<dl class="obsidian-properties" aria-label="Properties"><div class="obsidian-property"><dt>aliases</dt><dd><span class="obsidian-property-value">Reference Library</span><span class="obsidian-property-value">Knowledge Base</span></dd></div><div class="obsidian-property"><dt>tags</dt><dd><span class="obsidian-property-value"><span class="obsidian-tag" data-tag="showcase/reference">#showcase/reference</span></span></dd></div><div class="obsidian-property"><dt>cssclasses</dt><dd><span class="obsidian-property-value">reference-library</span></dd></div><div class="obsidian-property"><dt>status</dt><dd><span class="obsidian-property-value">Canonical</span></dd></div><div class="obsidian-property"><dt>owner</dt><dd><span class="obsidian-property-value">Markdown Handout Builder</span></dd></div></dl>
+<h1 id="07-reference-library" tabindex="-1">07 · Reference Library</h1>
+<nav class="chapter-toc">
+<p class="chapter-toc-heading">本章覆盖</p>
+<ul class="chapter-toc-list">
+<li class="chapter-toc-row"><span class="chapter-toc-title"><a href="#canonical-heading-2">Canonical Heading</a></span><span class="chapter-toc-leader"></span><span class="toc-page" data-target="canonical-heading-2"></span></li>
+<li class="chapter-toc-row chapter-toc-l1"><span class="chapter-toc-title"><a href="#nested-section-2">Nested Section</a></span><span class="chapter-toc-leader"></span><span class="toc-page" data-target="nested-section-2"></span></li>
+<li class="chapter-toc-row"><span class="chapter-toc-title"><a href="#block-reference-targets">Block Reference Targets</a></span><span class="chapter-toc-leader"></span><span class="toc-page" data-target="block-reference-targets"></span></li>
+<li class="chapter-toc-row"><span class="chapter-toc-title"><a href="#backlinks-in-content">Backlinks in content</a></span><span class="chapter-toc-leader"></span><span class="toc-page" data-target="backlinks-in-content"></span></li>
+</ul>
+</nav>
+<p>本章是 wikilink、heading link、block reference、note embed 与 Mermaid internal-link 的统一目标。</p>
+<h2 id="canonical-heading-2" tabindex="-1">Canonical Heading</h2>
+<p>“静态”并不意味着“丢失语义”：链接目标、标题层级、块锚点、属性与附件关系都在构建时被解析并验证。</p>
+<h3 id="nested-section-2" tabindex="-1">Nested Section</h3>
+<p>层级标题链接 <code>[[Reference Library#Canonical Heading#Nested Section]]</code> 会精确落到这里。</p>
+<h4 id="deep-anchor-2" tabindex="-1">Deep Anchor</h4>
+<p>更深层标题仍然有稳定 ID，并可用于标准 Markdown fragment。</p>
+<h2 id="block-reference-targets" tabindex="-1">Block Reference Targets</h2>
+<p id="obsidian-block-notes-reference-library-md-fact-block-ch7">这是一条带人类可读 ID 的事实段落：Obsidian Markdown 是 CommonMark、GFM、LaTeX 与 Obsidian 扩展的组合。</p>
+<p>结构化列表通过独立标识符成为可嵌入块：</p>
+<ul>
+<li>CommonMark foundation</li>
+<li>GitHub Flavored Markdown tables and strikethrough</li>
+<li>Obsidian wikilinks, embeds, blocks, comments, tasks and callouts</li>
+<li>Properties, tags, Mermaid and accepted attachments</li>
+</ul>
+<span class="obsidian-block-anchor" id="obsidian-block-notes-reference-library-md-reference-list-ch7"></span>
+<h2 id="backlinks-in-content" tabindex="-1">Backlinks in content</h2>
+<ul>
+<li>返回 <a class="internal-link" href="#01-从这里开始" data-href="Start Here|Showcase 首页">Showcase 首页</a></li>
+<li>返回 <a class="internal-link" href="#02-内部链接与块引用" data-href="Link Lab|链接实验室">链接实验室</a></li>
+<li>返回 <a class="internal-link" href="#06-mermaid-与静态边界" data-href="Mermaid and Boundaries|Mermaid 与边界">Mermaid 与边界</a></li>
+</ul>
+<div class="callout callout-success" data-callout="success"><div class="callout-title">End-to-end</div><div class="callout-content">
+<p>如果你正在阅读这份 PDF，说明 properties、链接解析、transclusion、代码高亮、KaTeX、Mermaid、附件复制、Chromium 打印和 PDF 后处理已共同完成。</p>
+</div></div>
+
+</td></tr></tbody></table></section>
+
+      <footer id="back-cover" class="back-cover">
+<div class="back-cover-inner">
+<p class="back-cover-title">Obsidian Markdown</p>
+<p class="back-cover-meta">Markdown Handout Builder</p>
+<p class="back-cover-meta">2026.07.10</p>
+<p class="back-cover-meta">dialects preview</p>
+</div>
+</footer>
+    </main>
+
+    <script src="./assets/mermaid.min.js"></script>
+<script>
+  mermaid.initialize({ startOnLoad: false, securityLevel: "loose", theme: "neutral" });
+  window.__MHB_RENDER_READY__ = mermaid.run({ querySelector: ".mermaid" });
+</script>
+
+    <script>
+      window.addEventListener("keydown", event => {
+        const isPrint =
+          (event.ctrlKey || event.metaKey) &&
+          event.key.toLowerCase() === "p";
+
+        if (isPrint) {
+          event.preventDefault();
+          window.print();
+        }
+      });
+    </script>
+  </body>
+</html>

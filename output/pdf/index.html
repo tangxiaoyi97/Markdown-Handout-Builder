@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light dark">
+    <title>Obsidian Markdown</title>
+    <style>
+      :root {
+        
+        --idx-bg: #ffffff;
+        --idx-text: #111111;
+        --idx-muted: #555555;
+        --idx-faint: #999999;
+        --idx-hairline: #e8e8e8;
+        --idx-rule: #111111;
+        --idx-btn-bg: #111111;
+        --idx-btn-fg: #ffffff;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --idx-bg: #111111;
+          --idx-text: #eaeaea;
+          --idx-muted: #a8a8a8;
+          --idx-faint: #6f6f6f;
+          --idx-hairline: #2a2a2a;
+          --idx-rule: #eaeaea;
+          --idx-btn-bg: #eaeaea;
+          --idx-btn-fg: #111111;
+        }
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--idx-bg);
+        color: var(--idx-text);
+        padding: 64px 24px;
+        font-family: var(--hb-font-body, -apple-system, "Segoe UI", Roboto,
+          "PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC",
+          "Microsoft YaHei", sans-serif);
+        line-height: 1.65;
+        display: flex;
+        justify-content: center;
+      }
+      .page { width: 100%; max-width: 600px; }
+      .kicker {
+        font-size: 0.7em;
+        letter-spacing: 0.34em;
+        color: var(--idx-faint);
+        margin: 0 0 18px;
+      }
+      h1 {
+        font-family: Georgia, "Times New Roman", "Noto Serif CJK SC",
+          "Source Han Serif SC", serif;
+        font-size: 2.7em;
+        line-height: 1.15;
+        margin: 0 0 10px;
+        font-weight: 600;
+        letter-spacing: -0.01em;
+      }
+      .subtitle {
+        font-family: Georgia, "Times New Roman", "Noto Serif CJK SC", serif;
+        font-style: italic;
+        color: var(--idx-muted);
+        font-size: 1.1em;
+        margin: 0 0 26px;
+      }
+      .rule { border: none; border-top: 1px solid var(--idx-rule); margin: 0 0 14px; }
+      .meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 24px;
+        font-size: 0.78em;
+        letter-spacing: 0.12em;
+        color: var(--idx-faint);
+        margin: 0 0 40px;
+      }
+      .meta b { color: var(--idx-text); font-weight: 600; }
+      .actions { display: flex; gap: 12px; margin: 0 0 44px; flex-wrap: wrap; }
+      .btn {
+        flex: 1;
+        min-width: 170px;
+        text-align: center;
+        padding: 13px 18px;
+        font-size: 0.95em;
+        text-decoration: none;
+      }
+      .btn.pri { background: var(--idx-btn-bg); color: var(--idx-btn-fg); }
+      .btn.pri:hover { opacity: 0.88; }
+      .btn.sec { border: 1px solid var(--idx-rule); color: var(--idx-text); }
+      .btn.sec:hover { background: var(--idx-hairline); }
+      .sec-label {
+        font-size: 0.68em;
+        letter-spacing: 0.3em;
+        color: var(--idx-faint);
+        margin: 0 0 14px;
+      }
+      .chapters { margin: 0 0 40px; }
+      .ch {
+        display: flex;
+        gap: 18px;
+        align-items: baseline;
+        padding: 10px 0;
+        border-bottom: 1px solid var(--idx-hairline);
+      }
+      .ch:first-of-type { border-top: 1px solid var(--idx-hairline); }
+      .ch .no {
+        font-family: Georgia, "Times New Roman", serif;
+        color: var(--idx-faint);
+        font-size: 0.85em;
+        min-width: 2.2em;
+        font-variant-numeric: tabular-nums;
+      }
+      .ch a {
+        color: var(--idx-text);
+        text-decoration: none;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .ch a:hover { text-decoration: underline; text-underline-offset: 3px; }
+      .variants {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px 14px;
+        align-items: baseline;
+        margin: 0 0 48px;
+        font-size: 0.9em;
+      }
+      .variants .lb { color: var(--idx-faint); }
+      .variant-label { font-weight: 600; }
+      .variants a {
+        color: var(--idx-text);
+        text-decoration: underline;
+        text-underline-offset: 3px;
+      }
+      .variants .sep { color: var(--idx-faint); }
+      .foot {
+        font-size: 0.78em;
+        color: var(--idx-faint);
+        border-top: 1px solid var(--idx-hairline);
+        padding-top: 18px;
+        margin: 0;
+      }
+      .foot a { color: var(--idx-muted); }
+      @media (max-width: 480px) {
+        body { padding: 40px 18px; }
+        h1 { font-size: 2.1em; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <p class="kicker">HANDOUT</p>
+      <h1>Obsidian Markdown</h1>
+      <p class="subtitle">静态语法全覆盖 · HTML / PDF Showcase</p>
+      <hr class="rule">
+      <p class="meta">
+        <span><b>Markdown Handout Builder</b></span>
+        <span>2026.07.10</span>
+        <span>dialects preview</span>
+        <span>7 CHAPTERS</span>
+      </p>
+      <div class="actions">
+        <a class="btn pri" href="./obsidian-syntax-showcase.html">Read online</a>
+        <a class="btn sec" href="./obsidian-syntax-showcase.pdf" download>Official PDF</a>
+      </div>
+      <p class="sec-label">CONTENTS</p>
+<div class="chapters">
+<div class="ch"><span class="no">I</span><a href="./obsidian-syntax-showcase.html#01-从这里开始">01 · 从这里开始</a></div>
+<div class="ch"><span class="no">II</span><a href="./obsidian-syntax-showcase.html#02-内部链接与块引用">02 · 内部链接与块引用</a></div>
+<div class="ch"><span class="no">III</span><a href="./obsidian-syntax-showcase.html#03-任务与-callouts">03 · 任务与 Callouts</a></div>
+<div class="ch"><span class="no">IV</span><a href="./obsidian-syntax-showcase.html#04-笔记与媒体嵌入">04 · 笔记与媒体嵌入</a></div>
+<div class="ch"><span class="no">V</span><a href="./obsidian-syntax-showcase.html#05-表格-代码-脚注与数学">05 · 表格、代码、脚注与数学</a></div>
+<div class="ch"><span class="no">VI</span><a href="./obsidian-syntax-showcase.html#06-mermaid-与静态边界">06 · Mermaid 与静态边界</a></div>
+<div class="ch"><span class="no">VII</span><a href="./obsidian-syntax-showcase.html#07-reference-library">07 · Reference Library</a></div>
+</div>
+      
+      <p class="foot">Built with Markdown Handout Builder &middot;
+        <a href="https://github.com/tangxiaoyi97/Markdown-Handout-Builder">GitHub</a></p>
+    </div>
+  </body>
+</html>

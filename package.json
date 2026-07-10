@@ -15,6 +15,7 @@
   "homepage": "https://tangxiaoyi97.github.io/Markdown-Handout-Builder/",
   "keywords": [
     "markdown",
+    "obsidian",
     "pdf",
     "handout",
     "playwright",
@@ -35,6 +36,7 @@
     "templates/",
     "book.example.yml",
     "WRITING_RULES.md",
+    "DIALECTS.md",
     "LICENSE",
     "THIRD_PARTY_NOTICES.md",
     "README.md"
@@ -64,6 +66,7 @@
     "markdown-it-container": "^4.0.0",
     "markdown-it-footnote": "^4.0.0",
     "markdown-it-mark": "^4.0.0",
+    "mermaid": "^11.16.0",
     "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^6.1.200",
     "playwright": "^1.49.0",

@@ -76,3 +76,8 @@ themes:
     pdf:
       header_footer_style:
         color: "#9a9a9a"
+  - name: clay
+    label: "Clay"
+    style:
+      accent_color: "#3f6cae"
+      custom_css: "templates/theme-clay.css"

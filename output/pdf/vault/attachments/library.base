@@ -1,0 +1,11 @@
+filters:
+  and:
+    - file.ext == "md"
+    - file.hasTag("showcase")
+views:
+  - type: table
+    name: Showcase notes
+    order:
+      - file.name
+      - status
+

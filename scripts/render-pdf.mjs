@@ -639,6 +639,12 @@ async function preparePage(browser, htmlPath) {
     waitUntil: "networkidle"
   });
 
+  // Optional dialect renderers (currently Mermaid) expose a promise so PDF
+  // pagination starts only after client-side diagrams have become SVG.
+  await page.evaluate(async () => {
+    if (window.__MHB_RENDER_READY__) await window.__MHB_RENDER_READY__;
+  });
+
   await page.emulateMedia({ media: "print" });
   // 标记"官方 PDF 管线"：隐藏网页打印专用的运行页眉（<thead> 重复头），
   // 官方页眉由 Chromium headerTemplate 绘制在页边距区，避免双重页眉

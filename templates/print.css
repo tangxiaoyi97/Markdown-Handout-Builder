@@ -644,6 +644,231 @@ blockquote {
   margin-bottom: 0;
 }
 
+/* ---------- Obsidian Flavored Markdown (opt-in dialect) ---------- */
+.internal-link.unresolved,
+.obsidian-embed.unresolved,
+.obsidian-note-embed.unresolved {
+  color: var(--hb-fg-muted);
+  text-decoration: underline dotted;
+  cursor: not-allowed;
+}
+
+.obsidian-properties {
+  margin: 0 0 1.25em;
+  padding: 10px 14px;
+  border: 1px solid var(--hb-border);
+  border-radius: 6px;
+  background: var(--hb-quote-bg);
+  font-size: 0.88em;
+}
+
+.obsidian-property {
+  display: grid;
+  grid-template-columns: minmax(7em, 0.3fr) 1fr;
+  gap: 12px;
+  padding: 3px 0;
+}
+
+.obsidian-property dt {
+  color: var(--hb-fg-muted);
+  font-weight: 600;
+}
+
+.obsidian-property dd {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin: 0;
+}
+
+.obsidian-properties-source {
+  margin-top: 0;
+}
+
+.obsidian-tag {
+  display: inline-block;
+  padding: 0.04em 0.45em;
+  border: 1px solid color-mix(in srgb, var(--hb-accent) 35%, var(--hb-border));
+  border-radius: 999px;
+  color: var(--hb-accent);
+  background: color-mix(in srgb, var(--hb-accent) 8%, transparent);
+  font-size: 0.88em;
+  line-height: 1.45;
+}
+
+.contains-task-list {
+  list-style: none;
+  padding-left: 1.35em;
+}
+
+.task-list-item {
+  list-style: none;
+}
+
+.task-list-item-checkbox {
+  width: 1em;
+  height: 1em;
+  margin: 0 0.35em 0 -1.25em;
+  vertical-align: -0.08em;
+  accent-color: var(--hb-accent);
+}
+
+.task-list-item[data-task]:not([data-task=" "]) {
+  color: var(--hb-fg-muted);
+  text-decoration: line-through;
+}
+
+.callout {
+  --hb-callout-color: var(--hb-adm-note, #0969da);
+  --hb-callout-bg: var(--hb-adm-note-bg, #f0f6ff);
+  margin: 1em 0;
+  border: 1px solid color-mix(in srgb, var(--hb-callout-color) 42%, var(--hb-border));
+  border-left: 4px solid var(--hb-callout-color);
+  border-radius: 0 6px 6px 0;
+  background: var(--hb-callout-bg);
+  color: var(--hb-fg);
+}
+
+.callout-title {
+  padding: 8px 12px 6px;
+  color: var(--hb-callout-color);
+  font-weight: 650;
+  line-height: 1.4;
+}
+
+summary.callout-title {
+  cursor: pointer;
+}
+
+.callout-content {
+  padding: 0 12px 9px;
+}
+
+.callout-content > :first-child {
+  margin-top: 0;
+}
+
+.callout-content > :last-child {
+  margin-bottom: 0;
+}
+
+.callout-content > p:empty {
+  display: none;
+}
+
+.callout-tip,
+.callout-hint,
+.callout-important,
+.callout-success,
+.callout-check,
+.callout-done {
+  --hb-callout-color: var(--hb-adm-tip, #1a7f37);
+  --hb-callout-bg: var(--hb-adm-tip-bg, #effaf2);
+}
+
+.callout-warning,
+.callout-caution,
+.callout-attention,
+.callout-question,
+.callout-help,
+.callout-faq {
+  --hb-callout-color: var(--hb-adm-warning, #9a6700);
+  --hb-callout-bg: var(--hb-adm-warning-bg, #fff8e6);
+}
+
+.callout-failure,
+.callout-fail,
+.callout-missing,
+.callout-danger,
+.callout-error,
+.callout-bug {
+  --hb-callout-color: var(--hb-adm-danger, #cf222e);
+  --hb-callout-bg: var(--hb-adm-danger-bg, #fff1f2);
+}
+
+.callout-abstract,
+.callout-summary,
+.callout-tldr,
+.callout-quote,
+.callout-cite,
+.callout-example {
+  --hb-callout-color: #8250df;
+  --hb-callout-bg: color-mix(in srgb, #8250df 8%, var(--hb-surface));
+}
+
+.obsidian-note-embed {
+  margin: 1em 0;
+  padding: 8px 16px;
+  border: 1px solid var(--hb-border);
+  border-left: 3px solid var(--hb-accent);
+  border-radius: 0 6px 6px 0;
+  background: var(--hb-quote-bg);
+}
+
+.obsidian-note-embed > :first-child {
+  margin-top: 0;
+}
+
+.obsidian-note-embed > :last-child {
+  margin-bottom: 0;
+}
+
+.obsidian-embed-image,
+.obsidian-embed-video,
+.obsidian-embed-pdf {
+  display: block;
+  max-width: 100%;
+  margin: 1em auto;
+}
+
+.obsidian-embed-video,
+.obsidian-embed-pdf {
+  width: 100%;
+}
+
+.obsidian-embed-audio {
+  display: block;
+  width: min(100%, 560px);
+  margin: 1em auto;
+}
+
+.obsidian-file-embed {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 1em 0;
+  padding: 10px 12px;
+  border: 1px solid var(--hb-border);
+  border-radius: 6px;
+  background: var(--hb-quote-bg);
+  text-decoration: none;
+}
+
+.obsidian-file-embed-kind {
+  color: var(--hb-fg-muted);
+  font-size: 0.78em;
+  letter-spacing: 0.08em;
+}
+
+.obsidian-block-anchor {
+  display: block;
+  position: relative;
+  top: -1em;
+  visibility: hidden;
+}
+
+.mermaid {
+  overflow: visible;
+  text-align: center;
+  background: transparent;
+}
+
+.mermaid svg {
+  max-width: 100%;
+  height: auto;
+}
+
 /* ---------- Manual page break marker (a paragraph with only the
    pagebreak / newpage command) ---------- */
 .hb-pagebreak {
@@ -793,7 +1018,11 @@ hr.footnotes-sep {
   img,
   figure,
   .admonition,
+  .callout,
   .env,
+  .obsidian-note-embed,
+  .obsidian-properties,
+  .obsidian-file-embed,
   .chapter-toc,
   .katex-display {
     break-inside: avoid;

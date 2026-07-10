@@ -6,7 +6,8 @@
  *   1. book.yml 存在、可解析；chapters 为非空列表或指向外部 .yml 列表文件；
  *   2. 每个条目按扩展名分派（.md/.markdown=章节，.html/.htm=插页），文件存在，
  *      对象形态的 class/chapter_toc 合法（chapter_toc 只对章节有意义）；
- *   3. 章节（仅 .md）正文中不允许出现 Obsidian 专有语法（[[ / ]] / ![[）；
+ *   3. 章节（仅 .md）按方言检查：默认拒绝 Obsidian 语法，obsidian 模式
+ *      解析 properties 并验证 wikilink / embed 目标；
  *   4. 章节的本地图片引用必须存在（相对当前 Markdown 文件所在目录解析）；
  *   5. toc / chapter_toc / pdf / themes / labels 等配置字段类型校验。
  *
@@ -22,6 +23,12 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import YAML from "yaml";
 import { resolveChapterList, normalizeChapterEntry, isValidClassAttr } from "./lib/chapters.mjs";
+import {
+  createObsidianVault,
+  obsidianFragmentExists,
+  parseObsidianFrontmatter,
+  scanObsidianReferences
+} from "./lib/obsidian.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const toolRoot = path.resolve(scriptDir, "..");
@@ -50,6 +57,8 @@ const toPosix = (p) => p.split(path.sep).join("/");
 
 // 被章节引用过的本地图片（用于"未引用图片"警告）
 const referencedImages = new Set();
+const checkedMarkdownContent = new Set();
+const embeddedNotes = new Set();
 
 /* ---------- 1. 读取并解析 book.yml ---------- */
 
@@ -69,6 +78,44 @@ try {
 if (!book || typeof book !== "object") {
   console.error(`Error: ${configName} is empty or not a YAML mapping.`);
   process.exit(1);
+}
+
+/* ---------- Markdown dialect ---------- */
+
+const markdownCfg = book.markdown ?? {};
+let markdownDialect = "standard";
+let obsidianEnabled = false;
+let obsidianVault = null;
+if (book.markdown !== undefined && (!book.markdown || typeof book.markdown !== "object" || Array.isArray(book.markdown))) {
+  fail(`${configName}: "markdown" must be a mapping.`);
+} else {
+  markdownDialect = String(markdownCfg.dialect ?? "standard").toLowerCase();
+  if (!["standard", "obsidian"].includes(markdownDialect)) {
+    fail(`${configName}: markdown.dialect must be "standard" or "obsidian".`);
+  }
+  obsidianEnabled = markdownDialect === "obsidian";
+}
+
+if (obsidianEnabled) {
+  const obsidianCfg = markdownCfg.obsidian ?? {};
+  if (!obsidianCfg || typeof obsidianCfg !== "object" || Array.isArray(obsidianCfg)) {
+    fail(`${configName}: markdown.obsidian must be a mapping.`);
+  } else {
+    const properties = String(obsidianCfg.properties ?? "visible").toLowerCase();
+    if (!["visible", "hidden", "source"].includes(properties)) {
+      fail(`${configName}: markdown.obsidian.properties must be "visible", "hidden", or "source".`);
+    }
+    if (obsidianCfg.vault_root !== undefined && typeof obsidianCfg.vault_root !== "string") {
+      fail(`${configName}: markdown.obsidian.vault_root must be a directory path string.`);
+    } else {
+      const vaultRoot = path.resolve(baseDir, obsidianCfg.vault_root ?? ".");
+      if (!fs.existsSync(vaultRoot) || !fs.statSync(vaultRoot).isDirectory()) {
+        fail(`${configName}: markdown.obsidian.vault_root is not a directory: ${obsidianCfg.vault_root ?? "."}`);
+      } else {
+        obsidianVault = createObsidianVault(vaultRoot);
+      }
+    }
+  }
 }
 
 /* ---------- 2. chapters：解析（内联列表或外部 chapters 文件） ---------- */
@@ -95,7 +142,15 @@ function isRemoteTarget(target) {
 }
 
 function checkChapterContent(absPath, relPath) {
+  if (obsidianEnabled && checkedMarkdownContent.has(absPath)) return;
+  if (obsidianEnabled) checkedMarkdownContent.add(absPath);
   const text = fs.readFileSync(absPath, "utf8").replace(/^﻿/, ""); // 去 UTF-8 BOM
+  if (obsidianEnabled) {
+    const frontmatter = parseObsidianFrontmatter(text);
+    if (frontmatter.error) {
+      fail(`${relPath}: invalid Obsidian properties: ${frontmatter.error}`);
+    }
+  }
   const lines = text.split(/\r?\n/);
 
   let inFence = false;
@@ -122,12 +177,12 @@ function checkChapterContent(absPath, relPath) {
     const line = rawLine.replace(/`[^`]*`/g, "");
 
     // Obsidian 专有语法
-    if (line.includes("![[")) {
+    if (!obsidianEnabled && line.includes("![[")) {
       fail(
         `${relPath}:${lineNo}: Obsidian embed "![[...]]" is not supported. ` +
           `Use a standard Markdown image like ![alt](./assets/pic.png).`
       );
-    } else if (line.includes("[[") || line.includes("]]")) {
+    } else if (!obsidianEnabled && (line.includes("[[") || line.includes("]]"))) {
       fail(
         `${relPath}:${lineNo}: Obsidian wikilink "[[...]]" is not supported. ` +
           `Use a standard Markdown link like [text](target).`
@@ -158,6 +213,41 @@ function checkChapterContent(absPath, relPath) {
       }
     }
   });
+
+  if (obsidianEnabled && obsidianVault) {
+    for (const reference of scanObsidianReferences(text, { includeFrontmatter: true })) {
+      const resolved = obsidianVault.resolve(reference.target, absPath);
+      if (!resolved) {
+        fail(
+          `${relPath}:${reference.line}: Obsidian ${reference.embed ? "embed" : "link"} target not found: ` +
+            `${reference.target || `#${reference.fragment}`}`
+        );
+        continue;
+      }
+      if (resolved.ambiguous.length > 0) {
+        warnings.push(
+          `${relPath}:${reference.line}: ambiguous Obsidian target ${JSON.stringify(reference.target)}; ` +
+            `using ${resolved.file.relPath}`
+        );
+      }
+      if (
+        resolved.file.ext === ".md" &&
+        reference.fragment &&
+        !obsidianFragmentExists(resolved.file.absPath, reference.fragment)
+      ) {
+        fail(
+          `${relPath}:${reference.line}: Obsidian fragment not found: ` +
+            `${resolved.file.relPath}#${reference.fragment}`
+        );
+      }
+      if (reference.embed && resolved.file.ext !== ".md") {
+        referencedImages.add(resolved.file.absPath);
+      } else if (reference.embed) {
+        embeddedNotes.add(resolved.file.absPath);
+        checkChapterContent(resolved.file.absPath, resolved.file.relPath);
+      }
+    }
+  }
 }
 
 const seenChapters = new Set();
@@ -453,7 +543,7 @@ if (fs.existsSync(notesDir)) {
   for (const file of walkFiles(notesDir)) {
     if (!file.endsWith(".md")) continue;
     if (path.basename(file).startsWith("_")) continue; // "_" 开头视为草稿，不提醒
-    if (!chapterSet.has(file)) {
+    if (!chapterSet.has(file) && !embeddedNotes.has(file)) {
       warnings.push(
         `${toPosix(path.relative(baseDir, file))}: not listed in ${configName} "chapters" — ` +
           `it will NOT appear in the handout (prefix the filename with "_" to mark it as a draft)`

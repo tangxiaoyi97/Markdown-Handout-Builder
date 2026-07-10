@@ -32,6 +32,7 @@ import markdownItKatexModule from "@vscode/markdown-it-katex";
 import YAML from "yaml";
 
 import { normalizeChapters, isValidClassAttr } from "./lib/chapters.mjs";
+import { createObsidianDialect, createObsidianVault } from "./lib/obsidian.mjs";
 
 const require = createRequire(import.meta.url);
 
@@ -96,6 +97,40 @@ if (chaptersResult.error) {
   process.exit(1);
 }
 const chapterEntries = chaptersResult.entries;
+
+/* ---------- Markdown 方言（默认保持现有严格模式） ---------- */
+
+if (book.markdown !== undefined && (!book.markdown || typeof book.markdown !== "object" || Array.isArray(book.markdown))) {
+  console.error('Error: "markdown" must be a mapping.');
+  process.exit(1);
+}
+const markdownCfg = book.markdown ?? {};
+const markdownDialect = String(markdownCfg.dialect ?? "standard").toLowerCase();
+const obsidianEnabled = markdownDialect === "obsidian";
+const obsidianCfg = markdownCfg.obsidian ?? {};
+if (obsidianEnabled && (!obsidianCfg || typeof obsidianCfg !== "object" || Array.isArray(obsidianCfg))) {
+  console.error('Error: "markdown.obsidian" must be a mapping.');
+  process.exit(1);
+}
+if (obsidianEnabled && obsidianCfg.vault_root !== undefined && typeof obsidianCfg.vault_root !== "string") {
+  console.error("Error: markdown.obsidian.vault_root must be a directory path string.");
+  process.exit(1);
+}
+const obsidianVaultRoot = path.resolve(baseDir, String(obsidianCfg.vault_root ?? "."));
+const obsidianPropertiesMode = String(obsidianCfg.properties ?? "visible").toLowerCase();
+if (!["standard", "obsidian"].includes(markdownDialect)) {
+  console.error(`Error: unsupported markdown.dialect ${JSON.stringify(markdownDialect)}.`);
+  process.exit(1);
+}
+if (obsidianEnabled && (!fs.existsSync(obsidianVaultRoot) || !fs.statSync(obsidianVaultRoot).isDirectory())) {
+  console.error(`Error: markdown.obsidian.vault_root is not a directory: ${obsidianVaultRoot}`);
+  process.exit(1);
+}
+if (obsidianEnabled && !["visible", "hidden", "source"].includes(obsidianPropertiesMode)) {
+  console.error('Error: markdown.obsidian.properties must be "visible", "hidden", or "source".');
+  process.exit(1);
+}
+const obsidianVault = obsidianEnabled ? createObsidianVault(obsidianVaultRoot) : null;
 
 const title = book.title ? String(book.title) : "Untitled Handout";
 const subtitle = book.subtitle ? String(book.subtitle) : "";
@@ -524,8 +559,21 @@ function buildTheme(theme) {
 
   const tocEntries = [];
 
+  const obsidian = obsidianEnabled
+    ? createObsidianDialect({
+        baseDir,
+        vaultRoot: obsidianVaultRoot,
+        vaultIndex: obsidianVault,
+        propertiesMode: obsidianPropertiesMode,
+        escapeHtml,
+        slugify: slugifyHeading
+      })
+    : null;
+
   const md = new MarkdownIt({
-    html: false, // 禁止 Markdown 原始 HTML
+    // Obsidian Flavored Markdown follows CommonMark and permits raw HTML.
+    // The dialect is opt-in because chapter Markdown is trusted content in this mode.
+    html: obsidianEnabled,
     linkify: true,
     typographer: false,
     // 构建时语法高亮（highlight.js common 语言集，无运行时 JS）。
@@ -609,13 +657,20 @@ function buildTheme(theme) {
       });
     }
   });
+  if (obsidian) obsidian.install(md);
 
   // 外部链接在新标签页打开
   const defaultLinkOpen =
     md.renderer.rules.link_open ??
     ((tokens, idx, options, _env, self) => self.renderToken(tokens, idx, options));
   md.renderer.rules.link_open = (tokens, idx, options, env, self) => {
-    const href = tokens[idx].attrGet("href") ?? "";
+    let href = tokens[idx].attrGet("href") ?? "";
+    const rewritten = obsidian?.rewriteMarkdownLink(href, env);
+    if (rewritten) {
+      tokens[idx].attrSet("href", rewritten);
+      tokens[idx].attrJoin("class", "internal-link");
+      href = rewritten;
+    }
     if (/^https?:\/\//i.test(href)) {
       tokens[idx].attrSet("target", "_blank");
       tokens[idx].attrSet("rel", "noopener noreferrer");
@@ -629,6 +684,12 @@ function buildTheme(theme) {
   md.renderer.rules.image = (tokens, idx, options, env, self) => {
     const token = tokens[idx];
     const src = token.attrGet("src") ?? "";
+
+    const obsidianSrc = obsidian?.rewriteMarkdownImage(src, env);
+    if (obsidianSrc) {
+      token.attrSet("src", obsidianSrc);
+      return defaultImage(tokens, idx, options, env, self);
+    }
 
     const isRemote = /^(https?:)?\/\//i.test(src) || /^(data|mailto):/i.test(src);
     if (src && !isRemote && !path.isAbsolute(src)) {
@@ -801,6 +862,62 @@ function buildTheme(theme) {
     return " hb-lead"; // first body section: no forced page break before it
   };
 
+  function renderObsidianSource(source, env, { transcluded = false } = {}) {
+    const prepared = obsidian.prepareSource(source);
+    if (prepared.frontmatterError) {
+      const rel = toPosix(path.relative(baseDir, env.obsidianFile));
+      console.error(`Error: invalid Obsidian properties in ${rel}: ${prepared.frontmatterError}`);
+      process.exit(1);
+    }
+
+    let html = md.render(prepared.source, env);
+    html = obsidian.expandNoteEmbeds(html, (embed, embeddedSource) => {
+      const stack = env.obsidianStack ?? [env.obsidianFile];
+      const label = embed.file.relPath + (embed.spec.fragment ? `#${embed.spec.fragment}` : "");
+      if (stack.includes(embed.file.absPath)) {
+        const cycle = [...stack, embed.file.absPath]
+          .map((file) => toPosix(path.relative(obsidianVaultRoot, file)))
+          .join(" -> ");
+        obsidian.warnings.add(`Cyclic Obsidian note embed skipped: ${cycle}`);
+        const errorHtml =
+          `<span class="obsidian-note-embed unresolved">Cyclic embed: ${escapeHtml(label)}</span>`;
+        return {
+          blockHtml: `<div class="obsidian-note-embed unresolved">${errorHtml}</div>`,
+          inlineHtml: errorHtml
+        };
+      }
+
+      const tocStart = tocEntries.length;
+      const child = renderObsidianSource(
+        embeddedSource,
+        {
+          docId: `${env.docId}-embed${embed.id + 1}`,
+          chapterDir: path.dirname(embed.file.absPath),
+          obsidianFile: embed.file.absPath,
+          obsidianTransclusion: true,
+          obsidianStack: [...stack, embed.file.absPath]
+        },
+        { transcluded: true }
+      );
+      // Embedded headings render and remain linkable, but do not enter the
+      // handout's own TOC/outline.
+      tocEntries.splice(tocStart);
+      return {
+        blockHtml:
+          `<div class="obsidian-note-embed" data-source="${escapeHtml(label)}">\n` +
+          `${child.html}\n</div>`,
+        inlineHtml:
+          `<span class="obsidian-note-embed-inline" data-source="${escapeHtml(label)}">` +
+          `${escapeHtml(label)}</span>`
+      };
+    });
+
+    if (!transcluded) {
+      html = obsidian.renderProperties(prepared.properties, prepared.propertiesRaw, md, env) + html;
+    }
+    return { html, prepared };
+  }
+
   chapterEntries.forEach((entry, i) => {
     const absPath = path.resolve(baseDir, entry.file);
 
@@ -837,9 +954,16 @@ function buildTheme(theme) {
     }
 
     // docId 用于给脚注 ID 加章节前缀，避免跨章节 ID 冲突
-    const env = { docId: `ch${i + 1}`, chapterDir: path.dirname(absPath) };
+    const env = {
+      docId: `ch${i + 1}`,
+      chapterDir: path.dirname(absPath),
+      ...(obsidian
+        ? { obsidianFile: absPath, obsidianStack: [absPath], obsidianTransclusion: false }
+        : {})
+    };
     const headingStart = tocEntries.length;
-    let bodyHtml = md.render(source, env);
+    const dialectRender = obsidian ? renderObsidianSource(source, env) : null;
+    let bodyHtml = dialectRender?.html ?? md.render(source, env);
 
     // Optional per-chapter mini TOC, inserted right after the chapter's h1.
     const wantChapterToc = entry.chapterToc === null ? chapterTocDefault : entry.chapterToc;
@@ -852,7 +976,9 @@ function buildTheme(theme) {
       }
     }
 
-    const cls = ["chapter", entry.className].filter(Boolean).join(" ");
+    const cls = ["chapter", entry.className, ...(dialectRender?.prepared.cssClasses ?? [])]
+      .filter(Boolean)
+      .join(" ");
     sections.push(
       `<section class="${cls}${leadClass()}" data-chapter="${i + 1}">\n${wrapWithRunningHeader(bodyHtml)}</section>`
     );
@@ -972,6 +1098,17 @@ function buildTheme(theme) {
       )
     : "";
 
+  const bodyHtml = obsidian
+    ? obsidian.finalizeLinks(sections.join("\n\n"))
+    : sections.join("\n\n");
+  const dialectScripts = obsidian?.usesMermaid
+    ? '<script src="./assets/mermaid.min.js"></script>\n' +
+      '<script>\n' +
+      '  mermaid.initialize({ startOnLoad: false, securityLevel: "loose", theme: "neutral" });\n' +
+      '  window.__MHB_RENDER_READY__ = mermaid.run({ querySelector: ".mermaid" });\n' +
+      '</script>'
+    : "";
+
   const handoutHtml = renderTemplate(documentTemplate, {
     ...metaValues,
     docTitle: escapeHtml(docTitle),
@@ -980,14 +1117,15 @@ function buildTheme(theme) {
     toc: tocHtml,
     backCover: backCoverHtml,
     css: inlineCss,
-    body: sections.join("\n\n")
+    body: bodyHtml,
+    scripts: dialectScripts
   });
 
   fs.mkdirSync(path.dirname(htmlOutTheme), { recursive: true });
   fs.writeFileSync(htmlOutTheme, handoutHtml);
   console.log(`Generated ${toPosix(path.relative(process.cwd(), htmlOutTheme))}`);
 
-  return { theme, htmlOutTheme, pdfOutTheme, styleCfg, fonts, tocEntries };
+  return { theme, htmlOutTheme, pdfOutTheme, styleCfg, fonts, tocEntries, obsidian };
 }
 
 /* ---------- 渲染所有主题 ---------- */
@@ -1077,6 +1215,23 @@ fs.writeFileSync(indexOut, indexHtml);
 const notesAssets = path.join(notesDir, "assets");
 if (fs.existsSync(notesAssets)) {
   fs.cpSync(notesAssets, path.join(distDir, "assets"), { recursive: true });
+}
+
+if (defaultBuild.obsidian) {
+  defaultBuild.obsidian.copyReferencedFiles(distDir);
+  for (const warning of defaultBuild.obsidian.warnings) {
+    console.warn(`Warning: ${warning}`);
+  }
+}
+
+if (built.some((item) => item.obsidian?.usesMermaid)) {
+  const mermaidPath = require.resolve("mermaid/dist/mermaid.min.js");
+  const mermaidLicensePath = path.join(path.dirname(require.resolve("mermaid/package.json")), "LICENSE");
+  fs.mkdirSync(path.join(distDir, "assets"), { recursive: true });
+  fs.copyFileSync(mermaidPath, path.join(distDir, "assets", "mermaid.min.js"));
+  if (fs.existsSync(mermaidLicensePath)) {
+    fs.copyFileSync(mermaidLicensePath, path.join(distDir, "assets", "mermaid.LICENSE"));
+  }
 }
 
 const katexFontsDir = path.join(path.dirname(katexCssPath), "fonts");

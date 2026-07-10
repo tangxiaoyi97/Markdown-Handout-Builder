@@ -1,0 +1,12 @@
+{
+  "nodes": [
+    {"id":"vault","type":"text","text":"Obsidian vault","x":0,"y":0,"width":240,"height":100},
+    {"id":"dialect","type":"text","text":"Dialect parser","x":320,"y":0,"width":240,"height":100},
+    {"id":"pdf","type":"text","text":"Showcase PDF","x":640,"y":0,"width":240,"height":100}
+  ],
+  "edges": [
+    {"id":"e1","fromNode":"vault","fromSide":"right","toNode":"dialect","toSide":"left"},
+    {"id":"e2","fromNode":"dialect","fromSide":"right","toNode":"pdf","toSide":"left"}
+  ]
+}
+

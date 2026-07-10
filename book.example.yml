@@ -38,6 +38,16 @@ output:                                  # Output paths
   html: dist/handout.html                # Non-default themes append .<theme>
   pdf: dist/handout.pdf
 
+# ---------- Markdown dialect ----------
+# Default is the backward-compatible strict renderer (raw HTML escaped;
+# Obsidian wikilinks/embeds rejected). Opt in for a trusted Obsidian vault:
+# markdown:
+#   dialect: obsidian
+#   obsidian:
+#     vault_root: "."                     # relative to this config; default: .
+#     properties: visible                # visible | hidden | source
+# See DIALECTS.md for the complete compatibility and scope matrix.
+
 # ---------- Table of contents ----------
 toc:
   title: "Contents"                      # TOC heading
@@ -159,6 +169,11 @@ themes:
   #   style:
   #     accent_color: "#6b4f2a"
   #     custom_css: "templates/theme-sepia.css"   # warm paper look
+  # - name: clay
+  #   label: "Clay"
+  #   style:
+  #     accent_color: "#3f6cae"
+  #     custom_css: "templates/theme-clay.css"    # warm off-white, soft accents
   # - name: academic
   #   label: "Academic"
   #   style:

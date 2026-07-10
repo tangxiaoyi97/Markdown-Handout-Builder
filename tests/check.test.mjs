@@ -208,3 +208,84 @@ test("missing custom_css and cover component fail", async () => {
   assert.match(r.stderr, /custom_css file not found/);
   assert.match(r.stderr, /component not found/);
 });
+
+test("Obsidian dialect accepts resolved wikilinks and embeds", async () => {
+  const dir = await makeFixture({
+    "book.yml":
+      "title: T\nchapters: [notes/a.md]\nmarkdown:\n  dialect: obsidian\n",
+    "notes/a.md": "# A\n\nSee ![[b#Part]] and ![[assets/p.png|80]].\n",
+    "notes/b.md": "# B\n\n## Part\n\nText.\n",
+    "notes/assets/p.png": TINY_PNG
+  });
+  const result = await runScript("check.mjs", { cwd: dir });
+  assert.equal(result.code, 0, result.stderr);
+  assert.doesNotMatch(result.stderr, /unsupported/);
+  assert.doesNotMatch(result.stderr, /unused asset/);
+  assert.doesNotMatch(result.stderr, /notes\/b\.md: not listed/);
+});
+
+test("Obsidian dialect reports missing targets and invalid options", async () => {
+  const missing = await makeFixture({
+    "book.yml":
+      "title: T\nchapters: [notes/a.md]\nmarkdown:\n  dialect: obsidian\n",
+    "notes/a.md": "# A\n\n[[Missing note]]\n"
+  });
+  const missingResult = await runScript("check.mjs", { cwd: missing });
+  assert.equal(missingResult.code, 1);
+  assert.match(missingResult.stderr, /target not found: Missing note/);
+
+  const invalid = await makeFixture({
+    "book.yml":
+      "title: T\nchapters: [notes/a.md]\nmarkdown:\n  dialect: obsidian\n  obsidian:\n    properties: sometimes\n",
+    "notes/a.md": "# A\n"
+  });
+  const invalidResult = await runScript("check.mjs", { cwd: invalid });
+  assert.equal(invalidResult.code, 1);
+  assert.match(invalidResult.stderr, /properties must be/);
+});
+
+test("Obsidian dialect validates heading and block fragments", async () => {
+  const dir = await makeFixture({
+    "book.yml":
+      "title: T\nchapters: [notes/a.md]\nmarkdown:\n  dialect: obsidian\n",
+    "notes/a.md": "# A\n\n[[b#Missing heading]] and ![[b#^missing-block]].\n",
+    "notes/b.md": "# B\n\n## Existing\n\nParagraph. ^existing-block\n"
+  });
+  const result = await runScript("check.mjs", { cwd: dir });
+  assert.equal(result.code, 1);
+  assert.match(result.stderr, /fragment not found: notes\/b\.md#Missing heading/);
+  assert.match(result.stderr, /fragment not found: notes\/b\.md#\^missing-block/);
+});
+
+test("Obsidian reference checks ignore comments, fences, and multiline code spans", async () => {
+  const dir = await makeFixture({
+    "book.yml":
+      "title: T\nchapters: [notes/a.md]\nmarkdown:\n  dialect: obsidian\n",
+    "notes/a.md": `# A
+
+%% [[Missing in comment]] %%
+
+\`multiline code
+[[Missing in code]]
+still code\`
+
+\`\`\`md
+![[Missing in fence]]
+\`\`\`
+`
+  });
+  const result = await runScript("check.mjs", { cwd: dir });
+  assert.equal(result.code, 0, result.stderr);
+});
+
+test("Obsidian checks recurse through transcluded notes", async () => {
+  const dir = await makeFixture({
+    "book.yml":
+      "title: T\nchapters: [notes/a.md]\nmarkdown:\n  dialect: obsidian\n",
+    "notes/a.md": "# A\n\n![[b]]\n",
+    "notes/b.md": "# B\n\n![[Missing nested note]]\n"
+  });
+  const result = await runScript("check.mjs", { cwd: dir });
+  assert.equal(result.code, 1);
+  assert.match(result.stderr, /notes\/b\.md:3: Obsidian embed target not found/);
+});

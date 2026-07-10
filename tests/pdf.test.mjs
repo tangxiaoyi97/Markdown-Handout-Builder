@@ -245,3 +245,37 @@ test("dark theme PDF: variant file, title suffix, base recolor without warnings"
     await destroy();
   }
 });
+
+test("Obsidian Mermaid is rendered before PDF pagination", { skip: !hasChromium && "Playwright Chromium not installed" }, async () => {
+  const { dir, pdfStderr } = await buildAndRender({
+    "book.yml": `title: "Diagram"
+chapters: [notes/diagram.md]
+output:
+  html: dist/handout.html
+  pdf: dist/handout.pdf
+cover:
+  enabled: false
+toc:
+  enabled: false
+markdown:
+  dialect: obsidian
+`,
+    "notes/diagram.md": `# Diagram
+
+\`\`\`mermaid
+flowchart LR
+  SourceNode --> TargetNode
+\`\`\`
+`
+  });
+  assert.doesNotMatch(pdfStderr, /Warning/);
+
+  const { doc, destroy } = await loadPdf(path.join(dir, "dist", "handout.pdf"));
+  try {
+    const text = await pageText(doc, 1);
+    assert.match(text, /SourceNode/, "Mermaid source node rendered into PDF");
+    assert.match(text, /TargetNode/, "Mermaid target node rendered into PDF");
+  } finally {
+    await destroy();
+  }
+});

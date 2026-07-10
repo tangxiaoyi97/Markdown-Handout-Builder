@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased (`dialects` experimental branch)
+
+- Add opt-in `markdown.dialect: obsidian` without changing the default
+  renderer. It covers the official Obsidian Flavored Markdown extension set:
+  wikilinks and aliases, heading/block links, note/section/block embeds,
+  comments, arbitrary task states, nested/foldable callouts, properties,
+  tags, raw HTML, and offline Mermaid rendering.
+- Resolve links against a configurable vault root, validate them in `check`,
+  rewrite both wikilink and Markdown-style vault links, protect recursive note
+  embeds from cycles, and package referenced notes/attachments under
+  `dist/vault/`.
+- Render official image/audio/video/PDF embeds; package Canvas/Bases embeds as
+  file cards. Dynamic Search/Dataview evaluation and interactive Canvas/Bases
+  views remain outside the static Markdown-rendering boundary documented in
+  `DIALECTS.md`.
+
 ## 2.0.0
 
 A reworked `chapters` system and book-style front-matter numbering. Existing
@@ -24,9 +40,11 @@ before, so the upgrade is backward compatible despite the major version.
   layout. Composes with `count_cover` / `count_back_cover`. Chapter mini-TOCs are
   body content and are always counted.
 - The `chapters` list may live in its own file: `chapters: chapters.yml`.
+- New built-in theme `templates/theme-clay.css` (Clay): warm off-white paper
+  with soft blue / clay / sage accents; every text color meets WCAG AA.
 - `check` gains validation for every new field; `book.example.yml` and the
-  GitHub Pages showcase now demonstrate inserts, chapter mini-TOCs, and
-  `count_toc`.
+  GitHub Pages showcase now demonstrate inserts, chapter mini-TOCs, `count_toc`,
+  and the Clay theme.
 
 ## 1.4.0
 

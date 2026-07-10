@@ -1,0 +1,95 @@
+title: "Obsidian Markdown"
+subtitle: "静态语法全覆盖 · HTML / PDF Showcase"
+language: "zh-CN"
+date: "2026-07-10"
+date_format: "YYYY.MM.DD"
+version: "dialects preview"
+authors:
+  - "Markdown Handout Builder"
+keywords:
+  - "Obsidian Flavored Markdown"
+  - "Markdown"
+  - "PDF"
+  - "Showcase"
+
+chapters:
+  - path: notes/00-start-here.md
+    chapter_toc: true
+  - path: notes/01-links-and-blocks.md
+    chapter_toc: true
+  - path: notes/02-tasks-and-callouts.md
+    chapter_toc: true
+  - path: notes/03-embeds-and-media.md
+    chapter_toc: true
+  - path: notes/04-tables-code-math.md
+    chapter_toc: true
+  - path: notes/05-mermaid-and-boundaries.md
+    chapter_toc: true
+  - path: "notes/Reference Library.md"
+    chapter_toc: true
+
+output:
+  html: ../../output/pdf/obsidian-syntax-showcase.html
+  pdf: ../../output/pdf/obsidian-syntax-showcase.pdf
+
+markdown:
+  dialect: obsidian
+  obsidian:
+    vault_root: "."
+    properties: visible
+
+toc:
+  enabled: true
+  title: "Showcase 目录"
+  depth: 1
+
+chapter_toc:
+  default: true
+  title: "本章覆盖"
+  depth: 3
+
+labels:
+  note: "说明"
+  tip: "提示"
+  warning: "注意"
+  danger: "危险"
+  example: "示例"
+
+style:
+  accent_color: "#5f58b6"
+  content_width: "920px"
+  base_font_size: "16px"
+  print_font_size: "10.5pt"
+  custom_css:
+    - "templates/theme-clay.css"
+    - "showcase.css"
+
+cover:
+  enabled: true
+  background: "linear-gradient(145deg, #f4f0e7 0%, #e8edf7 58%, #eee4df 100%)"
+  color: "#25304a"
+
+back_cover:
+  enabled: true
+  background: "linear-gradient(145deg, #25304a 0%, #4a4d86 100%)"
+  color: "#ffffff"
+
+pdf:
+  page_size: "A4"
+  margin: "17mm 16mm 19mm 16mm"
+  page_numbers:
+    format: "{{page}} / {{total}}"
+    count_cover: true
+    count_toc: true
+    count_back_cover: true
+  header:
+    left: "{{title}}"
+    center: "Obsidian dialect"
+    right: "{{version}}"
+  footer:
+    left: "Markdown Handout Builder"
+    center: "{{page}} / {{total}}"
+    right: "{{date}}"
+  header_footer_style:
+    color: "#667085"
+    font_size: "8px"

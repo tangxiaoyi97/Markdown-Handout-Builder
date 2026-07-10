@@ -91,9 +91,9 @@ An image on its own paragraph is centered and rendered as a figure. The Markdown
 
 Relative paths are resolved from the current Markdown file. Remote images such as `https://...` are allowed. Prefer filenames without spaces. Missing local images fail `npm run check` with file and line information.
 
-## Unsupported Syntax
+## Default Dialect: Unsupported Syntax
 
-Obsidian-specific syntax is not supported:
+Obsidian-specific syntax is not supported unless the experimental dialect is enabled:
 
 ```md
 [[wikilink]]
@@ -107,13 +107,45 @@ The checker fails when `[[` or `]]` appears in normal Markdown text. Fenced code
 
 Raw HTML in chapter Markdown is also disabled. Tags are escaped and displayed as text instead of being interpreted.
 
+## Obsidian Dialect
+
+For a trusted Obsidian vault, enable the dialect in `book.yml`:
+
+```yaml
+markdown:
+  dialect: obsidian
+  obsidian:
+    vault_root: "."
+    properties: visible  # visible | hidden | source
+```
+
+You may then use wikilinks, heading/block links, note/section/block embeds,
+official attachment embeds, `%%` comments, task states, tags, properties,
+Mermaid, raw HTML, and Obsidian callouts such as:
+
+```md
+[[Mechanics#Momentum|review momentum]]
+![[Mechanics#^impulse-example]]
+![[assets/collision.png|480x270]]
+
+> [!warning]- Assumption
+> This foldable callout supports **Markdown** and [[wikilinks]].
+```
+
+The checker resolves targets against the configured vault before building.
+Keep `book.yml` at the vault root or set `vault_root` explicitly. Obsidian mode
+trusts raw HTML; do not enable it for untrusted content. See `DIALECTS.md` for
+the exact compatibility matrix and the boundary around plugin/application
+features.
+
 ## Drafts and Warnings
 
 Prefix draft filenames with `_`, for example `notes/_wip-topic.md`.
 
 `npm run check` warns about:
 
-- Markdown files under `notes/` that are not listed in `book.yml`.
+- Markdown files under `notes/` that are neither listed in `book.yml` nor
+  transcluded by an Obsidian note embed.
 - Unused files under `notes/assets/`.
 
 These warnings do not fail the build. Draft files prefixed with `_` are ignored by the unlisted-chapter warning.
@@ -140,7 +172,8 @@ Errors include file and line information. Common causes:
 
 - A chapter listed in `book.yml` does not exist.
 - A local image path is wrong.
-- A file still contains unsupported wikilinks or embeds.
+- A file contains unsupported wikilinks/embeds in the default dialect, or an
+  Obsidian target cannot be resolved in the Obsidian dialect.
 - A configured `custom_css`, cover, or back-cover file is missing.
 
 After fixing errors, run:

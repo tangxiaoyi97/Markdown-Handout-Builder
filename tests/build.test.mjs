@@ -164,13 +164,16 @@ test("{{version}} placeholder renders in header slots; index shows the version",
   assert.match(index, /<span>Rev\. B<\/span>/, "index meta line");
 });
 
-test("built-in sepia and academic themes build as variants", async () => {
+test("built-in sepia, clay, and academic themes build as variants", async () => {
   const themes = `themes:
   - name: light
     default: true
   - name: sepia
     style:
       custom_css: "templates/theme-sepia.css"
+  - name: clay
+    style:
+      custom_css: "templates/theme-clay.css"
   - name: academic
     style:
       custom_css: "templates/theme-academic.css"
@@ -186,6 +189,9 @@ test("built-in sepia and academic themes build as variants", async () => {
 
   const sepia = await readOut(dir, "handout.sepia.html");
   assert.match(sepia, /--hb-bg-page: #ede3cd/);
+
+  const clay = await readOut(dir, "handout.clay.html");
+  assert.match(clay, /--hb-mark-bg: #e49d7e/, "clay palette");
 
   const academic = await readOut(dir, "handout.academic.html");
   assert.match(academic, /--hb-font-body: Georgia/);
@@ -380,4 +386,185 @@ test("header_footer: false removes the web-print running header", async () => {
 
   const html = await readOut(dir, "handout.html");
   assert.doesNotMatch(html, /class="hb-run"/);
+});
+
+test("Obsidian dialect: properties, links, blocks, tasks, tags, comments, callouts, and HTML", async () => {
+  const dir = await makeFixture({
+    "book.yml":
+      'title: "Obsidian"\nchapters: [notes/Home.md, notes/Target.md]\n' +
+      'markdown:\n  dialect: obsidian\n  obsidian:\n    properties: visible\n',
+    "notes/Home.md": `---
+aliases: [Start]
+tags: [guide, test/nested]
+cssclasses: [wide-note]
+rating: 5
+related: "Read [[Target]] at https://example.com"
+---
+# Home
+
+See [[Target|the target]], [[Target#Details]], [[Target#^fact]], and [Markdown form](Target.md#Details).
+
+Same note: [[#Home]]. Hierarchy: [[Target#Target#Details]].
+
+| Link |
+| -- |
+| [[Target\\|Table alias]] |
+
+#topic/sub
+
+This stays. %%This secret must disappear.%%
+
+%%
+Block secret must disappear too.
+%%
+
+Inline code keeps \`%%literal%%\`.
+
+<kbd>Raw HTML</kbd>
+
+- [ ] open task
+- [?] custom completed task
+
+> [!tip]+ Fold me
+> Body with **formatting** and [[Target]].
+
+> [!question] Outer
+> > [!todo]- Inner
+> > Nested body.
+
+![[Target#Details]]
+
+![[assets/p.png|64x32]]
+`,
+    "notes/Target.md": `# Target
+
+Fact paragraph. ^fact
+
+## Details
+
+Embedded detail.
+
+## After
+
+Not in the section embed.
+
+- list one
+- list two
+
+^list-id
+
+Back to [[Start]].
+`,
+    "notes/assets/p.png": TINY_PNG
+  });
+
+  const result = await runScript("build.mjs", { cwd: dir });
+  assert.equal(result.code, 0, result.stderr);
+  const html = await readOut(dir, "handout.html");
+
+  assert.match(html, /class="chapter wide-note hb-lead"/, "cssclasses property applies to chapter");
+  assert.match(html, /class="obsidian-properties"/);
+  assert.match(html, /Read <a class="internal-link" href="#target"[^>]*>Target<\/a> at <a href="https:\/\/example\.com"/);
+  assert.match(html, /data-tag="guide">#guide</);
+  assert.match(html, /class="obsidian-tag" data-tag="topic\/sub">#topic\/sub/);
+  assert.doesNotMatch(html, /secret must disappear/);
+  assert.match(html, /<code>%%literal%%<\/code>/);
+  assert.match(html, /<kbd>Raw HTML<\/kbd>/);
+  assert.match(html, /class="task-list-item" data-task=" "/);
+  assert.match(html, /class="task-list-item" data-task="\?"/);
+  assert.match(html, /<details class="callout callout-tip is-collapsible"[^>]* open>/);
+  assert.match(html, /class="callout callout-question"/);
+  assert.match(html, /<details class="callout callout-todo is-collapsible"[^>]*>/);
+  assert.doesNotMatch(html, /callout-todo is-collapsible"[^>]* open/);
+  assert.match(html, /<strong>formatting<\/strong>/);
+  assert.match(html, /class="internal-link" href="#target"[^>]*>the target<\/a>/);
+  assert.match(html, /class="internal-link" href="#target"[^>]*>Table alias<\/a>/);
+  assert.match(html, /data-href="#Home"/);
+  assert.match(html, /data-href="Target#Target#Details"/);
+  assert.match(html, /data-href="Start"[^>]*>Start<\/a>/);
+  assert.match(html, /class="internal-link" href="#details-2"[^>]*data-href="Target#Details"/);
+  assert.match(html, /href="#obsidian-block-notes-target-md-fact-ch2"/);
+  assert.match(html, /class="obsidian-note-embed" data-source="notes\/Target\.md#Details"/);
+  assert.match(html, /Embedded detail/);
+  assert.doesNotMatch(
+    html.match(/class="obsidian-note-embed"[\s\S]*?<\/div>/)?.[0] ?? "",
+    /Not in the section embed/
+  );
+  assert.match(html, /class="obsidian-embed-image"[^>]*src="vault\/notes\/assets\/p\.png"[^>]*width: 64px; height: 32px/);
+  assert.ok(await outExists(dir, "vault/notes/assets/p.png"), "Obsidian attachment copied");
+});
+
+test("Obsidian dialect: note embed cycles are bounded and reported", async () => {
+  const dir = await makeFixture({
+    "book.yml":
+      "title: T\nchapters: [notes/A.md]\nmarkdown:\n  dialect: obsidian\n",
+    "notes/A.md": "# A\n\n![[B]]\n",
+    "notes/B.md": "# B\n\n![[A]]\n"
+  });
+  const result = await runScript("build.mjs", { cwd: dir });
+  assert.equal(result.code, 0, result.stderr);
+  assert.match(result.stderr, /Cyclic Obsidian note embed skipped/);
+  const html = await readOut(dir, "handout.html");
+  assert.match(html, /Cyclic embed/);
+});
+
+test("Obsidian dialect: Mermaid is initialized offline and copied to dist", async () => {
+  const dir = await makeFixture({
+    "book.yml":
+      "title: T\nchapters: [notes/A.md, notes/B.md]\nmarkdown:\n  dialect: obsidian\n",
+    "notes/A.md":
+      "# A\n\n```mermaid\ngraph TD\n  A --> B\n  class A,B internal-link;\n```\n",
+    "notes/B.md": "# B\n"
+  });
+  const result = await runScript("build.mjs", { cwd: dir });
+  assert.equal(result.code, 0, result.stderr);
+  const html = await readOut(dir, "handout.html");
+  assert.match(html, /<pre class="mermaid">graph TD/);
+  assert.match(html, /click A href &quot;#a&quot;/, "Obsidian Mermaid internal link A");
+  assert.match(html, /click B href &quot;#b&quot;/, "Obsidian Mermaid internal link B");
+  assert.match(html, /assets\/mermaid\.min\.js/);
+  assert.match(html, /window\.__MHB_RENDER_READY__/);
+  assert.ok(await outExists(dir, "assets/mermaid.min.js"));
+  assert.ok(await outExists(dir, "assets/mermaid.LICENSE"));
+});
+
+test("Obsidian dialect: official attachment embeds render and copy offline", async () => {
+  const dir = await makeFixture({
+    "book.yml":
+      "title: T\nchapters: [notes/A.md]\nmarkdown:\n  dialect: obsidian\n",
+    "notes/A.md": `# Attachments
+
+![[media/sound.mp3]]
+
+![[media/movie.mp4|320x180]]
+
+![[media/paper.pdf#page=3#height=420]]
+
+![[boards/map.canvas]]
+
+![[views/library.base]]
+`,
+    "notes/media/sound.mp3": Buffer.from("audio"),
+    "notes/media/movie.mp4": Buffer.from("video"),
+    "notes/media/paper.pdf": Buffer.from("%PDF-dummy"),
+    "notes/boards/map.canvas": '{"nodes":[],"edges":[]}',
+    "notes/views/library.base": "filters: []\n"
+  });
+  const result = await runScript("build.mjs", { cwd: dir });
+  assert.equal(result.code, 0, result.stderr);
+  const html = await readOut(dir, "handout.html");
+  assert.match(html, /<audio class="obsidian-embed-audio"[^>]*sound\.mp3/);
+  assert.match(html, /<video class="obsidian-embed-video"[^>]*movie\.mp4[^>]*width: 320px; height: 180px/);
+  assert.match(html, /class="obsidian-embed-pdf"[^>]*paper\.pdf#page=3[^>]*height: 420px/);
+  assert.match(html, /class="obsidian-file-embed"[^>]*map\.canvas/);
+  assert.match(html, /class="obsidian-file-embed"[^>]*library\.base/);
+  for (const file of [
+    "vault/notes/media/sound.mp3",
+    "vault/notes/media/movie.mp4",
+    "vault/notes/media/paper.pdf",
+    "vault/notes/boards/map.canvas",
+    "vault/notes/views/library.base"
+  ]) {
+    assert.ok(await outExists(dir, file), `${file} copied`);
+  }
 });

@@ -1,0 +1,239 @@
+:root {
+  --hb-accent: #5f58b6;
+  --hb-content-width: 920px;
+  --showcase-purple: #5f58b6;
+  --showcase-blue: #3f6cae;
+  --showcase-clay: #c87052;
+  --showcase-sage: #4f7c68;
+}
+
+.cover {
+  position: relative;
+  overflow: hidden;
+}
+
+.cover::before,
+.cover::after {
+  content: "";
+  position: absolute;
+  border: 1px solid rgba(95, 88, 182, 0.22);
+  transform: rotate(45deg);
+}
+
+.cover::before {
+  width: 220px;
+  height: 220px;
+  top: -105px;
+  right: -80px;
+}
+
+.cover::after {
+  width: 130px;
+  height: 130px;
+  bottom: -60px;
+  left: -48px;
+}
+
+.cover-title {
+  letter-spacing: -0.035em;
+}
+
+.cover-version {
+  display: inline-block;
+  margin-top: 20px;
+  padding: 4px 10px;
+  border: 1px solid rgba(37, 48, 74, 0.25);
+  border-radius: 999px;
+  font-size: 0.82em;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.showcase-opening .obsidian-properties {
+  border-left: 4px solid var(--showcase-purple);
+}
+
+.syntax-card {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45em;
+  margin: 0.1em 0.25em 0.1em 0;
+  padding: 0.2em 0.65em;
+  border: 1px solid var(--hb-border);
+  border-radius: 999px;
+  background: var(--hb-quote-bg);
+  font-size: 0.88em;
+}
+
+.callout-catalog .callout {
+  margin: 0.42em 0;
+}
+
+.callout-catalog .callout-title {
+  padding-top: 6px;
+  padding-bottom: 5px;
+}
+
+.callout-catalog .callout-content {
+  padding-bottom: 7px;
+}
+
+.callout[data-callout="custom-showcase"] {
+  --hb-callout-color: #5f58b6;
+  --hb-callout-bg: color-mix(in srgb, #5f58b6 9%, var(--hb-surface));
+}
+
+.media-demo .obsidian-embed-video {
+  max-width: 520px;
+  border: 1px solid var(--hb-border);
+  border-radius: 8px;
+  background: #25304a;
+}
+
+.media-demo .obsidian-embed-pdf {
+  border: 1px solid var(--hb-border);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.coverage-table td:first-child {
+  white-space: nowrap;
+  font-weight: 650;
+}
+
+kbd {
+  display: inline-block;
+  padding: 0.08em 0.45em;
+  border: 1px solid var(--hb-border-strong);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: var(--hb-btn-bg);
+  font: 0.86em var(--hb-font-code);
+}
+
+.showcase-status {
+  padding: 10px 14px;
+  border: 1px solid var(--hb-border);
+  border-radius: 8px;
+  background: linear-gradient(90deg, rgba(95, 88, 182, 0.08), rgba(63, 108, 174, 0.05));
+}
+
+@media print {
+  /* Keep the two densest coverage chapters together without creating
+     one-line continuation pages. These adjustments are scoped to the
+     showcase's own chapter markers and do not affect the package theme. */
+  .showcase-opening {
+    font-size: 0.98em;
+  }
+
+  .showcase-opening h2 {
+    margin-top: 1em;
+    margin-bottom: 0.4em;
+  }
+
+  .chapter[data-chapter="5"] {
+    font-size: 0.95em;
+  }
+
+  .back-cover {
+    page: auto;
+    box-sizing: border-box;
+    min-height: 252mm;
+    padding: 24mm;
+    background:
+      radial-gradient(circle at 82% 18%, rgba(255, 255, 255, 0.16), transparent 28%),
+      linear-gradient(145deg, #25304a 0%, #5f58b6 58%, #8d4f73 100%) !important;
+    color: #ffffff !important;
+  }
+
+  .back-cover-inner {
+    width: 100%;
+    max-width: 132mm;
+    margin: auto;
+    text-align: center;
+  }
+
+  .back-cover-title,
+  .back-cover-subtitle,
+  .back-cover-note {
+    color: inherit !important;
+  }
+
+  .syntax-card {
+    border-color: #c8ccd5;
+  }
+
+  audio,
+  video,
+  object,
+  .obsidian-file-embed {
+    break-inside: avoid;
+  }
+
+  p:has(> .obsidian-embed-audio),
+  p:has(> .obsidian-embed-video),
+  p:has(> .obsidian-embed-pdf) {
+    display: flex;
+    min-height: 76px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    border: 1px solid #cfd4df;
+    border-radius: 8px;
+    color: #25304a;
+    background: linear-gradient(135deg, #f4f0e7, #e8edf7);
+    font-size: 0;
+    text-align: center;
+  }
+
+  p:has(> .obsidian-embed-video),
+  p:has(> .obsidian-embed-pdf) {
+    min-height: 118px;
+  }
+
+  p:has(> .obsidian-embed-audio)::before,
+  p:has(> .obsidian-embed-video)::before,
+  p:has(> .obsidian-embed-pdf)::before {
+    color: #5f58b6;
+    font: 700 12pt var(--hb-font-heading);
+    letter-spacing: 0.08em;
+  }
+
+  p:has(> .obsidian-embed-audio)::after,
+  p:has(> .obsidian-embed-video)::after,
+  p:has(> .obsidian-embed-pdf)::after {
+    color: #667085;
+    font: 9pt var(--hb-font-code);
+  }
+
+  p:has(> .obsidian-embed-audio)::before {
+    content: "AUDIO ATTACHMENT";
+  }
+
+  p:has(> .obsidian-embed-audio)::after {
+    content: "showcase-tone.wav - interactive controls in HTML";
+  }
+
+  p:has(> .obsidian-embed-video)::before {
+    content: "VIDEO ATTACHMENT";
+  }
+
+  p:has(> .obsidian-embed-video)::after {
+    content: "showcase-loop.mp4 - 480 x 270 - playable in HTML";
+  }
+
+  p:has(> .obsidian-embed-pdf)::before {
+    content: "EMBEDDED PDF";
+  }
+
+  p:has(> .obsidian-embed-pdf)::after {
+    content: "reference-card.pdf - page 1 - packaged offline";
+  }
+
+  p > .obsidian-embed-audio,
+  p > .obsidian-embed-video,
+  p > .obsidian-embed-pdf {
+    display: none !important;
+  }
+}

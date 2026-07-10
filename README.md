@@ -80,7 +80,7 @@ mhb pdf --config path/to/book.yml
 | Command | Purpose |
 |---|---|
 | `mhb init` | Create a minimal note repository scaffold |
-| `mhb check` | Validate `book.yml`, chapters, local images, and unsupported syntax |
+| `mhb check` | Validate configuration, chapters, local assets, and dialect-specific links/syntax |
 | `mhb build` | Render `dist/handout.html`, theme variants, and `dist/index.html` |
 | `mhb pdf` | Render official PDFs from the generated HTML |
 | `mhb serve` | Start local preview and rebuild HTML on save |
@@ -98,7 +98,7 @@ npm run serve
 npm run all
 ```
 
-`check` fails on missing chapters, missing local images, invalid theme names, missing custom files, and unsupported Obsidian-specific syntax. It also warns about Markdown files under `notes/` that are not listed in `book.yml`, plus unused files under `notes/assets/`.
+`check` fails on missing chapters/assets, invalid theme or dialect settings, missing custom files, and unsupported syntax. In the opt-in Obsidian dialect it also resolves wikilinks and recursively validates embedded notes, reporting missing or ambiguous vault targets. It warns about Markdown files under `notes/` that are neither listed nor transcluded, plus unused files under `notes/assets/`.
 
 `serve` starts a static preview server and watches `book.yml`, `notes/`, and a local `templates/` directory if it exists:
 
@@ -272,7 +272,7 @@ Image examples:
 
 An image on its own paragraph becomes a centered `<figure>`. The Markdown title becomes a `<figcaption>`.
 
-Unsupported syntax:
+In the default `standard` dialect, Obsidian-specific syntax remains unsupported:
 
 ```md
 [[wikilink]]
@@ -282,7 +282,25 @@ Dataview blocks
 Canvas
 ```
 
-Raw HTML in chapter Markdown is disabled. This keeps builds portable outside Obsidian and plugin ecosystems.
+Raw HTML in standard-dialect chapter Markdown is disabled. This keeps default builds portable outside Obsidian and plugin ecosystems.
+
+### Experimental Obsidian dialect
+
+Opt in per book; existing configurations retain standard behavior:
+
+```yaml
+markdown:
+  dialect: obsidian
+  obsidian:
+    vault_root: "."       # relative to book.yml; default: .
+    properties: visible  # visible | hidden | source
+```
+
+The dialect covers Obsidian wikilinks (aliases, headings, hierarchical headings, and blocks), Markdown-style vault links, note/section/block transclusion, accepted image/audio/video/PDF attachments, comments, task states, nested and foldable callouts, properties, `cssclasses`, tags, raw HTML, and offline Mermaid rendering. Referenced attachments and non-chapter note sources are copied to `dist/vault/`; Mermaid is rendered before PDF pagination.
+
+Obsidian mode trusts raw HTML, so enable it only for trusted vault content. Dataview and other community-plugin languages are not executed; Search query evaluation and interactive Canvas/Bases views are application features rather than Markdown syntax. Canvas and Bases embeds degrade to packaged file cards.
+
+See [DIALECTS.md](DIALECTS.md) for the exact `main@a2c52ff` support list, the full coverage matrix, resolution rules, and scope boundary.
 
 ## Themes
 
@@ -300,7 +318,7 @@ themes:
       custom_css: "templates/theme-dark.css"
 ```
 
-Built-in themes ship with the package: `templates/theme-dark.css` (neutral dark, light fallback for browser printing), `templates/theme-sepia.css` (warm paper), and `templates/theme-academic.css` (serif, justified print). If a note repository has a file at the same path, the local file takes precedence — copy any of them as a starting point for your own theme; they are plain CSS-variable files.
+Built-in themes ship with the package: `templates/theme-dark.css` (neutral dark, light fallback for browser printing), `templates/theme-sepia.css` (warm paper), `templates/theme-clay.css` (warm off-white with soft blue / clay / sage accents), and `templates/theme-academic.css` (serif, justified print). If a note repository has a file at the same path, the local file takes precedence — copy any of them as a starting point for your own theme; they are plain CSS-variable files.
 
 Default theme output uses `output.html` and `output.pdf`. Other themes use `handout.<theme>.html` and `handout.<theme>.pdf` in the same output directory.
 

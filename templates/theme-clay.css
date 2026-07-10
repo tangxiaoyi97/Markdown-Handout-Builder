@@ -1,0 +1,101 @@
+/* =========================================================
+   theme-clay.css — built-in warm-neutral theme
+
+   Near-black ink on warm off-white paper, with soft blue, clay, and
+   sage accents. A light theme: it applies to screen, browser printing,
+   and the official PDF alike (the pipeline recolors page margins to the
+   body background automatically).
+
+   Palette:
+     ink      #0D0D0D  #1A1A19      (headings / body text)
+     paper    #FCFCFB  #F9F9F7  #F0EEE7
+     blue     #7AA5E6   sage #C0D0CA   clay #E49D7E
+   The three accent hues are used as-is where contrast allows (button,
+   highlight, rules, borders) and deepened for text-level roles (links,
+   callout titles, code) so everything stays readable.
+
+   Enable via book.yml:
+     themes:
+       - name: clay
+         label: "Clay"
+         style:
+           accent_color: "#3f6cae"
+           custom_css: "templates/theme-clay.css"
+   ========================================================= */
+
+:root {
+  --hb-bg-page: #f0eee7; /* warm canvas around the book (screen) */
+  --hb-bg-print: #fcfcfb; /* print / PDF page background */
+  --hb-surface: #f9f9f7; /* book card and toolbar */
+  --hb-fg: #1a1a19;
+  --hb-fg-muted: #6d6a60;
+  --hb-border: #e5e2d8;
+  --hb-border-strong: #d7d3c6;
+  --hb-heading-rule: #ddd9cd;
+  --hb-btn-bg: #f0eee7;
+  --hb-btn-hover: #e9e6db;
+  --hb-btn-primary-fg: #fcfcfb;
+  --hb-code-bg: #f0eee7;
+  --hb-pre-bg: #f4f2ea;
+  --hb-quote-bg: #f4f2ea;
+  --hb-th-bg: #f0eee7;
+  --hb-stripe: #f5f3ec;
+  --hb-mark-bg: #e49d7e; /* clay highlight (==mark==) */
+  --hb-mark-fg: #1a1a19;
+  --hb-leader: #c9c4b5;
+
+  --hb-accent: #3f6cae; /* deepened blue: links + focus */
+
+  /* Syntax highlighting — harmonized with the palette, all >= 4.5:1 on paper */
+  --hb-hl-comment: #6a6456;
+  --hb-hl-keyword: #a5482f; /* clay-red */
+  --hb-hl-string: #45705c; /* sage */
+  --hb-hl-number: #3f6cae; /* blue */
+  --hb-hl-title: #5a5ba0; /* muted violet */
+  --hb-hl-type: #8a5324; /* amber */
+  --hb-hl-attr: #45705c;
+  --hb-hl-meta: #5a5ba0;
+  --hb-hl-addition: #45705c;
+  --hb-hl-deletion: #a5372c;
+
+  /* Admonitions — deepened hue for the title/border on a light tint */
+  --hb-adm-note: #3f6cae;
+  --hb-adm-note-bg: #edf2fb;
+  --hb-adm-tip: #45705c;
+  --hb-adm-tip-bg: #eef4f0;
+  --hb-adm-warning: #8a5324;
+  --hb-adm-warning-bg: #f8efe2;
+  --hb-adm-danger: #b0392e;
+  --hb-adm-danger-bg: #f8e8e3;
+}
+
+/* Headings a touch inkier than the body text. */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  color: #0d0d0d;
+}
+
+/* Use the accent hues at full strength where there is no text-contrast
+   requirement: the screen primary button, soft sage rules, and a blue tie
+   between the chapter mini-TOC and the accent. */
+.btn-primary {
+  background: #7aa5e6;
+  border-color: #7aa5e6;
+  color: #0d0d0d;
+}
+
+blockquote {
+  border-left-color: #c0d0ca;
+}
+
+hr {
+  border-top-color: #c0d0ca;
+}
+
+.chapter-toc {
+  border-left-color: #7aa5e6;
+}
