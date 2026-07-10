@@ -30,56 +30,36 @@
  *      （整页图层叠加，书签与内链不受影响）。
  */
 
-import { execSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import zlib from "node:zlib";
 import { pathToFileURL } from "node:url";
 import { chromium } from "playwright";
-import YAML from "yaml";
 
-const toPosix = (p) => p.split(path.sep).join("/");
+import {
+  toPosix,
+  escapeHtml,
+  dateParts,
+  formatDate,
+  sanitizeCssValue,
+  marginParts,
+  resolveGitCommit
+} from "./lib/util.mjs";
+import {
+  resolveConfigPath,
+  loadBook,
+  normalizeThemes,
+  variantPath,
+  mergePdfCfg
+} from "./lib/config.mjs";
+
 const rel = (p) => toPosix(path.relative(process.cwd(), p));
-
-function escapeHtml(value) {
-  return String(value)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
-}
-
-function resolveConfigPath() {
-  const i = process.argv.indexOf("--config");
-  if (i !== -1) {
-    const value = process.argv[i + 1];
-    if (!value) {
-      console.error("Error: --config requires a file path, e.g. --config book.yml");
-      process.exit(1);
-    }
-    return path.resolve(process.cwd(), value);
-  }
-  return path.resolve(process.cwd(), "book.yml");
-}
 
 /* ---------- 读取配置 ---------- */
 
 const configPath = resolveConfigPath();
 const baseDir = path.dirname(configPath);
-
-if (!fs.existsSync(configPath)) {
-  console.error(`Error: config file not found: ${configPath}`);
-  process.exit(1);
-}
-
-let book;
-try {
-  book = YAML.parse(fs.readFileSync(configPath, "utf8"));
-} catch (err) {
-  console.error(`Error: failed to parse ${path.basename(configPath)}: ${err.message}`);
-  process.exit(1);
-}
+const book = loadBook(configPath);
 
 const htmlOut = path.resolve(baseDir, book?.output?.html ?? "dist/handout.html");
 const pdfOut = path.resolve(baseDir, book?.output?.pdf ?? "dist/handout.pdf");
@@ -99,99 +79,17 @@ const bookVersion =
   book?.version !== undefined && book?.version !== null ? String(book.version) : "";
 
 // 构建溯源：{{commit}}（与 build.mjs 同一规则，cwd = 笔记仓库）
-function resolveGitCommit(dir) {
-  try {
-    const hash = execSync("git rev-parse --short HEAD", {
-      cwd: dir,
-      stdio: ["ignore", "pipe", "ignore"]
-    })
-      .toString()
-      .trim();
-    if (!hash) return "";
-    const dirty = execSync("git status --porcelain", {
-      cwd: dir,
-      stdio: ["ignore", "pipe", "ignore"]
-    })
-      .toString()
-      .trim();
-    return dirty ? `${hash}-dirty` : hash;
-  } catch {
-    return "";
-  }
-}
 const gitCommit = resolveGitCommit(baseDir);
 
 const pdfBase = book?.pdf ?? {};
 const coverBase = book?.cover ?? {};
 const backBase = book?.back_cover ?? {};
 
-/* ---------- 主题（与 build.mjs 相同的规则） ---------- */
+/* ---------- 主题（与 build.mjs 共用 lib/config.mjs 的规则） ---------- */
 
-function normalizeThemes(raw) {
-  if (!Array.isArray(raw) || raw.length === 0) {
-    return [
-      { name: "", label: "", isDefault: true, style: {}, cover: {}, back_cover: {}, pdf: {} }
-    ];
-  }
-  let defaultIndex = raw.findIndex((t) => t && t.default === true);
-  if (defaultIndex === -1) defaultIndex = 0;
-  return raw.map((t, i) => {
-    const name = String(t?.name ?? `theme${i + 1}`);
-    if (!/^[A-Za-z0-9][A-Za-z0-9_-]*$/.test(name)) {
-      console.error(
-        `Error: invalid theme name ${JSON.stringify(name)} — ` +
-          `must match [A-Za-z0-9][A-Za-z0-9_-]* (it is used in output filenames).`
-      );
-      process.exit(1);
-    }
-    return {
-      name,
-      label: String(t?.label ?? t?.name ?? `theme${i + 1}`),
-      isDefault: i === defaultIndex,
-      style: t?.style ?? {},
-      cover: t?.cover ?? {},
-      back_cover: t?.back_cover ?? {},
-      pdf: t?.pdf ?? {}
-    };
-  });
-}
 const themes = normalizeThemes(book?.themes);
 
-function variantPath(basePath, theme) {
-  if (theme.isDefault) return basePath;
-  const ext = path.extname(basePath);
-  return path.join(
-    path.dirname(basePath),
-    `${path.basename(basePath, ext)}.${theme.name}${ext}`
-  );
-}
-
 /* ---------- 工具 ---------- */
-
-function marginParts(value) {
-  const parts = String(value ?? "").trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) {
-    return { top: "18mm", right: "16mm", bottom: "20mm", left: "16mm" };
-  }
-  const [a, b = a, c = a, d = b] = parts;
-  return { top: a, right: b, bottom: c, left: d };
-}
-
-function sanitizeCssValue(value) {
-  return String(value).replace(/[{}<>;]/g, "").trim();
-}
-
-// pdf 配置合并：header / footer / page_numbers / header_footer_style
-// 为嵌套对象，主题只写其中一个键时不应丢掉基础配置的其余键
-function mergePdfCfg(base, override) {
-  const merged = { ...(base ?? {}), ...(override ?? {}) };
-  for (const key of ["page_numbers", "header", "footer", "header_footer_style"]) {
-    if (base?.[key] || override?.[key]) {
-      merged[key] = { ...(base?.[key] ?? {}), ...(override?.[key] ?? {}) };
-    }
-  }
-  return merged;
-}
 
 function cssLengthToMm(value) {
   const m = String(value ?? "").trim().match(/^([\d.]+)\s*(mm|cm|in|pt|px)?$/i);
@@ -206,46 +104,6 @@ function cssLengthToMm(value) {
 function hfOffset(marginValue, fallbackMm) {
   const mm = cssLengthToMm(marginValue) ?? fallbackMm;
   return `${Math.min(8, Math.max(3, mm * 0.38)).toFixed(1)}mm`;
-}
-
-function dateParts(value) {
-  const raw = String(value ?? "").trim();
-  const match = raw.match(/^(\d{4})(?:-?(\d{2})(?:-?(\d{2}))?)?/);
-  if (!match) return null;
-  return {
-    YYYY: match[1],
-    YY: match[1].slice(-2),
-    MM: match[2] ?? "01",
-    DD: match[3] ?? "01"
-  };
-}
-
-function formatDate(value, format = "YYYY-MM-DD") {
-  const parts = dateParts(value);
-  if (!parts) return String(value ?? "");
-
-  const normalized = String(format || "YYYY-MM-DD").toLowerCase();
-  const presets = {
-    iso: "YYYY-MM-DD",
-    "yyyy-mm-dd": "YYYY-MM-DD",
-    yyyymmdd: "YYYYMMDD",
-    yymmdd: "YYMMDD",
-    "yyyy/mm/dd": "YYYY/MM/DD",
-    "yy/mm/dd": "YY/MM/DD",
-    "yyyy.mm.dd": "YYYY.MM.DD",
-    "yy.mm.dd": "YY.MM.DD"
-  };
-  const pattern = presets[normalized] ?? String(format || "YYYY-MM-DD");
-
-  return pattern
-    .replaceAll("YYYY", parts.YYYY)
-    .replaceAll("yyyy", parts.YYYY)
-    .replaceAll("YY", parts.YY)
-    .replaceAll("yy", parts.YY)
-    .replaceAll("MM", parts.MM)
-    .replaceAll("mm", parts.MM)
-    .replaceAll("DD", parts.DD)
-    .replaceAll("dd", parts.DD);
 }
 
 function normalizePageNumberFormat(value) {

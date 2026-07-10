@@ -21,30 +21,18 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import YAML from "yaml";
 import { resolveChapterList, normalizeChapterEntry, isValidClassAttr } from "./lib/chapters.mjs";
 import {
-  createObsidianVault,
   obsidianFragmentExists,
   parseObsidianFrontmatter,
   scanObsidianReferences
 } from "./lib/obsidian.mjs";
+import { toPosix } from "./lib/util.mjs";
+import { resolveConfigPath, loadBook } from "./lib/config.mjs";
+import { resolveDialectConfig, createDialectVault } from "./lib/dialects.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const toolRoot = path.resolve(scriptDir, "..");
-
-function resolveConfigPath() {
-  const i = process.argv.indexOf("--config");
-  if (i !== -1) {
-    const value = process.argv[i + 1];
-    if (!value) {
-      console.error("Error: --config requires a file path, e.g. --config book.yml");
-      process.exit(1);
-    }
-    return path.resolve(process.cwd(), value);
-  }
-  return path.resolve(process.cwd(), "book.yml");
-}
 
 const configPath = resolveConfigPath();
 const baseDir = path.dirname(configPath);
@@ -53,7 +41,6 @@ const configName = path.basename(configPath);
 const errors = [];
 const warnings = [];
 const fail = (message) => errors.push(message);
-const toPosix = (p) => p.split(path.sep).join("/");
 
 // 被章节引用过的本地图片（用于"未引用图片"警告）
 const referencedImages = new Set();
@@ -62,61 +49,15 @@ const embeddedNotes = new Set();
 
 /* ---------- 1. 读取并解析 book.yml ---------- */
 
-if (!fs.existsSync(configPath)) {
-  console.error(`Error: config file not found: ${configPath}`);
-  process.exit(1);
-}
-
-let book;
-try {
-  book = YAML.parse(fs.readFileSync(configPath, "utf8"));
-} catch (err) {
-  console.error(`Error: failed to parse ${configName}: ${err.message}`);
-  process.exit(1);
-}
-
-if (!book || typeof book !== "object") {
-  console.error(`Error: ${configName} is empty or not a YAML mapping.`);
-  process.exit(1);
-}
+const book = loadBook(configPath);
 
 /* ---------- Markdown dialect ---------- */
 
-const markdownCfg = book.markdown ?? {};
-let markdownDialect = "standard";
-let obsidianEnabled = false;
-let obsidianVault = null;
-if (book.markdown !== undefined && (!book.markdown || typeof book.markdown !== "object" || Array.isArray(book.markdown))) {
-  fail(`${configName}: "markdown" must be a mapping.`);
-} else {
-  markdownDialect = String(markdownCfg.dialect ?? "standard").toLowerCase();
-  if (!["standard", "obsidian"].includes(markdownDialect)) {
-    fail(`${configName}: markdown.dialect must be "standard" or "obsidian".`);
-  }
-  obsidianEnabled = markdownDialect === "obsidian";
-}
-
-if (obsidianEnabled) {
-  const obsidianCfg = markdownCfg.obsidian ?? {};
-  if (!obsidianCfg || typeof obsidianCfg !== "object" || Array.isArray(obsidianCfg)) {
-    fail(`${configName}: markdown.obsidian must be a mapping.`);
-  } else {
-    const properties = String(obsidianCfg.properties ?? "visible").toLowerCase();
-    if (!["visible", "hidden", "source"].includes(properties)) {
-      fail(`${configName}: markdown.obsidian.properties must be "visible", "hidden", or "source".`);
-    }
-    if (obsidianCfg.vault_root !== undefined && typeof obsidianCfg.vault_root !== "string") {
-      fail(`${configName}: markdown.obsidian.vault_root must be a directory path string.`);
-    } else {
-      const vaultRoot = path.resolve(baseDir, obsidianCfg.vault_root ?? ".");
-      if (!fs.existsSync(vaultRoot) || !fs.statSync(vaultRoot).isDirectory()) {
-        fail(`${configName}: markdown.obsidian.vault_root is not a directory: ${obsidianCfg.vault_root ?? "."}`);
-      } else {
-        obsidianVault = createObsidianVault(vaultRoot);
-      }
-    }
-  }
-}
+// 归一化与校验和 build.mjs 共用 lib/dialects.mjs；check 收集错误继续跑
+const dialectCfg = resolveDialectConfig(book, baseDir);
+for (const message of dialectCfg.errors) fail(`${configName}: ${message}`);
+const obsidianEnabled = dialectCfg.enabled;
+const obsidianVault = createDialectVault(dialectCfg);
 
 /* ---------- 2. chapters：解析（内联列表或外部 chapters 文件） ---------- */
 

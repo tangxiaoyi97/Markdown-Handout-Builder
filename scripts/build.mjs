@@ -16,7 +16,6 @@
  *   ![alt](./assets/a.png "图注")     独立成段的图片包成 <figure>，title 变成 <figcaption>
  */
 
-import { execSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -29,10 +28,34 @@ import markdownItContainerModule from "markdown-it-container";
 import markdownItFootnoteModule from "markdown-it-footnote";
 import markdownItMarkModule from "markdown-it-mark";
 import markdownItKatexModule from "@vscode/markdown-it-katex";
-import YAML from "yaml";
 
 import { normalizeChapters, isValidClassAttr } from "./lib/chapters.mjs";
-import { createObsidianDialect, createObsidianVault } from "./lib/obsidian.mjs";
+import {
+  toPosix,
+  escapeHtml,
+  formatDate,
+  sanitizeCssValue,
+  renderTemplate,
+  slugifyHeading,
+  resolveGitCommit
+} from "./lib/util.mjs";
+import {
+  resolveConfigPath,
+  loadBook,
+  normalizeThemes,
+  variantPath,
+  mergePdfCfg
+} from "./lib/config.mjs";
+import {
+  resolveDialectConfig,
+  createDialectVault,
+  instantiateDialect,
+  dialectClientScripts,
+  copyDialectRuntimeAssets
+} from "./lib/dialects.mjs";
+import { buildToc, buildChapterToc } from "./lib/toc.mjs";
+import { buildCoverHtml, buildBackCoverHtml } from "./lib/covers.mjs";
+import { buildOverrideCss, assembleInlineCss } from "./lib/css.mjs";
 
 const require = createRequire(import.meta.url);
 
@@ -50,43 +73,11 @@ const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const toolRoot = path.resolve(scriptDir, "..");
 const templatesDir = path.join(toolRoot, "templates");
 
-const toPosix = (p) => p.split(path.sep).join("/");
-
-function resolveConfigPath() {
-  const i = process.argv.indexOf("--config");
-  if (i !== -1) {
-    const value = process.argv[i + 1];
-    if (!value) {
-      console.error("Error: --config requires a file path, e.g. --config book.yml");
-      process.exit(1);
-    }
-    return path.resolve(process.cwd(), value);
-  }
-  return path.resolve(process.cwd(), "book.yml");
-}
-
 /* ---------- 读取配置 ---------- */
 
 const configPath = resolveConfigPath();
 const baseDir = path.dirname(configPath);
-
-if (!fs.existsSync(configPath)) {
-  console.error(`Error: config file not found: ${configPath}`);
-  process.exit(1);
-}
-
-let book;
-try {
-  book = YAML.parse(fs.readFileSync(configPath, "utf8"));
-} catch (err) {
-  console.error(`Error: failed to parse ${path.basename(configPath)}: ${err.message}`);
-  process.exit(1);
-}
-
-if (!book || typeof book !== "object") {
-  console.error(`Error: ${path.basename(configPath)} is empty or not a YAML mapping.`);
-  process.exit(1);
-}
+const book = loadBook(configPath);
 
 // chapters: inline list or an external chapters file; each entry is a file path
 // whose extension decides its role (.md -> chapter, .html -> raw insert page).
@@ -100,37 +91,14 @@ const chapterEntries = chaptersResult.entries;
 
 /* ---------- Markdown 方言（默认保持现有严格模式） ---------- */
 
-if (book.markdown !== undefined && (!book.markdown || typeof book.markdown !== "object" || Array.isArray(book.markdown))) {
-  console.error('Error: "markdown" must be a mapping.');
+// 归一化与校验和 check.mjs 共用 lib/dialects.mjs；build 打印全部错误后退出
+const dialectCfg = resolveDialectConfig(book, baseDir);
+if (dialectCfg.errors.length > 0) {
+  for (const message of dialectCfg.errors) console.error(`Error: ${message}`);
+  console.error('Run "npm run check" for details.');
   process.exit(1);
 }
-const markdownCfg = book.markdown ?? {};
-const markdownDialect = String(markdownCfg.dialect ?? "standard").toLowerCase();
-const obsidianEnabled = markdownDialect === "obsidian";
-const obsidianCfg = markdownCfg.obsidian ?? {};
-if (obsidianEnabled && (!obsidianCfg || typeof obsidianCfg !== "object" || Array.isArray(obsidianCfg))) {
-  console.error('Error: "markdown.obsidian" must be a mapping.');
-  process.exit(1);
-}
-if (obsidianEnabled && obsidianCfg.vault_root !== undefined && typeof obsidianCfg.vault_root !== "string") {
-  console.error("Error: markdown.obsidian.vault_root must be a directory path string.");
-  process.exit(1);
-}
-const obsidianVaultRoot = path.resolve(baseDir, String(obsidianCfg.vault_root ?? "."));
-const obsidianPropertiesMode = String(obsidianCfg.properties ?? "visible").toLowerCase();
-if (!["standard", "obsidian"].includes(markdownDialect)) {
-  console.error(`Error: unsupported markdown.dialect ${JSON.stringify(markdownDialect)}.`);
-  process.exit(1);
-}
-if (obsidianEnabled && (!fs.existsSync(obsidianVaultRoot) || !fs.statSync(obsidianVaultRoot).isDirectory())) {
-  console.error(`Error: markdown.obsidian.vault_root is not a directory: ${obsidianVaultRoot}`);
-  process.exit(1);
-}
-if (obsidianEnabled && !["visible", "hidden", "source"].includes(obsidianPropertiesMode)) {
-  console.error('Error: markdown.obsidian.properties must be "visible", "hidden", or "source".');
-  process.exit(1);
-}
-const obsidianVault = obsidianEnabled ? createObsidianVault(obsidianVaultRoot) : null;
+const dialectVault = createDialectVault(dialectCfg);
 
 const title = book.title ? String(book.title) : "Untitled Handout";
 const subtitle = book.subtitle ? String(book.subtitle) : "";
@@ -148,29 +116,6 @@ const date = formatDate(rawDate, dateFormat);
 const bookVersion =
   book.version !== undefined && book.version !== null ? String(book.version) : "";
 
-// 构建溯源元数据：{{commit}} = 笔记仓库的短 hash（非 git 目录时为空串）。
-// 有未提交改动时加 -dirty 后缀，避免产物标注一个不含当前内容的 hash。
-// 注意 cwd 是 baseDir（笔记仓库），不是本工具的仓库。
-function resolveGitCommit(dir) {
-  try {
-    const hash = execSync("git rev-parse --short HEAD", {
-      cwd: dir,
-      stdio: ["ignore", "pipe", "ignore"]
-    })
-      .toString()
-      .trim();
-    if (!hash) return "";
-    const dirty = execSync("git status --porcelain", {
-      cwd: dir,
-      stdio: ["ignore", "pipe", "ignore"]
-    })
-      .toString()
-      .trim();
-    return dirty ? `${hash}-dirty` : hash;
-  } catch {
-    return "";
-  }
-}
 const gitCommit = resolveGitCommit(baseDir);
 
 const htmlOut = path.resolve(baseDir, book.output?.html ?? "dist/handout.html");
@@ -248,167 +193,7 @@ const pdfBase = book.pdf ?? {};
 const coverBase = book.cover ?? {};
 const backBase = book.back_cover ?? {};
 
-// 多主题：默认单主题（空 name = 使用标准文件名）
-function normalizeThemes(raw) {
-  if (!Array.isArray(raw) || raw.length === 0) {
-    return [
-      { name: "", label: "", isDefault: true, style: {}, cover: {}, back_cover: {}, pdf: {} }
-    ];
-  }
-  let defaultIndex = raw.findIndex((t) => t && t.default === true);
-  if (defaultIndex === -1) defaultIndex = 0;
-  return raw.map((t, i) => {
-    const name = String(t?.name ?? `theme${i + 1}`);
-    // 主题名进入输出文件名，必须安全（check 也会校验，这里兜底）
-    if (!/^[A-Za-z0-9][A-Za-z0-9_-]*$/.test(name)) {
-      console.error(
-        `Error: invalid theme name ${JSON.stringify(name)} — ` +
-          `must match [A-Za-z0-9][A-Za-z0-9_-]* (it is used in output filenames).`
-      );
-      process.exit(1);
-    }
-    return {
-      name,
-      label: String(t?.label ?? t?.name ?? `theme${i + 1}`),
-      isDefault: i === defaultIndex,
-      style: t?.style ?? {},
-      cover: t?.cover ?? {},
-      back_cover: t?.back_cover ?? {},
-      pdf: t?.pdf ?? {}
-    };
-  });
-}
 const themes = normalizeThemes(book.themes);
-
-// 非默认主题的产物：basename 加 .<name> 后缀（同目录，assets 共享）
-function variantPath(basePath, theme) {
-  if (theme.isDefault) return basePath;
-  const ext = path.extname(basePath);
-  return path.join(
-    path.dirname(basePath),
-    `${path.basename(basePath, ext)}.${theme.name}${ext}`
-  );
-}
-
-/* ---------- 工具函数 ---------- */
-
-function escapeHtml(value) {
-  return String(value)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
-}
-
-function dateParts(value) {
-  const raw = String(value ?? "").trim();
-  const match = raw.match(/^(\d{4})(?:-?(\d{2})(?:-?(\d{2}))?)?/);
-  if (!match) return null;
-  return {
-    YYYY: match[1],
-    YY: match[1].slice(-2),
-    MM: match[2] ?? "01",
-    DD: match[3] ?? "01"
-  };
-}
-
-function formatDate(value, format = "YYYY-MM-DD") {
-  const parts = dateParts(value);
-  if (!parts) return String(value ?? "");
-
-  const normalized = String(format || "YYYY-MM-DD").toLowerCase();
-  const presets = {
-    iso: "YYYY-MM-DD",
-    "yyyy-mm-dd": "YYYY-MM-DD",
-    yyyymmdd: "YYYYMMDD",
-    yymmdd: "YYMMDD",
-    "yyyy/mm/dd": "YYYY/MM/DD",
-    "yy/mm/dd": "YY/MM/DD",
-    "yyyy.mm.dd": "YYYY.MM.DD",
-    "yy.mm.dd": "YY.MM.DD"
-  };
-  const pattern = presets[normalized] ?? String(format || "YYYY-MM-DD");
-
-  return pattern
-    .replaceAll("YYYY", parts.YYYY)
-    .replaceAll("yyyy", parts.YYYY)
-    .replaceAll("YY", parts.YY)
-    .replaceAll("yy", parts.YY)
-    .replaceAll("MM", parts.MM)
-    .replaceAll("mm", parts.MM)
-    .replaceAll("DD", parts.DD)
-    .replaceAll("dd", parts.DD);
-}
-
-// 防止配置值破坏内联 <style>
-const sanitizeCssValue = (v) => String(v).replace(/[{}<>;]/g, "").trim();
-
-// pdf 配置合并：header / footer / page_numbers / header_footer_style
-// 为嵌套对象，主题只写其中一个键时不应丢掉基础配置的其余键
-function mergePdfCfg(base, override) {
-  const merged = { ...(base ?? {}), ...(override ?? {}) };
-  for (const key of ["page_numbers", "header", "footer", "header_footer_style"]) {
-    if (base?.[key] || override?.[key]) {
-      merged[key] = { ...(base?.[key] ?? {}), ...(override?.[key] ?? {}) };
-    }
-  }
-  return merged;
-}
-
-// CSS margin 简写 → 上右下左
-function marginParts(value) {
-  const parts = String(value ?? "").trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) {
-    return { top: "18mm", right: "16mm", bottom: "20mm", left: "16mm" };
-  }
-  const [a, b = a, c = a, d = b] = parts;
-  return { top: a, right: b, bottom: c, left: d };
-}
-
-// pdf.page_size → 页面高度（mm）。print.css 用 --hb-page-height 把封底
-// 撑满正文区（官方 PDF 管线再把封底覆盖为全出血整页）。
-const PAGE_HEIGHTS_MM = {
-  a3: [297, 420],
-  a4: [210, 297],
-  a5: [148, 210],
-  b4: [250, 353],
-  b5: [176, 250],
-  letter: [215.9, 279.4],
-  legal: [215.9, 355.6],
-  ledger: [279.4, 431.8],
-  tabloid: [279.4, 431.8]
-};
-function pageHeightMm(size) {
-  const raw = String(size ?? "A4").trim().toLowerCase();
-  const landscape = /\blandscape\b/.test(raw);
-  const keyword = raw.replace(/\b(landscape|portrait)\b/g, "").trim();
-  const named = PAGE_HEIGHTS_MM[keyword];
-  if (named) return landscape ? named[0] : named[1];
-  // 显式尺寸："210mm 297mm" 之类；单值为正方形页。取第二个长度为高。
-  const toMm = { mm: 1, cm: 10, in: 25.4, pt: 25.4 / 72, px: 25.4 / 96 };
-  const lengths = [...keyword.matchAll(/([\d.]+)\s*(mm|cm|in|pt|px)/g)].map(
-    (m) => Number.parseFloat(m[1]) * toMm[m[2]]
-  );
-  if (lengths.length >= 2) return lengths[1];
-  if (lengths.length === 1) return lengths[0];
-  return 297; // 未知关键字：回退 A4 高度
-}
-
-function slugifyHeading(str) {
-  return str
-    .trim()
-    .toLowerCase()
-    .replace(/[^\p{L}\p{N}]+/gu, "-")
-    .replace(/^-+|-+$/g, "");
-}
-
-// 模板填充：单遍替换，插入的内容不会被二次扫描
-function renderTemplate(template, values) {
-  return template.replace(/\{\{(\w+)\}\}/g, (whole, key) =>
-    Object.hasOwn(values, key) ? values[key] : whole
-  );
-}
 
 const metaValues = {
   lang: escapeHtml(language),
@@ -437,23 +222,6 @@ const katexCss = fs
   .readFileSync(katexCssPath, "utf8")
   .replaceAll("url(fonts/", "url(assets/katex-fonts/");
 
-/* ---------- 默认封面 / 封底组件 ---------- */
-
-const DEFAULT_COVER =
-  '<h1 class="cover-title">{{title}}</h1>\n' +
-  '<p class="cover-subtitle">{{subtitle}}</p>\n' +
-  '<p class="cover-authors">{{authors}}</p>\n' +
-  '<p class="cover-date">{{date}}</p>' +
-  (bookVersion ? '\n<p class="cover-version">{{version}}</p>' : "");
-
-const DEFAULT_BACK_COVER =
-  '<div class="back-cover-inner">\n' +
-  '<p class="back-cover-title">{{title}}</p>\n' +
-  '<p class="back-cover-meta">{{authors}}</p>\n' +
-  '<p class="back-cover-meta">{{date}}</p>\n' +
-  (bookVersion ? '<p class="back-cover-meta">{{version}}</p>\n' : "") +
-  "</div>";
-
 // 组件与 templates/ 同级别受信；占位符注入前已 HTML 转义
 function loadComponent(file, label) {
   const componentPath = path.resolve(baseDir, String(file));
@@ -472,86 +240,6 @@ function resolveProjectOrToolFile(file) {
   if (fs.existsSync(toolPath)) return toolPath;
 
   return projectPath;
-}
-
-/* ---------- 目录（各主题共用同一份配置） ---------- */
-
-function buildToc(entries) {
-  if (!tocEnabled) return "";
-  const items = entries.filter((e) => e.level <= tocDepth);
-  if (items.length === 0) return "";
-
-  // .toc-page 是页码占位符：屏幕上隐藏；
-  // render-pdf.mjs 第一遍打印后解析出真实页码，注入后再打印第二遍。
-  const row = (entry) =>
-    '<div class="toc-row">' +
-    `<span class="toc-title"><a href="#${entry.id}">${escapeHtml(entry.title)}</a></span>` +
-    '<span class="toc-leader"></span>' +
-    `<span class="toc-page" data-target="${escapeHtml(entry.id)}"></span>` +
-    "</div>";
-
-  // 通用嵌套列表：层级跳跃（如 h1 → h3）按 +1 层处理，保证标签配平
-  const minLevel = Math.min(...items.map((e) => e.level));
-  let html = '<ol class="toc-list">\n';
-  let prev = null;
-
-  for (const entry of items) {
-    const level =
-      prev === null ? minLevel : Math.max(minLevel, Math.min(entry.level, prev + 1));
-
-    if (prev === null) {
-      html += `<li>${row(entry)}`;
-    } else if (level > prev) {
-      html += `\n<ol>\n<li>${row(entry)}`;
-    } else {
-      html += "</li>\n";
-      for (let l = prev; l > level; l--) html += "</ol>\n</li>\n";
-      html += `<li>${row(entry)}`;
-    }
-    prev = level;
-  }
-
-  html += "</li>\n";
-  for (let l = prev; l > minLevel; l--) html += "</ol>\n</li>\n";
-  html += "</ol>";
-
-  return (
-    '<nav class="toc" id="toc">\n' +
-    `<h2 class="toc-heading">${escapeHtml(tocTitle)}</h2>\n` +
-    `${html}\n` +
-    "</nav>"
-  );
-}
-
-// Per-chapter mini TOC. Lists this chapter's sub-headings (levels 2..depth; the
-// chapter's own h1 is the title, not a row). Uses distinct .chapter-toc* classes
-// (isolated from the main .toc) but keeps the .toc-page[data-target] hook so the
-// render-pdf page-number pass fills it. Chapter TOCs live in the body flow and
-// are always counted toward page numbers.
-function buildChapterToc(headings) {
-  const items = headings.filter((e) => e.level >= 2 && e.level <= chapterTocDepth);
-  if (items.length === 0) return "";
-
-  const minLevel = Math.min(...items.map((e) => e.level));
-  const rows = items
-    .map((e) => {
-      const indent = Math.max(0, e.level - minLevel);
-      const indentClass = indent > 0 ? ` chapter-toc-l${indent}` : "";
-      return (
-        `<li class="chapter-toc-row${indentClass}">` +
-        `<span class="chapter-toc-title"><a href="#${escapeHtml(e.id)}">${escapeHtml(e.title)}</a></span>` +
-        '<span class="chapter-toc-leader"></span>' +
-        `<span class="toc-page" data-target="${escapeHtml(e.id)}"></span>` +
-        "</li>"
-      );
-    })
-    .join("\n");
-
-  const cls = ["chapter-toc", chapterTocClass].filter(Boolean).join(" ");
-  const heading = chapterTocTitle
-    ? `<p class="chapter-toc-heading">${escapeHtml(chapterTocTitle)}</p>\n`
-    : "";
-  return `<nav class="${cls}">\n${heading}<ul class="chapter-toc-list">\n${rows}\n</ul>\n</nav>`;
 }
 
 /* ---------- 单个主题的渲染 ---------- */
@@ -588,21 +276,17 @@ function buildTheme(theme) {
 
   const tocEntries = [];
 
-  const obsidian = obsidianEnabled
-    ? createObsidianDialect({
-        baseDir,
-        vaultRoot: obsidianVaultRoot,
-        vaultIndex: obsidianVault,
-        propertiesMode: obsidianPropertiesMode,
-        escapeHtml,
-        slugify: slugifyHeading
-      })
-    : null;
+  // 每主题独立的方言实例（slug / 引用状态隔离），vault 索引共享
+  const dialect = instantiateDialect(dialectCfg, {
+    baseDir,
+    vaultIndex: dialectVault,
+    escapeHtml,
+    slugify: slugifyHeading
+  });
 
   const md = new MarkdownIt({
-    // Obsidian Flavored Markdown follows CommonMark and permits raw HTML.
-    // The dialect is opt-in because chapter Markdown is trusted content in this mode.
-    html: obsidianEnabled,
+    // 是否放行 Raw HTML 由方言决定（Obsidian 模式下章节内容受信）
+    html: dialectCfg.allowRawHtml,
     linkify: true,
     typographer: false,
     // 构建时语法高亮（highlight.js common 语言集，无运行时 JS）。
@@ -686,7 +370,7 @@ function buildTheme(theme) {
       });
     }
   });
-  if (obsidian) obsidian.install(md);
+  if (dialect) dialect.install(md);
 
   // 外部链接在新标签页打开
   const defaultLinkOpen =
@@ -694,7 +378,7 @@ function buildTheme(theme) {
     ((tokens, idx, options, _env, self) => self.renderToken(tokens, idx, options));
   md.renderer.rules.link_open = (tokens, idx, options, env, self) => {
     let href = tokens[idx].attrGet("href") ?? "";
-    const rewritten = obsidian?.rewriteMarkdownLink(href, env);
+    const rewritten = dialect?.rewriteMarkdownLink(href, env);
     if (rewritten) {
       tokens[idx].attrSet("href", rewritten);
       tokens[idx].attrJoin("class", "internal-link");
@@ -714,9 +398,9 @@ function buildTheme(theme) {
     const token = tokens[idx];
     const src = token.attrGet("src") ?? "";
 
-    const obsidianSrc = obsidian?.rewriteMarkdownImage(src, env);
-    if (obsidianSrc) {
-      token.attrSet("src", obsidianSrc);
+    const dialectSrc = dialect?.rewriteMarkdownImage(src, env);
+    if (dialectSrc) {
+      token.attrSet("src", dialectSrc);
       return defaultImage(tokens, idx, options, env, self);
     }
 
@@ -891,27 +575,27 @@ function buildTheme(theme) {
     return " hb-lead"; // first body section: no forced page break before it
   };
 
-  function renderObsidianSource(source, env, { transcluded = false } = {}) {
-    const prepared = obsidian.prepareSource(source);
+  function renderDialectSource(source, env, { transcluded = false } = {}) {
+    const prepared = dialect.prepareSource(source);
     if (prepared.frontmatterError) {
       // Degrade instead of aborting the whole build: the note renders without
       // its properties block. "mhb check" reports the same problem as an error.
       const rel = toPosix(path.relative(baseDir, env.obsidianFile));
-      obsidian.warnings.add(
+      dialect.warnings.add(
         `Invalid Obsidian properties in ${rel} (${prepared.frontmatterError}); ` +
           "rendering the note without them"
       );
     }
 
     let html = md.render(prepared.source, env);
-    html = obsidian.expandNoteEmbeds(html, (embed, embeddedSource) => {
+    html = dialect.expandNoteEmbeds(html, (embed, embeddedSource) => {
       const stack = env.obsidianStack ?? [env.obsidianFile];
       const label = embed.file.relPath + (embed.spec.fragment ? `#${embed.spec.fragment}` : "");
       if (stack.includes(embed.file.absPath)) {
         const cycle = [...stack, embed.file.absPath]
-          .map((file) => toPosix(path.relative(obsidianVaultRoot, file)))
+          .map((file) => toPosix(path.relative(dialectCfg.vaultRoot, file)))
           .join(" -> ");
-        obsidian.warnings.add(`Cyclic Obsidian note embed skipped: ${cycle}`);
+        dialect.warnings.add(`Cyclic Obsidian note embed skipped: ${cycle}`);
         const errorHtml =
           `<span class="obsidian-note-embed unresolved">Cyclic embed: ${escapeHtml(label)}</span>`;
         return {
@@ -921,7 +605,7 @@ function buildTheme(theme) {
       }
 
       const tocStart = tocEntries.length;
-      const child = renderObsidianSource(
+      const child = renderDialectSource(
         embeddedSource,
         {
           docId: `${env.docId}-embed${embed.id + 1}`,
@@ -953,7 +637,7 @@ function buildTheme(theme) {
     });
 
     if (!transcluded) {
-      html = obsidian.renderProperties(prepared.properties, prepared.propertiesRaw, md, env) + html;
+      html = dialect.renderProperties(prepared.properties, prepared.propertiesRaw, md, env) + html;
     }
     return { html, prepared };
   }
@@ -997,18 +681,22 @@ function buildTheme(theme) {
     const env = {
       docId: `ch${i + 1}`,
       chapterDir: path.dirname(absPath),
-      ...(obsidian
+      ...(dialect
         ? { obsidianFile: absPath, obsidianStack: [absPath], obsidianTransclusion: false }
         : {})
     };
     const headingStart = tocEntries.length;
-    const dialectRender = obsidian ? renderObsidianSource(source, env) : null;
+    const dialectRender = dialect ? renderDialectSource(source, env) : null;
     let bodyHtml = dialectRender?.html ?? md.render(source, env);
 
     // Optional per-chapter mini TOC, inserted right after the chapter's h1.
     const wantChapterToc = entry.chapterToc === null ? chapterTocDefault : entry.chapterToc;
     if (wantChapterToc) {
-      const miniToc = buildChapterToc(tocEntries.slice(headingStart));
+      const miniToc = buildChapterToc(tocEntries.slice(headingStart), {
+        title: chapterTocTitle,
+        depth: chapterTocDepth,
+        className: chapterTocClass
+      });
       if (miniToc) {
         bodyHtml = /<\/h1>/.test(bodyHtml)
           ? bodyHtml.replace("</h1>", `</h1>\n${miniToc}`)
@@ -1026,66 +714,15 @@ function buildTheme(theme) {
 
   /* ----- CSS：变量覆盖 + @page + 自定义 CSS ----- */
 
-  const varMap = {
-    accent_color: "--hb-accent",
-    content_width: "--hb-content-width",
-    base_font_size: "--hb-base-font-size",
-    print_font_size: "--hb-print-font-size"
-  };
-  const rootVars = Object.entries(varMap)
-    .filter(([key]) => styleCfg[key])
-    .map(([key, cssVar]) => `  ${cssVar}: ${sanitizeCssValue(styleCfg[key])};`);
-
-  // 字体栈（style.fonts.body / heading / code）
   const fonts = styleCfg.fonts ?? {};
-  if (fonts.body) rootVars.push(`  --hb-font-body: ${sanitizeCssValue(fonts.body)};`);
-  if (fonts.heading) rootVars.push(`  --hb-font-heading: ${sanitizeCssValue(fonts.heading)};`);
-  if (fonts.code) rootVars.push(`  --hb-font-code: ${sanitizeCssValue(fonts.code)};`);
-
-  // 页眉页脚样式 → CSS 变量（网页打印的运行页眉与官方 PDF 保持一致外观）
-  const hfStyleCfg = pdfCfg.header_footer_style ?? {};
-  if (hfStyleCfg.font_size) rootVars.push(`  --hb-hf-font-size: ${sanitizeCssValue(hfStyleCfg.font_size)};`);
-  if (hfStyleCfg.color) rootVars.push(`  --hb-hf-color: ${sanitizeCssValue(hfStyleCfg.color)};`);
-  if (hfStyleCfg.font_family) rootVars.push(`  --hb-hf-font-family: ${sanitizeCssValue(hfStyleCfg.font_family)};`);
-
-  // 封面 / 封底背景与文字色
-  if (coverCfg.background) rootVars.push(`  --hb-cover-bg: ${sanitizeCssValue(coverCfg.background)};`);
-  if (coverCfg.color) rootVars.push(`  --hb-cover-color: ${sanitizeCssValue(coverCfg.color)};`);
-  if (backCfg.background) rootVars.push(`  --hb-back-bg: ${sanitizeCssValue(backCfg.background)};`);
-  if (backCfg.color) rootVars.push(`  --hb-back-color: ${sanitizeCssValue(backCfg.color)};`);
-
-  // pdf.margin 覆盖时，同步页边距镜像变量（封面/封底内容定位用）
-  if (pdfCfg.margin) {
-    const m = marginParts(sanitizeCssValue(pdfCfg.margin));
-    rootVars.push(`  --hb-page-margin-top: ${m.top};`);
-    rootVars.push(`  --hb-page-margin-right: ${m.right};`);
-    rootVars.push(`  --hb-page-margin-bottom: ${m.bottom};`);
-    rootVars.push(`  --hb-page-margin-left: ${m.left};`);
-  }
-
-  // 页面高度镜像变量：封底在普通页边距页上撑满正文区所需
-  rootVars.push(`  --hb-page-height: ${pageHeightMm(pdfCfg.page_size)}mm;`);
-
-  // 封面也要显示页眉页脚时：第一页恢复正常页边距，封面顶部留白相应减小
-  if (coverUsesHeaderFooter) {
-    rootVars.push("  --hb-cover-pad-top: 60mm;");
-  }
-
-  let overrideCss = "";
-  if (rootVars.length > 0) {
-    overrideCss += `:root {\n${rootVars.join("\n")}\n}\n`;
-  }
-  const pageRules = [];
-  if (pdfCfg.page_size) pageRules.push(`size: ${sanitizeCssValue(pdfCfg.page_size)};`);
-  if (pdfCfg.margin) pageRules.push(`margin: ${sanitizeCssValue(pdfCfg.margin)};`);
-  if (pageRules.length > 0) {
-    overrideCss += `@page {\n  ${pageRules.join("\n  ")}\n}\n`;
-  }
-
-  // 无封面 / 封面带页眉页脚时，第一页不再需要 margin:0 的全出血设定
-  if (!coverEnabled || coverUsesHeaderFooter) {
-    overrideCss += `@page :first {\n  margin: ${sanitizeCssValue(pdfCfg.margin ?? "18mm 16mm 20mm 16mm")};\n}\n`;
-  }
+  const overrideCss = buildOverrideCss({
+    styleCfg,
+    pdfCfg,
+    coverCfg,
+    backCfg,
+    coverEnabled,
+    coverUsesHeaderFooter
+  });
 
   // 追加自定义 CSS（字符串或数组，最后加载，优先级最高）
   const customList = Array.isArray(styleCfg.custom_css)
@@ -1104,28 +741,25 @@ function buildTheme(theme) {
     })
     .join("\n");
 
-  const inlineCss =
-    `/* ===== KaTeX ===== */\n${katexCss}\n/* ===== print.css ===== */\n${printCss}` +
-    (overrideCss ? `\n/* ===== book.yml overrides ===== */\n${overrideCss}` : "") +
-    (customCss ? `\n/* ===== custom css ===== */\n${customCss}` : "");
+  const inlineCss = assembleInlineCss({ katexCss, printCss, overrideCss, customCss });
 
   /* ----- 封面 / 封底组件 ----- */
 
-  const coverHtml = coverEnabled
-    ? '<header id="cover" class="cover">\n' +
-      (coverCfg.html
-        ? loadComponent(coverCfg.html, "cover.html")
-        : renderTemplate(DEFAULT_COVER, metaValues)) +
-      "\n</header>"
-    : "";
+  const coverHtml = buildCoverHtml({
+    enabled: coverEnabled,
+    cfg: coverCfg,
+    metaValues,
+    hasVersion: Boolean(bookVersion),
+    loadComponent
+  });
 
-  const backCoverHtml = backEnabled
-    ? '<footer id="back-cover" class="back-cover">\n' +
-      (backCfg.html
-        ? loadComponent(backCfg.html, "back_cover.html")
-        : renderTemplate(DEFAULT_BACK_COVER, metaValues)) +
-      "\n</footer>"
-    : "";
+  const backCoverHtml = buildBackCoverHtml({
+    enabled: backEnabled,
+    cfg: backCfg,
+    metaValues,
+    hasVersion: Boolean(bookVersion),
+    loadComponent
+  });
 
   /* ----- 写出 HTML ----- */
 
@@ -1133,7 +767,7 @@ function buildTheme(theme) {
   const docTitle = theme.isDefault ? title : `${title} · ${theme.label || theme.name}`;
 
   // 目录页同样带运行页眉（封面/封底不带）
-  const tocRaw = buildToc(tocEntries);
+  const tocRaw = buildToc(tocEntries, { enabled: tocEnabled, title: tocTitle, depth: tocDepth });
   const tocHtml = tocRaw
     ? tocRaw.replace(
         /^(<nav class="toc" id="toc">\n)([\s\S]*)(\n<\/nav>)$/,
@@ -1141,16 +775,10 @@ function buildTheme(theme) {
       )
     : "";
 
-  const bodyHtml = obsidian
-    ? obsidian.finalizeLinks(sections.join("\n\n"))
+  const bodyHtml = dialect
+    ? dialect.finalizeLinks(sections.join("\n\n"))
     : sections.join("\n\n");
-  const dialectScripts = obsidian?.usesMermaid
-    ? '<script src="./assets/mermaid.min.js"></script>\n' +
-      '<script>\n' +
-      '  mermaid.initialize({ startOnLoad: false, securityLevel: "loose", theme: "neutral" });\n' +
-      '  window.__MHB_RENDER_READY__ = mermaid.run({ querySelector: ".mermaid" });\n' +
-      '</script>'
-    : "";
+  const dialectScripts = dialectClientScripts(dialect);
 
   const handoutHtml = renderTemplate(documentTemplate, {
     ...metaValues,
@@ -1168,7 +796,7 @@ function buildTheme(theme) {
   fs.writeFileSync(htmlOutTheme, handoutHtml);
   console.log(`Generated ${toPosix(path.relative(process.cwd(), htmlOutTheme))}`);
 
-  return { theme, htmlOutTheme, pdfOutTheme, styleCfg, fonts, tocEntries, obsidian };
+  return { theme, htmlOutTheme, pdfOutTheme, styleCfg, fonts, tocEntries, dialect };
 }
 
 /* ---------- 渲染所有主题 ---------- */
@@ -1260,26 +888,18 @@ if (fs.existsSync(notesAssets)) {
   fs.cpSync(notesAssets, path.join(distDir, "assets"), { recursive: true });
 }
 
-if (defaultBuild.obsidian) {
-  defaultBuild.obsidian.copyReferencedFiles(distDir);
+if (defaultBuild.dialect) {
+  defaultBuild.dialect.copyReferencedFiles(distDir);
 }
 
 // 警告跨主题聚合去重：每个主题独立渲染一遍，内容级警告一般相同，
 // 但只报默认主题的会漏掉主题差异引出的问题。
-const dialectWarnings = new Set(built.flatMap((item) => [...(item.obsidian?.warnings ?? [])]));
+const dialectWarnings = new Set(built.flatMap((item) => [...(item.dialect?.warnings ?? [])]));
 for (const warning of dialectWarnings) {
   console.warn(`Warning: ${warning}`);
 }
 
-if (built.some((item) => item.obsidian?.usesMermaid)) {
-  const mermaidPath = require.resolve("mermaid/dist/mermaid.min.js");
-  const mermaidLicensePath = path.join(path.dirname(require.resolve("mermaid/package.json")), "LICENSE");
-  fs.mkdirSync(path.join(distDir, "assets"), { recursive: true });
-  fs.copyFileSync(mermaidPath, path.join(distDir, "assets", "mermaid.min.js"));
-  if (fs.existsSync(mermaidLicensePath)) {
-    fs.copyFileSync(mermaidLicensePath, path.join(distDir, "assets", "mermaid.LICENSE"));
-  }
-}
+copyDialectRuntimeAssets(built.map((item) => item.dialect), distDir, require);
 
 const katexFontsDir = path.join(path.dirname(katexCssPath), "fonts");
 if (fs.existsSync(katexFontsDir)) {
