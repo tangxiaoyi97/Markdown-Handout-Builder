@@ -89,18 +89,21 @@ export function parseObsidianReference(raw, { embed = false } = {}) {
 
 export function parseObsidianFrontmatter(source) {
   const text = String(source ?? "").replace(/^\uFEFF/, "");
-  const match = text.match(/^---[ \t]*\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)/);
+  // The YAML block is optional so the empty form Obsidian writes after
+  // deleting every property ("---\n---") is still recognized as frontmatter.
+  const match = text.match(/^---[ \t]*\r?\n(?:([\s\S]*?)\r?\n)?---[ \t]*(?:\r?\n|$)/);
   if (!match) return { body: text, data: {}, raw: "", error: null, lineOffset: 0 };
+  const raw = match[1] ?? "";
   const lineOffset = (match[0].match(/\n/g) ?? []).length;
 
   let data;
   try {
-    data = YAML.parse(match[1]);
+    data = YAML.parse(raw);
   } catch (error) {
     return {
       body: text.slice(match[0].length),
       data: {},
-      raw: match[1],
+      raw,
       error: error.message,
       lineOffset
     };
@@ -110,12 +113,12 @@ export function parseObsidianFrontmatter(source) {
     return {
       body: text.slice(match[0].length),
       data: {},
-      raw: match[1],
+      raw,
       error: "properties must be a YAML mapping",
       lineOffset
     };
   }
-  return { body: text.slice(match[0].length), data, raw: match[1], error: null, lineOffset };
+  return { body: text.slice(match[0].length), data, raw, error: null, lineOffset };
 }
 
 /**
@@ -195,6 +198,19 @@ function arrayValue(value) {
   return [value];
 }
 
+// Obsidian normalizes comma-separated scalars of list-type properties
+// (tags / aliases / cssclasses) into separate items; mirror that so
+// "tags: a, b" indexes and renders as two values, not one invalid one.
+export const OBSIDIAN_LIST_PROPERTY_KEYS = Object.freeze(["tags", "aliases", "cssclasses"]);
+
+function listPropertyValue(value) {
+  return arrayValue(value).flatMap((item) =>
+    typeof item === "string" && item.includes(",")
+      ? item.split(",").map((part) => part.trim()).filter(Boolean)
+      : [item]
+  );
+}
+
 export function createObsidianVault(vaultRoot) {
   const root = path.resolve(vaultRoot);
   const files = [];
@@ -236,7 +252,7 @@ export function createObsidianVault(vaultRoot) {
       byName.set(normalized, list);
     }
 
-    for (const alias of arrayValue(record.properties.aliases)) {
+    for (const alias of listPropertyValue(record.properties.aliases)) {
       const key = normalizeKey(alias);
       if (!key) continue;
       const list = byAlias.get(key) ?? [];
@@ -333,9 +349,21 @@ function scanLineForReferences(line, lineNo, results, inlineState) {
 
 export function scanObsidianReferences(source, { includeFrontmatter = false } = {}) {
   const frontmatter = parseObsidianFrontmatter(source);
-  const clean = stripObsidianComments(includeFrontmatter ? String(source ?? "") : frontmatter.body);
-  const lineOffset = includeFrontmatter ? 0 : frontmatter.lineOffset;
   const results = [];
+
+  // YAML properties are not Markdown: scan them line by line with fresh
+  // inline state so a "%%" or an unpaired backtick inside a value cannot
+  // leak comment / code-span state into the body scan (which would silently
+  // disable link validation for the rest of the note).
+  if (includeFrontmatter && frontmatter.raw) {
+    frontmatter.raw.split(/\r?\n/).forEach((line, index) => {
+      // Line 1 is the opening "---"; YAML content starts on line 2.
+      scanLineForReferences(line, index + 2, results, { codeTicks: 0 });
+    });
+  }
+
+  const clean = stripObsidianComments(frontmatter.body);
+  const lineOffset = frontmatter.lineOffset;
   const inlineState = { codeTicks: 0 };
   let fenceChar = "";
   let fenceLength = 0;
@@ -368,7 +396,7 @@ function titleCase(value) {
 }
 
 function safeClassList(value) {
-  return arrayValue(value)
+  return listPropertyValue(value)
     .flatMap((item) => String(item).trim().split(/\s+/))
     .filter((item) => /^[A-Za-z_-][A-Za-z0-9_-]*$/.test(item));
 }
@@ -639,7 +667,12 @@ export function createObsidianDialect({
       close += 1;
     }
     if (close >= state.posMax - 1) return false;
-    if (silent) return true;
+    if (silent) {
+      // markdown-it contract: silent validation must still advance state.pos
+      // (skipToken throws otherwise, e.g. for "[a [[note]] label](url)").
+      state.pos = close + 2;
+      return true;
+    }
     const token = state.push(embed ? "obsidian_embed" : "obsidian_wikilink", "", 0);
     token.meta = {
       obsidian: parseObsidianReference(state.src.slice(contentStart, close), { embed })
@@ -651,11 +684,17 @@ export function createObsidianDialect({
   function tagRule(state, silent) {
     const start = state.pos;
     if (state.src[start] !== "#" || state.src[start - 1] === "\\") return false;
+    // Obsidian only recognizes a tag at line start or after whitespace;
+    // punctuation directly before '#' (including CJK '：'、'、') blocks it.
     const previous = start === 0 ? "" : state.src[start - 1];
-    if (previous && !/[\s([{>]/u.test(previous)) return false;
+    if (previous && !/\s/u.test(previous)) return false;
     const match = state.src.slice(start + 1).match(/^[\p{L}\p{N}\p{Extended_Pictographic}_/-]+/u);
     if (!match || !/[\p{L}\p{Extended_Pictographic}_-]/u.test(match[0])) return false;
-    if (silent) return true;
+    if (silent) {
+      // markdown-it contract: silent validation must still advance state.pos.
+      state.pos = start + match[0].length + 1;
+      return true;
+    }
     const token = state.push("obsidian_tag", "span", 0);
     token.content = match[0];
     state.pos = start + match[0].length + 1;
@@ -718,7 +757,10 @@ export function createObsidianDialect({
       if (itemIndex < 0) continue;
 
       const marker = task[1];
-      const checked = marker !== " ";
+      // Only completion-like states render a checked box: x/X (done) and
+      // "-" (cancelled). Other custom states ([?], [!], ...) keep an
+      // unchecked box; CSS shows their state character via data-task.
+      const checked = /^[xX-]$/.test(marker);
       inline.content = inline.content.slice(task[0].length);
       const children = inline.children ?? [];
       for (const child of children) {
@@ -794,7 +836,17 @@ export function createObsidianDialect({
       hierarchy.length = level;
       const entry = { id, transcluded: Boolean(state.env.obsidianTransclusion) };
       record.first.push(entry);
-      for (const key of [heading, hierarchy.filter(Boolean).join("#")]) {
+      // Index every suffix of the hierarchy path ("a#b#c" → "c", "b#c",
+      // "a#b#c"): links address headings by trailing path segments, and a
+      // chapter render always carries the note's H1 in its hierarchy while a
+      // heading transclusion does not — exact-match keys would make partial
+      // paths resolve only to the transcluded copy.
+      const parts = hierarchy.filter(Boolean);
+      const keys = new Set([heading]);
+      for (let startIndex = 0; startIndex < parts.length; startIndex += 1) {
+        keys.add(parts.slice(startIndex).join("#"));
+      }
+      for (const key of keys) {
         const entries = record.headings.get(key) ?? [];
         entries.push(entry);
         record.headings.set(key, entries);
@@ -813,7 +865,11 @@ export function createObsidianDialect({
     };
     md.renderer.rules.obsidian_callout_open = (tokens, idx, _options, env) => {
       const { type, fold, title } = tokens[idx].meta.obsidianCallout;
-      const titleHtml = md.renderInline(title, env);
+      // Hide footnote state from the nested inline render: markdown-it-footnote's
+      // footnote_tail core rule would otherwise flush the note's collected
+      // footnote section INTO the callout title (and emit it again later with
+      // duplicate element ids).
+      const titleHtml = md.renderInline(title, { ...env, footnotes: undefined });
       if (fold) {
         return (
           '<details class="callout callout-' + htmlEscape(type) + ' is-collapsible" data-callout="' + htmlEscape(type) + '"' +
@@ -852,6 +908,11 @@ export function createObsidianDialect({
       return '<pre class="obsidian-properties-source"><code class="language-yaml">---\n' + htmlEscape(raw) + "\n---</code></pre>\n";
     }
 
+    // Inline rendering with the document env, but with footnote state hidden:
+    // markdown-it-footnote's footnote_tail core rule would otherwise flush the
+    // already-collected footnote section into this fragment (and duplicate it).
+    const isolatedInlineEnv = { ...env, footnotes: undefined };
+
     const renderPropertyText = (text) => {
       const pattern = /\[\[[^\]\n]+\]\]|https?:\/\/[^\s<]+/g;
       let output = "";
@@ -859,7 +920,7 @@ export function createObsidianDialect({
       for (const match of text.matchAll(pattern)) {
         output += htmlEscape(text.slice(index, match.index));
         if (match[0].startsWith("[[")) {
-          output += md.renderInline(match[0], env);
+          output += md.renderInline(match[0], isolatedInlineEnv);
         } else {
           output +=
             '<a href="' + htmlEscape(match[0]) + '" target="_blank" rel="noopener noreferrer">' +
@@ -878,15 +939,21 @@ export function createObsidianDialect({
       if (typeof value === "object") return htmlEscape(JSON.stringify(value));
       const text = String(value);
       if (key === "tags") {
+        // Obsidian's Properties UI shows tag pills WITHOUT the leading '#'
+        // (only inline body tags carry it).
         const tag = text.replace(/^#/, "");
-        return '<span class="obsidian-tag" data-tag="' + htmlEscape(tag) + '">#' + htmlEscape(tag) + "</span>";
+        return '<span class="obsidian-tag" data-tag="' + htmlEscape(tag) + '">' + htmlEscape(tag) + "</span>";
       }
       return renderPropertyText(text);
     };
 
     const rows = Object.entries(properties)
       .map(([key, value]) => {
-        const values = Array.isArray(value) ? value : [value];
+        const values = OBSIDIAN_LIST_PROPERTY_KEYS.includes(key)
+          ? listPropertyValue(value)
+          : Array.isArray(value)
+            ? value
+            : [value];
         return (
           '<div class="obsidian-property"><dt>' + htmlEscape(key) + "</dt><dd>" +
           values.map((item) => '<span class="obsidian-property-value">' + scalar(item, key) + "</span>").join("") +

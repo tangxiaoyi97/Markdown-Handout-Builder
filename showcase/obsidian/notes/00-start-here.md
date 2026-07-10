@@ -70,7 +70,7 @@ source: https://obsidian.md/help/obsidian-flavored-markdown
 
 ## 标签与注释
 
-内联标签支持 ASCII、Unicode 与嵌套形式：#showcase #工作流/发布 #obsidian_pdf。纯数字 `#1984` 不会被误识别为标签。
+内联标签支持 ASCII、Unicode 与嵌套形式： #showcase #工作流/发布 #obsidian_pdf。与 Obsidian 一致，标签只在行首或空白之后被识别——紧贴标点的 `：#tag` 保持纯文本，纯数字 `#1984` 也不会被误识别为标签。
 
 注释前可见，%%这段 inline comment 不应出现在 PDF 中%% 注释后仍可见。
 

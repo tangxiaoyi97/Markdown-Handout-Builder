@@ -136,10 +136,8 @@ kbd {
   }
 
   .back-cover {
-    page: auto;
-    box-sizing: border-box;
-    min-height: 252mm;
-    padding: 24mm;
+    /* Pagination and full-bleed are owned by the package (print.css + the
+       official PDF pipeline's back-cover overlay); only restyle here. */
     background:
       radial-gradient(circle at 82% 18%, rgba(255, 255, 255, 0.16), transparent 28%),
       linear-gradient(145deg, #25304a 0%, #5f58b6 58%, #8d4f73 100%) !important;

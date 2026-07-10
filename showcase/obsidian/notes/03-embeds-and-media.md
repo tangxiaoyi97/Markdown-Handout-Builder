@@ -43,13 +43,13 @@ Wikilink 图片支持宽度与宽高：
 
 ## Audio embed
 
-真实 WAV 附件使用浏览器原生 controls；PDF 保留静态控件外观和附件语义。
+真实 WAV 附件使用浏览器原生 controls；PDF 中渲染为标注附件名的静态占位卡片，交互播放请使用 HTML 成品。
 
 ![[attachments/showcase-tone.wav]]
 
 ## Video embed
 
-真实 MP4 附件带宽高参数，HTML 可播放，PDF 捕获首帧：
+真实 MP4 附件带宽高参数，HTML 可播放；PDF 中渲染为标注附件名与尺寸的占位卡片：
 
 ![[attachments/showcase-loop.mp4|480x270]]
 

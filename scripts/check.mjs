@@ -293,6 +293,20 @@ for (const raw of rawChapters) {
   }
 }
 
+/* ---------- vault 内其余笔记的 properties 健康检查 ---------- */
+
+// 章节与被嵌入的笔记在上面已作为错误报告；vault 里其余 .md 的坏
+// frontmatter 不会阻断构建，但很可能是作者失误——降级为警告提示。
+if (obsidianEnabled && obsidianVault) {
+  for (const record of obsidianVault.files) {
+    if (record.frontmatterError && !checkedMarkdownContent.has(record.absPath)) {
+      warnings.push(
+        `${record.relPath}: invalid Obsidian properties: ${record.frontmatterError}`
+      );
+    }
+  }
+}
+
 /* ---------- themes 与引用文件路径校验 ---------- */
 
 if (book.themes !== undefined) {

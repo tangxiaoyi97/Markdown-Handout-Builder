@@ -73,10 +73,10 @@ enabled.
 | PDF embeds | PDF object with `#page=N` and `#height=N` support plus a link fallback |
 | Canvas/Bases embeds | Safe file card and copied source file; see the semantic-rendering boundary below |
 | Comments | Inline and multiline `%% ... %%` comments are removed; fenced code and code spans are preserved |
-| Task lists | `[ ]`, `[x]`, and any custom status character; printed as disabled native checkboxes |
+| Task lists | `[ ]`, `[x]`, and any custom status character; `x`/`-` print as checked + struck-through (done/cancelled), other states show their status character in a small box |
 | Callouts | Built-in aliases and custom types, Markdown titles/body, `+`/`-` folding, and arbitrary nesting |
 | Properties | YAML/JSON frontmatter; visible/hidden/source display; aliases, tags, `cssclasses`, links, lists, scalars, dates, booleans |
-| Tags | Unicode and nested inline tags with Obsidian's “at least one non-number” rule |
+| Tags | Unicode and nested inline tags with Obsidian's “at least one non-number” rule; recognized only at line start or after whitespace, as in Obsidian |
 | Raw HTML | Enabled to match Obsidian/CommonMark behavior; Markdown is not reparsed inside HTML blocks |
 | Mermaid | Rendered offline to SVG in HTML and awaited before PDF pagination; flowchart nodes with Obsidian's `internal-link` class become vault links |
 | Shared syntax | CommonMark/GFM tables and strikethrough, highlighting, footnotes, KaTeX, code, and image sizing remain available |

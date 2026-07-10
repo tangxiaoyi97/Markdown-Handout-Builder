@@ -2,6 +2,45 @@
 
 ## Unreleased (`dialects` experimental branch)
 
+### Fixed
+
+- Back cover: the CSS named-page mechanism (`@page hb-backcover`) made Chromium
+  emit a trailing blank page, and user CSS could silently cancel full bleed.
+  The official pipeline now prints the back cover separately (single page,
+  full bleed via `@page :first`) and overlays it onto the last page in
+  post-processing; browser printing fills the content box exactly via the new
+  `--hb-page-height` variable.
+- Properties: recognize the empty frontmatter form (`---` directly followed by
+  `---`) instead of leaking two `<hr>` into the chapter body; normalize
+  comma-separated `tags` / `aliases` / `cssclasses` scalars into separate items
+  the way Obsidian does; show property tag pills without the leading `#`
+  (matching Obsidian's Properties UI) and give multi-value lists discrete pill
+  styling; a YAML parse error now degrades to a build warning (the note renders
+  without its properties) instead of aborting the build, and `check` reports
+  broken properties in non-chapter vault notes as warnings.
+- `check`/build divergence: a `%%` or an unpaired backtick inside a frontmatter
+  value no longer disables wikilink validation for the rest of the note —
+  frontmatter is scanned as YAML lines, never through the Markdown
+  comment/code-span stripper.
+- Inline parser: wikilink and tag rules now advance `state.pos` in silent
+  validation mode as markdown-it requires; previously `[#tag](url)` or
+  `[a [[note]] label](url)` crashed the build.
+- Inline tags now require line start or preceding whitespace, exactly like
+  Obsidian (`(`, `[`, `{`, `>` no longer count as boundaries).
+- Callout titles are rendered with footnote state hidden, so a note containing
+  footnotes no longer gets the whole footnote section spliced into a callout
+  title (with duplicate element ids); the properties renderer got the same
+  isolation.
+- Transcluded headings are demoted (`role="paragraph"`) so PDF bookmarks list
+  only the chapters' own headings; multi-level heading links
+  (`[[Note#H2#H3]]`) now index every hierarchy suffix and prefer the canonical
+  (non-transcluded) section over an embedded copy.
+- Custom task states `[?]`, `[!]`, ... no longer print as checked + struck
+  through like `[x]`: only `x`/`X`/`-` read as completed/cancelled; other
+  states show their status character in a small box.
+- Dialect warnings are aggregated across all theme builds instead of only the
+  default theme's.
+
 - Add opt-in `markdown.dialect: obsidian` without changing the default
   renderer. It covers the official Obsidian Flavored Markdown extension set:
   wikilinks and aliases, heading/block links, note/section/block embeds,

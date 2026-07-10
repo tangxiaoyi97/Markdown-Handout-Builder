@@ -18,9 +18,16 @@
  *   真实页码；把页码注入目录的 .toc-page 占位符（同一行内追加，不改变
  *   分页），再打印第二遍。
  *
+ * 封底（back_cover.enabled）：
+ *   CSS 命名页（@page hb-backcover）在文档中段会让 Chromium 多出一张尾随
+ *   空白页，因此不用它。主渲染里封底只是普通页边距页；另开一次"仅封底"
+ *   的单页打印（此时它是第一页，@page :first { margin: 0 } 天然全出血），
+ *   后处理时把这一页整页覆盖到主渲染的封底页上。页码、书签、内链不受影响。
+ *
  * 后处理（pdf-lib）：
  *   1. 写入 PDF 元数据（Title/Author/Subject/Keywords/Creator/Language/日期）；
- *   2. 封面/封底页覆盖为无页眉页脚版本（整页图层叠加，书签与内链不受影响）。
+ *   2. 封面页覆盖为无页眉页脚版本、封底页覆盖为全出血单页渲染
+ *      （整页图层叠加，书签与内链不受影响）。
  */
 
 import { execSync } from "node:child_process";
@@ -386,11 +393,15 @@ async function resolveTocPageNumbers(pdfBuffer, page) {
       outlineEntries.push({ title: item.title ?? "", pageNo });
     }
 
+    // 与 outline 对齐的 DOM 标题集合。transclusion 里的标题被降级为
+    // role="paragraph"（不进书签），这里同样排除，保持两侧一一对应。
     const domHeadings = await page.evaluate(() =>
-      Array.from(document.querySelectorAll("h1, h2, h3, h4, h5, h6")).map((h) => ({
-        id: h.id || "",
-        text: (h.textContent || "").trim()
-      }))
+      Array.from(document.querySelectorAll("h1, h2, h3, h4, h5, h6"))
+        .filter((h) => h.getAttribute("role") !== "paragraph")
+        .map((h) => ({
+          id: h.id || "",
+          text: (h.textContent || "").trim()
+        }))
     );
 
     const norm = (s) => s.normalize("NFKC").replace(/\s+/g, "").toLowerCase();
@@ -424,7 +435,7 @@ async function resolveTocPageNumbers(pdfBuffer, page) {
 
 /* ---------- 后处理：元数据 + 封面/封底无页眉页脚 ---------- */
 
-async function postProcessPdf(filePath, { plainBytes, cleanIndexes, themeLabel, pageBackground }) {
+async function postProcessPdf(filePath, { overlays, themeLabel, pageBackground }) {
   let PDFDocument, rgb, PDFName, PDFArray, PDFRef, PDFRawStream;
   try {
     ({ PDFDocument, rgb, PDFName, PDFArray, PDFRef, PDFRawStream } = await import("pdf-lib"));
@@ -513,30 +524,69 @@ async function postProcessPdf(filePath, { plainBytes, cleanIndexes, themeLabel, 
   if (!Number.isNaN(created.getTime())) doc.setCreationDate(created);
   doc.setModificationDate(new Date());
 
-  // ---- 封面 / 封底：整页叠加无页眉页脚版本 ----
-  // Chromium 的页眉页脚画在每一页且无法按页关闭（封面/封底是 margin:0 的
-  // 全出血页，页眉页脚会叠在背景上）。用无页眉版的同一页整页覆盖，
-  // 正文内容流不动，书签、内部链接、目录页码全部保留，渐变背景也干净。
-  if (plainBytes && cleanIndexes?.length > 0) {
+  // ---- 封面 / 封底：整页图层覆盖 ----
+  // Chromium 的页眉页脚画在每一页且无法按页关闭；封底的全出血版本也只能
+  // 单独打印。这里把替换页整页叠加到目标页上：正文内容流不动，书签、
+  // 内部链接、目录页码全部保留，渐变背景也干净。
+  // overlay = { index（负数从文档末尾数）, bytes（来源 PDF）, srcIndex,
+  //             expectSinglePage（true 时来源多页只取首页并警告） }
+  for (const overlay of overlays ?? []) {
+    if (!overlay?.bytes) continue;
     const count = doc.getPageCount();
-    const targets = [
-      ...new Set(
-        cleanIndexes.map((i) => (i < 0 ? count + i : i)).filter((i) => i >= 0 && i < count)
-      )
-    ];
-    if (targets.length > 0) {
-      const embedded = await doc.embedPdf(plainBytes, targets);
-      targets.forEach((pageIndex, i) => {
-        const page = doc.getPage(pageIndex);
-        const { width, height } = page.getSize();
-        // 白色底防止透出下层，再叠无页眉版的同一页
-        page.drawRectangle({ x: 0, y: 0, width, height, color: rgb(1, 1, 1) });
-        page.drawPage(embedded[i], { x: 0, y: 0, width, height });
-      });
+    const index = overlay.index < 0 ? count + overlay.index : overlay.index;
+    if (index < 0 || index >= count) continue;
+    if (overlay.expectSinglePage) {
+      const srcDoc = await PDFDocument.load(overlay.bytes, { updateMetadata: false });
+      if (srcDoc.getPageCount() !== 1) {
+        console.warn(
+          `Warning: the standalone back-cover render spans ${srcDoc.getPageCount()} pages; ` +
+            "using only its first page (a back cover should fit one page)."
+        );
+      }
     }
+    const [embedded] = await doc.embedPdf(overlay.bytes, [overlay.srcIndex ?? 0]);
+    const page = doc.getPage(index);
+    const { width, height } = page.getSize();
+    // 白色底防止透出下层，再叠替换页
+    page.drawRectangle({ x: 0, y: 0, width, height, color: rgb(1, 1, 1) });
+    page.drawPage(embedded, { x: 0, y: 0, width, height });
   }
 
   fs.writeFileSync(filePath, await doc.save());
+}
+
+// 仅封底的单页打印：隐藏其余内容后，封底成为文档第一页，print.css 的
+// @page :first { margin: 0 } 让它天然全出血（与封面同一机制）。注入的
+// 样式在内联 CSS 之后，@page :first 的 margin 覆盖一定生效（无封面 /
+// 封面带页眉时 build 会把 :first 改回正常边距）。
+async function renderBackCoverBytes(browser, htmlPath, basePdfOptions) {
+  const page = await preparePage(browser, htmlPath);
+  await page.evaluate(() => {
+    const style = document.createElement("style");
+    style.setAttribute("data-mhb-back-cover-only", "true");
+    style.textContent =
+      "@media print {\n" +
+      "  @page :first { margin: 0; }\n" +
+      "  .book > :not(#back-cover) { display: none !important; }\n" +
+      // position: fixed 让封底按页面盒（margin 0 → 整页）绘制，避免
+      // min-height: 100vh 在整页高度上因亚像素舍入溢出出第二页。
+      "  #back-cover {\n" +
+      "    position: fixed !important;\n" +
+      "    inset: 0 !important;\n" +
+      "    margin: 0 !important;\n" +
+      "    min-height: 0 !important;\n" +
+      "    break-before: auto !important;\n" +
+      "  }\n" +
+      "}";
+    document.head.appendChild(style);
+  });
+  const bytes = await page.pdf({
+    ...basePdfOptions,
+    outline: false,
+    displayHeaderFooter: false
+  });
+  await page.close();
+  return bytes;
 }
 
 // Assemble the final PDF from two renders:
@@ -815,15 +865,11 @@ try {
       );
     }
 
-    // Final pages whose header/footer are overlaid with a clean (no-HF) version:
-    // the counted full-bleed cover and the counted back cover.
-    const cleanIndexes = [];
-    if (withHeaderFooter) {
-      if (hasCover && countCover && !coverHeaderFooter) cleanIndexes.push(0);
-      if (hasBack && countBackCover) cleanIndexes.push(-1); // -1 = 最后一页
-    }
+    // 封面：带页眉页脚渲染、且计入页码的全出血封面 → 用无页眉版整页覆盖。
+    const coverNeedsCleanOverlay =
+      withHeaderFooter && hasCover && countCover && !coverHeaderFooter;
 
-    const needPlain = useNumberedSubset || cleanIndexes.length > 0;
+    const needPlain = useNumberedSubset || coverNeedsCleanOverlay;
 
     // Numbered render: uncounted sections removed so Chromium numbers only the
     // counted pages (logical numbering). With no exclusions this is the full doc.
@@ -861,6 +907,12 @@ try {
       await plainPage.close();
     }
 
+    // 封底：主渲染中它只是一张普通页边距页（保证分页与页码稳定）；
+    // 这里单独打印全出血版本，后处理时整页覆盖到最后一页上。
+    const backCoverBytes = hasBack
+      ? await renderBackCoverBytes(browser, htmlPath, basePdfOptions)
+      : null;
+
     fs.mkdirSync(path.dirname(pdfPath), { recursive: true });
 
     if (useNumberedSubset) {
@@ -883,9 +935,16 @@ try {
       });
     }
 
+    const overlays = [];
+    if (coverNeedsCleanOverlay && plainBytes) {
+      overlays.push({ index: 0, bytes: plainBytes, srcIndex: 0 });
+    }
+    if (backCoverBytes) {
+      overlays.push({ index: -1, bytes: backCoverBytes, srcIndex: 0, expectSinglePage: true });
+    }
+
     await postProcessPdf(pdfPath, {
-      plainBytes,
-      cleanIndexes,
+      overlays,
       themeLabel: theme.isDefault ? "" : theme.label || theme.name,
       pageBackground
     });

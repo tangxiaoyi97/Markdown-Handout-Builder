@@ -366,6 +366,35 @@ function marginParts(value) {
   return { top: a, right: b, bottom: c, left: d };
 }
 
+// pdf.page_size → 页面高度（mm）。print.css 用 --hb-page-height 把封底
+// 撑满正文区（官方 PDF 管线再把封底覆盖为全出血整页）。
+const PAGE_HEIGHTS_MM = {
+  a3: [297, 420],
+  a4: [210, 297],
+  a5: [148, 210],
+  b4: [250, 353],
+  b5: [176, 250],
+  letter: [215.9, 279.4],
+  legal: [215.9, 355.6],
+  ledger: [279.4, 431.8],
+  tabloid: [279.4, 431.8]
+};
+function pageHeightMm(size) {
+  const raw = String(size ?? "A4").trim().toLowerCase();
+  const landscape = /\blandscape\b/.test(raw);
+  const keyword = raw.replace(/\b(landscape|portrait)\b/g, "").trim();
+  const named = PAGE_HEIGHTS_MM[keyword];
+  if (named) return landscape ? named[0] : named[1];
+  // 显式尺寸："210mm 297mm" 之类；单值为正方形页。取第二个长度为高。
+  const toMm = { mm: 1, cm: 10, in: 25.4, pt: 25.4 / 72, px: 25.4 / 96 };
+  const lengths = [...keyword.matchAll(/([\d.]+)\s*(mm|cm|in|pt|px)/g)].map(
+    (m) => Number.parseFloat(m[1]) * toMm[m[2]]
+  );
+  if (lengths.length >= 2) return lengths[1];
+  if (lengths.length === 1) return lengths[0];
+  return 297; // 未知关键字：回退 A4 高度
+}
+
 function slugifyHeading(str) {
   return str
     .trim()
@@ -865,9 +894,13 @@ function buildTheme(theme) {
   function renderObsidianSource(source, env, { transcluded = false } = {}) {
     const prepared = obsidian.prepareSource(source);
     if (prepared.frontmatterError) {
+      // Degrade instead of aborting the whole build: the note renders without
+      // its properties block. "mhb check" reports the same problem as an error.
       const rel = toPosix(path.relative(baseDir, env.obsidianFile));
-      console.error(`Error: invalid Obsidian properties in ${rel}: ${prepared.frontmatterError}`);
-      process.exit(1);
+      obsidian.warnings.add(
+        `Invalid Obsidian properties in ${rel} (${prepared.frontmatterError}); ` +
+          "rendering the note without them"
+      );
     }
 
     let html = md.render(prepared.source, env);
@@ -902,10 +935,17 @@ function buildTheme(theme) {
       // Embedded headings render and remain linkable, but do not enter the
       // handout's own TOC/outline.
       tocEntries.splice(tocStart);
+      // role="paragraph" demotes transcluded headings in the accessibility
+      // tree so Chromium's PDF outline (bookmarks) lists only the chapters'
+      // own headings. Styling and anchor ids are unaffected.
+      const demotedHtml = child.html.replace(
+        /<h([1-6])\b(?![^>]*\brole=)/g,
+        '<h$1 role="paragraph"'
+      );
       return {
         blockHtml:
           `<div class="obsidian-note-embed" data-source="${escapeHtml(label)}">\n` +
-          `${child.html}\n</div>`,
+          `${demotedHtml}\n</div>`,
         inlineHtml:
           `<span class="obsidian-note-embed-inline" data-source="${escapeHtml(label)}">` +
           `${escapeHtml(label)}</span>`
@@ -1022,6 +1062,9 @@ function buildTheme(theme) {
     rootVars.push(`  --hb-page-margin-bottom: ${m.bottom};`);
     rootVars.push(`  --hb-page-margin-left: ${m.left};`);
   }
+
+  // 页面高度镜像变量：封底在普通页边距页上撑满正文区所需
+  rootVars.push(`  --hb-page-height: ${pageHeightMm(pdfCfg.page_size)}mm;`);
 
   // 封面也要显示页眉页脚时：第一页恢复正常页边距，封面顶部留白相应减小
   if (coverUsesHeaderFooter) {
@@ -1219,9 +1262,13 @@ if (fs.existsSync(notesAssets)) {
 
 if (defaultBuild.obsidian) {
   defaultBuild.obsidian.copyReferencedFiles(distDir);
-  for (const warning of defaultBuild.obsidian.warnings) {
-    console.warn(`Warning: ${warning}`);
-  }
+}
+
+// 警告跨主题聚合去重：每个主题独立渲染一遍，内容级警告一般相同，
+// 但只报默认主题的会漏掉主题差异引出的问题。
+const dialectWarnings = new Set(built.flatMap((item) => [...(item.obsidian?.warnings ?? [])]));
+for (const warning of dialectWarnings) {
+  console.warn(`Warning: ${warning}`);
 }
 
 if (built.some((item) => item.obsidian?.usesMermaid)) {

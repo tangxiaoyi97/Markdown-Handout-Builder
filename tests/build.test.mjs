@@ -465,7 +465,8 @@ Back to [[Start]].
   assert.match(html, /class="chapter wide-note hb-lead"/, "cssclasses property applies to chapter");
   assert.match(html, /class="obsidian-properties"/);
   assert.match(html, /Read <a class="internal-link" href="#target"[^>]*>Target<\/a> at <a href="https:\/\/example\.com"/);
-  assert.match(html, /data-tag="guide">#guide</);
+  // Properties UI shows tag pills without the leading '#'; inline tags keep it.
+  assert.match(html, /data-tag="guide">guide</);
   assert.match(html, /class="obsidian-tag" data-tag="topic\/sub">#topic\/sub/);
   assert.doesNotMatch(html, /secret must disappear/);
   assert.match(html, /<code>%%literal%%<\/code>/);
@@ -486,12 +487,77 @@ Back to [[Start]].
   assert.match(html, /href="#obsidian-block-notes-target-md-fact-ch2"/);
   assert.match(html, /class="obsidian-note-embed" data-source="notes\/Target\.md#Details"/);
   assert.match(html, /Embedded detail/);
+  // Transcluded headings are demoted out of the a11y tree / PDF outline.
+  assert.match(html, /<h2 role="paragraph" id="details"/);
   assert.doesNotMatch(
     html.match(/class="obsidian-note-embed"[\s\S]*?<\/div>/)?.[0] ?? "",
     /Not in the section embed/
   );
   assert.match(html, /class="obsidian-embed-image"[^>]*src="vault\/notes\/assets\/p\.png"[^>]*width: 64px; height: 32px/);
   assert.ok(await outExists(dir, "vault/notes/assets/p.png"), "Obsidian attachment copied");
+});
+
+test("Obsidian dialect: frontmatter edge cases and inline-parser hardening", async () => {
+  const dir = await makeFixture({
+    "book.yml":
+      'title: "Edges"\nchapters: [notes/Empty.md, notes/Comma.md, notes/Hard.md]\n' +
+      "markdown:\n  dialect: obsidian\n",
+    // Obsidian's empty properties form: must be swallowed, not rendered as <hr>.
+    "notes/Empty.md": "---\n---\n# Empty FM\n\nBody stays.\n",
+    // Comma-separated scalars normalize into separate list items.
+    "notes/Comma.md": `---
+tags: alpha, beta
+aliases: One, Two
+---
+# Comma
+
+Alias link works: [[One]].
+`,
+    // Silent-mode validation used to crash on wikilinks/tags inside link labels;
+    // tags after CJK punctuation stay plain text; callout titles must not
+    // swallow the note's footnote section.
+    "notes/Hard.md": `---
+note: contains %% and a stray \` tick
+---
+# Hard
+
+A [#tag](https://example.com) label and [a [[One]] label](https://example.com).
+
+标点紧邻：#notplain 之后 (#alsonot) 空白之后 #realtag 收尾。
+
+Inline footnote lives here.^[the footnote text]
+
+> [!tip] Titled callout
+> Body.
+`
+  });
+
+  const result = await runScript("build.mjs", { cwd: dir });
+  assert.equal(result.code, 0, result.stderr);
+  const html = await readOut(dir, "handout.html");
+
+  // Empty frontmatter: recognized and hidden — no leaked rules before the h1.
+  assert.doesNotMatch(html, /<hr>\s*<hr>/);
+  assert.match(html, /<h1 id="empty-fm"/);
+
+  // Comma normalization: two tag pills (no '#' in the Properties UI), and the
+  // alias participates in wikilink resolution.
+  assert.match(html, /data-tag="alpha">alpha</);
+  assert.match(html, /data-tag="beta">beta</);
+  assert.match(html, /class="internal-link" href="#comma"[^>]*data-href="One"/);
+
+  // Inline-parser hardening: the build survived (no skipToken crash) and the
+  // link labels rendered; only whitespace-preceded tags become pills.
+  assert.match(html, /<a href="https:\/\/example\.com"[^>]*>#tag<\/a>/);
+  assert.doesNotMatch(html, /data-tag="notplain"/);
+  assert.doesNotMatch(html, /data-tag="alsonot"/);
+  assert.match(html, /class="obsidian-tag" data-tag="realtag"/);
+
+  // Footnote isolation: the callout title contains no footnote section; the
+  // footnote list renders exactly once.
+  const calloutTitle = html.match(/<div class="callout-title">[\s\S]*?<\/div>/)?.[0] ?? "";
+  assert.doesNotMatch(calloutTitle, /footnotes/);
+  assert.equal(html.match(/<section class="footnotes">/g)?.length, 1);
 });
 
 test("Obsidian dialect: note embed cycles are bounded and reported", async () => {

@@ -244,6 +244,21 @@ test("Obsidian dialect reports missing targets and invalid options", async () =>
   assert.match(invalidResult.stderr, /properties must be/);
 });
 
+test("Obsidian frontmatter values cannot poison link validation", async () => {
+  // A "%%" or an unpaired backtick inside a YAML value used to leak comment /
+  // code-span state into the body scan, silently skipping every wikilink.
+  const dir = await makeFixture({
+    "book.yml":
+      "title: T\nchapters: [notes/a.md]\nmarkdown:\n  dialect: obsidian\n",
+    "notes/a.md":
+      "---\ndiscount: 50%% off\ncmd: a` tick\n---\n# A\n\n[[Missing note]]\n"
+  });
+  const result = await runScript("check.mjs", { cwd: dir });
+  assert.equal(result.code, 1);
+  // Line number stays exact despite the frontmatter (the link is on file line 7).
+  assert.match(result.stderr, /notes\/a\.md:7: Obsidian link target not found: Missing note/);
+});
+
 test("Obsidian dialect validates heading and block fragments", async () => {
   const dir = await makeFixture({
     "book.yml":

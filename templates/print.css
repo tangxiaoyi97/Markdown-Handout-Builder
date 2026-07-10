@@ -10,14 +10,14 @@
   margin: 18mm 16mm 20mm 16mm;
 }
 
-/* The cover and named back-cover page use zero page margin so
-   backgrounds can bleed to the page edge. Content is positioned by
-   .cover / .back-cover padding in the print rules. */
+/* The cover page uses zero page margin so its background can bleed to the
+   page edge. Content is positioned by .cover padding in the print rules.
+   The back cover cannot use the same trick (a named zero-margin page group
+   in the middle of the flow makes Chromium emit a trailing blank page), so
+   in browser printing it fills the content box of a normal page; the
+   official pipeline (mhb pdf) overlays a separately printed full-bleed
+   version of it in post-processing. */
 @page :first {
-  margin: 0;
-}
-
-@page hb-backcover {
   margin: 0;
 }
 
@@ -677,8 +677,18 @@ blockquote {
 .obsidian-property dd {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px 10px;
+  gap: 4px 6px;
   margin: 0;
+}
+
+/* Multi-value lists (aliases, related, ...) render each item as a pill so
+   items stay visually discrete, mirroring Obsidian's Properties UI. Tags
+   and checkboxes already carry their own visuals. */
+.obsidian-property dd > .obsidian-property-value:not(:only-child):not(:has(> .obsidian-tag)):not(:has(> input)) {
+  padding: 0.02em 0.55em;
+  border: 1px solid var(--hb-border);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--hb-fg) 4%, transparent);
 }
 
 .obsidian-properties-source {
@@ -713,9 +723,36 @@ blockquote {
   accent-color: var(--hb-accent);
 }
 
-.task-list-item[data-task]:not([data-task=" "]) {
+/* Completion-like states: [x] / [X] (done) and [-] (cancelled) read as
+   finished; other states must stay readable. */
+.task-list-item[data-task="x"],
+.task-list-item[data-task="X"],
+.task-list-item[data-task="-"] {
   color: var(--hb-fg-muted);
   text-decoration: line-through;
+}
+
+/* Custom states ([?], [!], [>], ...) show the state character in a small
+   box where the checkbox would be, so the state survives static output. */
+.task-list-item[data-task]:not([data-task=" "]):not([data-task="x"]):not([data-task="X"]):not([data-task="-"])
+  > .task-list-item-checkbox {
+  display: none;
+}
+
+.task-list-item[data-task]:not([data-task=" "]):not([data-task="x"]):not([data-task="X"]):not([data-task="-"])::before {
+  content: attr(data-task);
+  display: inline-block;
+  width: 1.25em;
+  height: 1.25em;
+  margin: 0 0.44em 0 -1.56em;
+  border: 1px solid var(--hb-accent);
+  border-radius: 3px;
+  color: var(--hb-accent);
+  font-size: 0.8em;
+  font-weight: 700;
+  line-height: 1.25em;
+  text-align: center;
+  vertical-align: 0.02em;
 }
 
 .callout {
@@ -978,9 +1015,17 @@ hr.footnotes-sep {
   }
 
   .back-cover {
-    page: hb-backcover; /* Named zero-margin page for full bleed. */
+    /* Fill the content box of a regular page (browser-print baseline; the
+       official pipeline replaces the whole page with a full-bleed overlay
+       printed separately). The 6mm safety inset keeps the box strictly
+       inside Chromium's fragmentainer — an exact page-height fit spills a
+       blank trailing page (the incoming margin at the forced break eats
+       1-2mm of the available height). */
     break-before: page;
-    min-height: 100vh;
+    min-height: calc(
+      var(--hb-page-height, 297mm) - var(--hb-page-margin-top) -
+        var(--hb-page-margin-bottom) - 6mm
+    );
     display: flex;
     flex-direction: column;
     align-items: center;
