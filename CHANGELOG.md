@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased (`dialects` experimental branch)
+## 2.1.0-beta.1 — 2026-07-11 (Obsidian dialect preview)
+
+Prerelease of the `dialects` branch; published under the `next` dist-tag.
 
 ### Fixed
 

@@ -28,9 +28,10 @@ chapters:
   - path: "notes/Reference Library.md"
     chapter_toc: true
 
+# 与根手册同用 dist/ 输出约定（CI 将 dist/ 整体发布到 Pages）
 output:
-  html: ../../output/pdf/obsidian-syntax-showcase.html
-  pdf: ../../output/pdf/obsidian-syntax-showcase.pdf
+  html: ../../dist/showcase/obsidian-syntax-showcase.html
+  pdf: ../../dist/showcase/obsidian-syntax-showcase.pdf
 
 markdown:
   dialect: obsidian

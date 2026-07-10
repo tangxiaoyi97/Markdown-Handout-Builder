@@ -354,8 +354,8 @@ Fragments are trusted template code. Do not inject untrusted user content there.
 
 This repository includes a showcase workflow:
 
-- [`.github/workflows/render.yml`](./.github/workflows/render.yml) builds the English showcase, uploads HTML/PDF artifacts, and deploys `dist/` to GitHub Pages on `main`.
-- [`.github/workflows/publish.yml`](./.github/workflows/publish.yml) validates and publishes the npm package.
+- [`.github/workflows/render.yml`](./.github/workflows/render.yml) builds the root handout and the Obsidian showcase, uploads HTML/PDF artifacts, and deploys `dist/` to GitHub Pages on `main`.
+- [`.github/workflows/release.yml`](./.github/workflows/release.yml) verifies, publishes the npm package, and creates the GitHub Release when a `v*` tag is pushed (see [Releasing](#releasing)).
 
 For an independent note repository, a minimal build job can be:
 
@@ -395,23 +395,6 @@ jobs:
 ```
 
 To deploy Pages, also grant `pages: write` and `id-token: write`, then add `actions/configure-pages`, `actions/upload-pages-artifact`, and `actions/deploy-pages`.
-
-## Publishing to npm
-
-Use npm Trusted Publishing instead of long-lived npm tokens.
-
-Before publishing:
-
-1. Make sure `package.json` has the correct `name`, `version`, `repository`, `bugs`, `homepage`, and `license`.
-2. Run `npm run verify`.
-3. Configure Trusted Publisher on npmjs.com:
-   - Publisher: GitHub Actions.
-   - Repository: your repository.
-   - Workflow filename: `publish.yml`.
-   - Allowed action: `npm publish`.
-4. Create a GitHub Release to trigger the publish workflow.
-
-Manual `workflow_dispatch` runs dry by default. Set its `publish` input to `true` only when you intentionally want to publish.
 
 ## Output
 
@@ -453,14 +436,23 @@ Playwright Chromium is not installed.
 
 ## Releasing
 
-One-time setup: create an npm Automation token and save it as the
-`NPM_TOKEN` repository secret.
+Releases use npm Trusted Publishing (OIDC) — no long-lived npm token is
+stored in the repository. One-time setup on npmjs.com → package →
+Settings → Trusted Publisher: Publisher "GitHub Actions", this
+repository, workflow filename `release.yml`.
 
 ```bash
 npm version minor        # bumps package.json + creates the git tag
 git push --follow-tags
 ```
 
-Pushing a `v*` tag triggers `.github/workflows/release.yml`: full test
-suite, showcase build, tag/version consistency check, `npm publish
---provenance`, and a GitHub Release with generated notes.
+Pushing a `v*` tag triggers `.github/workflows/release.yml` — the single
+release pipeline: full test suite, root handout and Obsidian showcase
+builds, tag/version consistency check, `npm publish --provenance` via
+Trusted Publishing, then a GitHub Release with generated notes.
+A prerelease version (`2.1.0-beta.1`) publishes under the `next`
+dist-tag and marks the GitHub Release as a prerelease.
+
+Manual `workflow_dispatch` runs of the same workflow are dry runs by
+default; set the `publish` input to `true` only when you intentionally
+want to publish outside the tag flow.

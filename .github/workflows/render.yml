@@ -51,6 +51,14 @@ jobs:
       - name: Render PDF from handout.html
         run: npm run pdf
 
+      # 真实 vault 的方言回归：check → build → pdf 全链路。
+      # 输出在 dist/showcase/ 下，随 Pages 一起发布。
+      - name: Build Obsidian showcase (check + build + pdf)
+        run: |
+          node bin/mhb.mjs check --config showcase/obsidian/book.yml
+          node bin/mhb.mjs build --config showcase/obsidian/book.yml
+          node bin/mhb.mjs pdf --config showcase/obsidian/book.yml
+
       - name: Upload handout artifact
         uses: actions/upload-artifact@v7
         with:
@@ -60,6 +68,8 @@ jobs:
             dist/handout*.html
             dist/handout*.pdf
             dist/THIRD_PARTY_NOTICES.md
+            dist/showcase/obsidian-syntax-showcase.html
+            dist/showcase/obsidian-syntax-showcase.pdf
           retention-days: 30
 
       # 以下两步只在 main push / 手动触发时执行；PR 只构建，不部署 Pages

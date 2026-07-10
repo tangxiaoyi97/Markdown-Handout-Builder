@@ -1,20 +1,35 @@
-# Release pipeline: push a tag like v1.1.0 →
-# full verification (tests + check/build/pdf) → npm publish with
-# provenance → GitHub Release with generated notes.
+# The single release pipeline: push a tag like v2.1.0 →
+# full verification (tests + root handout + obsidian showcase) →
+# npm publish via Trusted Publishing (OIDC, no long-lived token) →
+# GitHub Release with generated notes.
 #
-# One-time setup: create an npm "Automation" access token at
-# npmjs.com → Access Tokens, then save it as the repository secret
-# NPM_TOKEN (Settings → Secrets and variables → Actions).
+# A prerelease version (e.g. 2.1.0-beta.1) publishes under the "next"
+# dist-tag and marks the GitHub Release as a prerelease; stable versions
+# publish as "latest".
+#
+# Manual runs (workflow_dispatch) are dry runs by default; set the
+# "publish" input to true only to publish outside the tag flow.
+#
+# One-time setup on npmjs.com → package → Settings → Trusted Publisher:
+#   Publisher: GitHub Actions; Repository: this repo;
+#   Workflow filename: release.yml.
 
 name: Release
 
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: "Publish to npm instead of running a dry run"
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   contents: write # create the GitHub Release
-  id-token: write # npm provenance attestation
+  id-token: write # npm Trusted Publishing / provenance attestation
 
 concurrency:
   group: release-${{ github.ref }}
@@ -23,7 +38,7 @@ concurrency:
 jobs:
   release:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -31,9 +46,12 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
           registry-url: "https://registry.npmjs.org"
+
+      - name: Use latest npm for trusted publishing
+        run: npm install -g npm@latest
 
       - name: Install dependencies
         run: npm ci
@@ -60,6 +78,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends fonts-noto-cjk
 
       - name: Verify tag matches package version
+        if: github.event_name == 'push'
         run: |
           PKG_VERSION=$(node -p "require('./package.json').version")
           TAG_VERSION="${GITHUB_REF_NAME#v}"
@@ -71,17 +90,36 @@ jobs:
       - name: Test
         run: npm test
 
-      - name: Build showcase (check + build + pdf)
+      - name: Build root handout (check + build + pdf)
         run: npm run check && npm run build && npm run pdf
+
+      - name: Build Obsidian showcase (check + build + pdf)
+        run: |
+          node bin/mhb.mjs check --config showcase/obsidian/book.yml
+          node bin/mhb.mjs build --config showcase/obsidian/book.yml
+          node bin/mhb.mjs pdf --config showcase/obsidian/book.yml
+
+      - name: Resolve npm dist-tag (prerelease → next)
+        id: dist-tag
+        run: echo "tag=$(node -p "require('./package.json').version.includes('-') ? 'next' : 'latest'")" >> "$GITHUB_OUTPUT"
 
       # verify 已在上面显式执行过；--ignore-scripts 跳过 prepublishOnly，
       # 避免在发布时把整套验证重复跑一遍
-      - name: Publish to npm (with provenance)
-        run: npm publish --ignore-scripts --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Publish dry run
+        if: github.event_name == 'workflow_dispatch' && inputs.publish != true
+        run: npm publish --dry-run --ignore-scripts --tag "${{ steps.dist-tag.outputs.tag }}"
+
+      - name: Publish to npm (Trusted Publishing, with provenance)
+        if: github.event_name == 'push' || inputs.publish == true
+        run: npm publish --ignore-scripts --provenance --access public --tag "${{ steps.dist-tag.outputs.tag }}"
 
       - name: Create GitHub Release
-        run: gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --generate-notes
+        if: github.event_name == 'push'
+        run: |
+          PRERELEASE_FLAG=""
+          if node -e "process.exit(require('./package.json').version.includes('-') ? 0 : 1)"; then
+            PRERELEASE_FLAG="--prerelease"
+          fi
+          gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --generate-notes $PRERELEASE_FLAG
         env:
           GH_TOKEN: ${{ github.token }}
