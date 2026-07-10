@@ -49,7 +49,7 @@
     "all": "node bin/mhb.mjs all",
     "install-browser": "node bin/mhb.mjs install-browser",
     "install-deps": "node bin/mhb.mjs install-deps",
-    "test": "node --test tests/check.test.mjs tests/build.test.mjs tests/pdf.test.mjs",
+    "test": "node --test tests/lib-unit.test.mjs tests/check.test.mjs tests/build.test.mjs tests/showcase.test.mjs tests/pdf.test.mjs",
     "pack:check": "npm pack --dry-run",
     "verify": "npm test && npm run check && npm run build && npm run pdf && npm run pack:check",
     "prepublishOnly": "npm run verify"
