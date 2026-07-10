@@ -4,3 +4,7 @@ dist/*
 .DS_Store
 .playwright/
 AGENTS.md
+
+# build outputs & scratch
+output/
+tmp/
