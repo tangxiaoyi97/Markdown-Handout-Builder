@@ -3,7 +3,7 @@ subtitle: "静态语法全覆盖 · HTML / PDF Showcase"
 language: "zh-CN"
 date: "2026-07-10"
 date_format: "YYYY.MM.DD"
-version: "dialects preview"
+version: "1.0-dialect"
 authors:
   - "Markdown Handout Builder"
 keywords:
@@ -35,10 +35,10 @@ chapters:
   - path: "notes/Reference Library.md"
     chapter_toc: true
 
-# 与根手册同用 dist/ 输出约定（CI 将 dist/ 整体发布到 Pages）
+# 与手册同用 dist/ 输出约定（CI 将 dist/ 整体发布到 Pages）；文件名带版次
 output:
-  html: ../../dist/showcase/obsidian-syntax-showcase.html
-  pdf: ../../dist/showcase/obsidian-syntax-showcase.pdf
+  html: ../../dist/showcase/obsidian-syntax-showcase-1.0-dialect.html
+  pdf: ../../dist/showcase/obsidian-syntax-showcase-1.0-dialect.pdf
 
 markdown:
   dialect: obsidian

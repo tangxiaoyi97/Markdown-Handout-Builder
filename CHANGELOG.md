@@ -18,6 +18,19 @@ Prerelease of the `dialects` branch; published under the `next` dist-tag.
   (`break-before: recto` was evaluated and left out: current Chromium
   ignores it in print.)
 
+### Changed
+
+- Repository layout: the repo's own documentation books moved under
+  `docs/` — the usage handbook lives in `docs/handbook/` (was root
+  `book.yml` + `notes/`) and the dialect demo vault in
+  `docs/obsidian-showcase/` (was `showcase/obsidian/`). Rendered
+  artifacts carry edition suffixes to tell the two apart:
+  `dist/handout-2.0.*` and
+  `dist/showcase/obsidian-syntax-showcase-1.0-dialect.*`.
+  npm scripts pass `--config docs/handbook/book.yml` explicitly; the
+  tool's defaults for user projects (`./book.yml`, `notes/`,
+  `dist/handout.*`) are unchanged.
+
 ### Fixed
 
 - Back cover: the CSS named-page mechanism (`@page hb-backcover`) made Chromium

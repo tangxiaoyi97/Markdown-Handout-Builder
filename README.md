@@ -2,7 +2,7 @@
 
 Build a polished handout from plain Markdown: HTML for reading, PDF for printing, and an optional GitHub Pages showcase.
 
-**Live showcase:** [read online](https://tangxiaoyi97.github.io/Markdown-Handout-Builder/) &middot; [official PDF](https://tangxiaoyi97.github.io/Markdown-Handout-Builder/handout.pdf)
+**Live showcase:** [read online](https://tangxiaoyi97.github.io/Markdown-Handout-Builder/) &middot; [handbook PDF (2.0)](https://tangxiaoyi97.github.io/Markdown-Handout-Builder/handout-2.0.pdf) &middot; [Obsidian dialect showcase PDF (1.0-dialect)](https://tangxiaoyi97.github.io/Markdown-Handout-Builder/showcase/obsidian-syntax-showcase-1.0-dialect.pdf)
 
 The package is designed for small note repositories. Your content repo can keep only `book.yml`, `notes/`, optional local custom templates, and a thin `package.json`. The renderer, default templates, print CSS, PDF pipeline, and preview server live in this npm package.
 
@@ -369,7 +369,7 @@ Fragments are trusted template code. Do not inject untrusted user content there.
 
 This repository includes a showcase workflow:
 
-- [`.github/workflows/render.yml`](./.github/workflows/render.yml) builds the root handout and the Obsidian showcase, uploads HTML/PDF artifacts, and deploys `dist/` to GitHub Pages on `main`.
+- [`.github/workflows/render.yml`](./.github/workflows/render.yml) builds this repo's two documentation books — the handbook (`docs/handbook/`, edition 2.0) and the Obsidian dialect showcase (`docs/obsidian-showcase/`, edition 1.0-dialect) — uploads HTML/PDF artifacts, and deploys `dist/` to GitHub Pages on `main`.
 - [`.github/workflows/release.yml`](./.github/workflows/release.yml) verifies, publishes the npm package, and creates the GitHub Release when a `v*` tag is pushed (see [Releasing](#releasing)).
 
 For an independent note repository, a minimal build job can be:

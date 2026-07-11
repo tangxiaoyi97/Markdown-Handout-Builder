@@ -42,11 +42,11 @@
     "README.md"
   ],
   "scripts": {
-    "check": "node bin/mhb.mjs check",
-    "build": "node bin/mhb.mjs build",
-    "pdf": "node bin/mhb.mjs pdf",
-    "serve": "node bin/mhb.mjs serve",
-    "all": "node bin/mhb.mjs all",
+    "check": "node bin/mhb.mjs check --config docs/handbook/book.yml",
+    "build": "node bin/mhb.mjs build --config docs/handbook/book.yml",
+    "pdf": "node bin/mhb.mjs pdf --config docs/handbook/book.yml",
+    "serve": "node bin/mhb.mjs serve --config docs/handbook/book.yml",
+    "all": "node bin/mhb.mjs all --config docs/handbook/book.yml",
     "install-browser": "node bin/mhb.mjs install-browser",
     "install-deps": "node bin/mhb.mjs install-deps",
     "test": "node --test tests/lib-unit.test.mjs tests/check.test.mjs tests/build.test.mjs tests/showcase.test.mjs tests/pdf.test.mjs",

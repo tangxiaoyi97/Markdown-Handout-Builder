@@ -24,9 +24,10 @@ chapters:
     chapter_toc: true
   - notes/colophon.html         # raw-HTML insert page (back matter)
 
+# 输出到仓库根 dist/（Pages 部署目录）；文件名带版次，与 dialects 演示区分
 output:
-  html: dist/handout.html
-  pdf: dist/handout.pdf
+  html: ../../dist/handout-2.0.html
+  pdf: ../../dist/handout-2.0.pdf
 
 toc:
   title: "Contents"

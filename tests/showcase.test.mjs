@@ -1,4 +1,4 @@
-// tests/showcase.test.mjs — showcase/obsidian 作为黄金夹具：
+// tests/showcase.test.mjs — docs/obsidian-showcase 作为黄金夹具：
 // 真实 vault（transclusion、properties、callouts、Mermaid、CJK、附件）
 // 跑完整 check + build，并断言结构不变量。PDF 级验证由 CI（render.yml）
 // 与 tests/pdf.test.mjs 的合成夹具覆盖，这里保持秒级。
@@ -12,12 +12,12 @@ import { toolRoot, runScript, readOut, outExists } from "./helpers.mjs";
 
 async function makeShowcaseFixture() {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), "mhb-showcase-"));
-  await fs.cp(path.join(toolRoot, "showcase", "obsidian"), dir, { recursive: true });
+  await fs.cp(path.join(toolRoot, "docs", "obsidian-showcase"), dir, { recursive: true });
   // 输出改到夹具内部（仓库里的 book.yml 指向 ../../dist/showcase/）
   const bookPath = path.join(dir, "book.yml");
   const book = (await fs.readFile(bookPath, "utf8"))
-    .replace("../../dist/showcase/obsidian-syntax-showcase.html", "dist/showcase.html")
-    .replace("../../dist/showcase/obsidian-syntax-showcase.pdf", "dist/showcase.pdf");
+    .replace("../../dist/showcase/obsidian-syntax-showcase-1.0-dialect.html", "dist/showcase.html")
+    .replace("../../dist/showcase/obsidian-syntax-showcase-1.0-dialect.pdf", "dist/showcase.pdf");
   await fs.writeFile(bookPath, book);
   return dir;
 }

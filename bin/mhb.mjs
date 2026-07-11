@@ -187,9 +187,6 @@ dist/*
 !dist/.gitkeep
 .DS_Store
 `;
-
-  // 每个笔记仓库自带 workflow：push 到自己的仓库 → 构建 → 自己的 Pages。
-  // Pages 属于仓库而不是这个 npm 包；需在仓库 Settings → Pages 选 GitHub Actions。
   const workflow = `name: Build handout
 
 on:
