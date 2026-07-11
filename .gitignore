@@ -8,3 +8,5 @@ AGENTS.md
 # build outputs & scratch
 output/
 tmp/
+
+.claude
