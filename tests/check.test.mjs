@@ -193,7 +193,51 @@ test("chapters object form + chapter_toc config: class, depth, default, count_to
   assert.match(r.stderr, /chapter_toc\.depth must be an integer between 2 and 6/);
   assert.match(r.stderr, /chapter_toc\.default must be true or false/);
   assert.match(r.stderr, /count_toc must be true or false/);
-  assert.match(r.stderr, /chapter_toc is ignored on a \.html insert/);
+  assert.match(r.stderr, /chapter_toc is ignored on an insert page/);
+});
+
+test("layout entries: typo keys fail; contents combos warn; declared pages need no files", async () => {
+  const bad = await makeFixture({
+    "book.yml": `title: T
+chapters:
+  - notes/a.md
+  - divder:
+      title: "typo"
+  - contents: true
+  - contents: true
+  - path: notes/a.html
+    as: chapter
+`,
+    "notes/a.md": "# A\n",
+    "notes/a.html": "<p>x</p>"
+  });
+  const r1 = await runScript("check.mjs", { cwd: bad });
+  assert.equal(r1.code, 1);
+  assert.match(r1.stderr, /exactly one of "path" \/ "divider" \/ "blank" \/ "contents"/);
+  assert.match(r1.stderr, /"contents: true" may appear at most once/);
+  assert.match(r1.stderr, /cannot be "as: chapter"/);
+
+  const ok = await makeFixture({
+    "book.yml": `title: T
+toc:
+  enabled: false
+pdf:
+  page_numbers:
+    count_toc: false
+chapters:
+  - divider:
+      title: "第一部分"
+      bleed: true
+  - blank: 2
+  - contents: true
+  - notes/a.md
+`,
+    "notes/a.md": "# A\n"
+  });
+  const r2 = await runScript("check.mjs", { cwd: ok });
+  assert.equal(r2.code, 0, r2.stderr);
+  assert.match(r2.stderr, /"contents: true" has no effect while toc\.enabled is false/);
+  assert.match(r2.stderr, /in-flow contents page is always counted/);
 });
 
 test("missing custom_css and cover component fail", async () => {

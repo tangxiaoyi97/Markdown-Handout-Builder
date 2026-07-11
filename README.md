@@ -135,19 +135,34 @@ output:
 
 ### Chapters and page layout
 
-Every `chapters` entry is a file path, and its extension decides its role: a `.md` file is a rendered **chapter**, a `.html` file is a trusted raw-HTML **insert page** (a part divider, a colophon, a diagram Markdown can't express). A mistyped path is reported by `check`, never turned into a blank page.
+A file entry's extension decides its default role: a `.md` file is a rendered **chapter**, a `.html` file is a trusted raw-HTML **insert page**. A mistyped path or entry key is reported by `check`, never turned into a blank page.
 
-Use the mapping form only when an entry needs options; the list can also live in its own file:
+Beyond files, the list gives you full control over front matter and special pages — Markdown insert pages (`as: insert`), declared part dividers and blank pages (no file needed), a repositionable main TOC, and per-entry main-TOC control:
 
 ```yaml
 chapters:
-  - notes/00-intro.md            # chapter
-  - notes/interlude.html         # raw-HTML insert page
+  - path: front/preface.md       # a Markdown special page: rendered, but out of
+    as: insert                   #   the main TOC, styled as an insert page
+  - contents: true               # place the main TOC here (front-matter order:
+                                 #   title page → preface → contents → body)
+  - divider:                     # declared part-divider page — no file needed
+      title: "Part One"          #   a real <h1>: PDF bookmark + TOC page number
+      subtitle: "Foundations"
+      background: "#25304a"      #   any CSS color or gradient
+      color: "#ffffff"
+      bleed: true                #   official PDF paints it edge-to-edge
+      toc: "Part One"            #   optional main-TOC row
+  - notes/00-intro.md            # chapter (string form)
+  - blank: true                  # intentionally blank page (duplex layouts)
+  - notes/interlude.html         # raw-HTML insert page (escape hatch)
   - path: notes/01-topic.md      # mapping form for extra options
     class: deep-dive             #   extra CSS class on the <section>
     chapter_toc: true            #   open the chapter with a mini table of contents
+    toc: "Chapter One"           #   rename its main-TOC row (or toc: false to hide)
 # chapters: chapters.yml         # …or keep the whole list in a separate file
 ```
+
+Notes on the declared pages: a divider occupies exactly one page and its `title` is a real heading (so it gets a PDF bookmark and a real page number in the TOC); `bleed: true` makes the official PDF pipeline print that page standalone and overlay it edge-to-edge — the same mechanism as the back cover. Blank pages and in-flow contents are always counted in page numbering; `pdf.page_numbers.count_toc: false` only applies to the default (front-of-book) TOC position.
 
 Set `chapter_toc: true` on a long chapter to open it with an auto-built list of its own sub-headings — an isolated `<nav class="chapter-toc">` that gets real PDF page numbers. Configure the default and its look at the top level:
 

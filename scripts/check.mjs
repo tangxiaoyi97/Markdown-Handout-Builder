@@ -193,6 +193,8 @@ function checkChapterContent(absPath, relPath) {
 
 const seenChapters = new Set();
 const chapterResolvedPaths = []; // all listed entries' abs paths (orphan detection)
+let contentsCount = 0;
+let pathEntryCount = 0;
 for (const raw of rawChapters) {
   const entry = normalizeChapterEntry(raw);
   if (entry.error) {
@@ -200,6 +202,17 @@ for (const raw of rawChapters) {
     continue;
   }
 
+  // 声明式特殊页（无文件）：类型与字段已在归一化中校验
+  if (entry.kind === "divider" || entry.kind === "blank") continue;
+  if (entry.kind === "contents") {
+    contentsCount += 1;
+    if (contentsCount > 1) {
+      fail(`${configName}: "contents: true" may appear at most once in chapters.`);
+    }
+    continue;
+  }
+
+  pathEntryCount += 1;
   const absPath = path.resolve(baseDir, entry.file);
   if (seenChapters.has(absPath)) {
     fail(`${configName}: chapter listed more than once: ${entry.file}`);
@@ -224,13 +237,30 @@ for (const raw of rawChapters) {
 
   // chapter_toc only applies to Markdown chapters
   if (entry.kind === "insert" && entry.chapterToc !== null) {
-    warnings.push(`${entry.file}: chapter_toc is ignored on a .html insert page`);
+    warnings.push(`${entry.file}: chapter_toc is ignored on an insert page`);
   }
 
-  // Wikilink / local-image checks only apply to Markdown chapters. Raw HTML
-  // inserts are trusted, author-controlled fragments.
-  if (entry.kind === "chapter") {
+  // Wikilink / local-image checks apply to every Markdown page (chapters and
+  // as:insert pages alike). Raw HTML inserts are trusted, author-controlled.
+  if (entry.format === "markdown") {
     checkChapterContent(absPath, toPosix(entry.file));
+  }
+}
+
+if (pathEntryCount === 0 && errors.length === 0) {
+  fail(`${configName}: "chapters" must include at least one .md or .html page.`);
+}
+
+// in-flow contents 与目录/页码配置的组合
+if (contentsCount > 0) {
+  if (book.toc?.enabled === false) {
+    warnings.push('"contents: true" has no effect while toc.enabled is false');
+  }
+  if (book.pdf?.page_numbers?.count_toc === false) {
+    warnings.push(
+      "an in-flow contents page is always counted in page numbering; " +
+        "pdf.page_numbers.count_toc: false is ignored"
+    );
   }
 }
 

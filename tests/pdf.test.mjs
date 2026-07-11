@@ -124,6 +124,55 @@ back_cover:
   }
 });
 
+test("layout freedom PDF: divider occupies one page, bleed overlay lands on it, blank page ships", { skip: !hasChromium && "Playwright Chromium not installed" }, async () => {
+  const { dir, pdfStderr } = await buildAndRender({
+    "book.yml": `title: "Plates"
+date: "2026-01-02"
+cover:
+  enabled: false
+chapters:
+  - notes/01-one.md
+  - divider:
+      title: "第二部分"
+      background: "#25304a"
+      color: "#ffffff"
+      bleed: true
+      toc: "第二部分"
+  - blank: true
+  - notes/02-two.md
+output:
+  html: dist/handout.html
+  pdf: dist/handout.pdf
+`,
+    "notes/01-one.md": "# One\n\nBody.\n",
+    "notes/02-two.md": "# Two\n\nBody.\n"
+  });
+
+  // 出血定位不允许静默失败
+  assert.doesNotMatch(pdfStderr, /cannot locate the page of bleed divider/);
+  assert.doesNotMatch(pdfStderr, /spans \d+ pages/);
+
+  const { doc, destroy } = await loadPdf(path.join(dir, "dist", "handout.pdf"));
+  try {
+    // 无封面：TOC(1) + One(2) + divider(3) + blank(4) + Two(5)
+    assert.equal(doc.numPages, 5);
+    // 文本抽取可能把 CJK 映射成康熙部首变体（二 → ⼆），按两种写法匹配
+    const PART_TWO = /第\s*[二⼆]\s*部分/;
+    assert.match(await pageText(doc, 3), PART_TWO);
+    // 空白页：正常计页、带页眉页脚，但没有任何正文
+    const blankText = await pageText(doc, 4);
+    assert.match(blankText, /4 \/ 5/);
+    assert.doesNotMatch(blankText, /One|Two/);
+    assert.doesNotMatch(blankText, PART_TWO);
+    assert.match(await pageText(doc, 5), /Two/);
+    // divider 的 h1 进入书签；主目录含 divider 行与页码
+    assert.ok((await outlineTitles(doc)).includes("第二部分"));
+    assert.match(await pageText(doc, 1), /第\s*[二⼆]\s*部分\s*3/);
+  } finally {
+    await destroy();
+  }
+});
+
 test("count_toc:false: main TOC excluded from numbering; chapter mini-TOC numbered", { skip: !hasChromium && "Playwright Chromium not installed" }, async () => {
   const book = `title: "CT"
 date: "2026-01-02"

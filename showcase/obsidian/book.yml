@@ -25,6 +25,13 @@ chapters:
     chapter_toc: true
   - path: notes/05-mermaid-and-boundaries.md
     chapter_toc: true
+  - divider:                     # 声明式篇章隔页：无文件，官方 PDF 满版出血
+      title: "参考资料"
+      subtitle: "Reference Library · 链接与块引用的统一目标"
+      background: "linear-gradient(150deg, #25304a 0%, #5f58b6 60%, #8d4f73 100%)"
+      color: "#ffffff"
+      bleed: true
+      toc: "参考资料"
   - path: "notes/Reference Library.md"
     chapter_toc: true
 

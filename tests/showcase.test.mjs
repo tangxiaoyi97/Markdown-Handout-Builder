@@ -69,6 +69,11 @@ test("obsidian showcase vault: check passes and build asserts structural invaria
   assert.match(html, /data-task="!"/);
   assert.doesNotMatch(html, /<input[^>]*checked[^>]*data-task="\?"/);
 
+  // 声明式出血隔页：真实 h1（进书签）、主目录行、bleed 覆盖钩子
+  assert.match(html, /<h1 class="hb-divider-title" id="hb-divider-1"[^>]*>参考资料<\/h1>/);
+  assert.match(html, /data-hb-bleed="hb-divider-1"/);
+  assert.match(html, /<a href="#hb-divider-1">参考资料<\/a>/);
+
   // Mermaid：两张图 + 运行时资产就位
   assert.equal((html.match(/<pre class="mermaid">/g) ?? []).length, 2);
   assert.ok(await outExists(dir, "assets/mermaid.min.js"));

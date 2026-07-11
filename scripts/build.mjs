@@ -56,6 +56,11 @@ import {
 import { buildToc, buildChapterToc } from "./lib/toc.mjs";
 import { buildCoverHtml, buildBackCoverHtml } from "./lib/covers.mjs";
 import { buildOverrideCss, assembleInlineCss } from "./lib/css.mjs";
+import {
+  CONTENTS_SLOT_MARKER,
+  dividerSectionHtml,
+  blankSectionHtml
+} from "./lib/special-pages.mjs";
 
 const require = createRequire(import.meta.url);
 
@@ -642,10 +647,36 @@ function buildTheme(theme) {
     return { html, prepared };
   }
 
+  let dividerSeq = 0;
+  let hasInFlowContents = false;
+
   chapterEntries.forEach((entry, i) => {
+    if (entry.kind === "divider") {
+      dividerSeq += 1;
+      const headingId = `hb-divider-${dividerSeq}`;
+      // 把生成的 id 记入 slug 记账，避免正文标题撞车
+      usedSlugs.set(headingId, (usedSlugs.get(headingId) ?? 0) + 1);
+      sections.push(dividerSectionHtml(entry, { headingId, lead: leadClass() }));
+      // toc 文案 → 主目录一条 level-1 行；页码由 h1 的 outline 映射回填
+      if (entry.toc) tocEntries.push({ level: 1, id: headingId, title: entry.toc });
+      return;
+    }
+
+    if (entry.kind === "blank") {
+      for (let n = 0; n < entry.count; n += 1) sections.push(blankSectionHtml());
+      return;
+    }
+
+    if (entry.kind === "contents") {
+      // 主目录在此布点；目录内容在全部条目渲染完成后回填
+      hasInFlowContents = true;
+      sections.push(CONTENTS_SLOT_MARKER);
+      return;
+    }
+
     const absPath = path.resolve(baseDir, entry.file);
 
-    if (entry.kind === "insert") {
+    if (entry.format === "html") {
       // Trusted raw-HTML page. Placeholders ({{title}} ...) are filled; the
       // fragment's inner markup is authored as-is.
       let fragment;
@@ -666,7 +697,8 @@ function buildTheme(theme) {
       return;
     }
 
-    // Markdown chapter
+    // Markdown：正常章节，或 as: insert 的 Markdown 特殊页（前言/致谢等）
+    const isInsert = entry.kind === "insert";
     let source;
     try {
       // 去掉 UTF-8 BOM：带 BOM 时首行的 "# 标题" 不会被识别为标题
@@ -690,7 +722,8 @@ function buildTheme(theme) {
     let bodyHtml = dialectRender?.html ?? md.render(source, env);
 
     // Optional per-chapter mini TOC, inserted right after the chapter's h1.
-    const wantChapterToc = entry.chapterToc === null ? chapterTocDefault : entry.chapterToc;
+    const wantChapterToc =
+      !isInsert && (entry.chapterToc === null ? chapterTocDefault : entry.chapterToc);
     if (wantChapterToc) {
       const miniToc = buildChapterToc(tocEntries.slice(headingStart), {
         title: chapterTocTitle,
@@ -704,11 +737,25 @@ function buildTheme(theme) {
       }
     }
 
-    const cls = ["chapter", entry.className, ...(dialectRender?.prepared.cssClasses ?? [])]
+    // 主目录控制：insert 页与 toc: false 的章节不进主目录（锚点与 PDF
+    // 书签保留）；toc: "文案" 覆盖本章 h1 在主目录里的行文案。
+    if (isInsert || entry.toc === false) {
+      tocEntries.splice(headingStart);
+    } else if (typeof entry.toc === "string") {
+      const first = tocEntries[headingStart];
+      if (first && first.level === 1) first.title = entry.toc;
+    }
+
+    const cls = [
+      isInsert ? "insert" : "chapter",
+      entry.className,
+      ...(dialectRender?.prepared.cssClasses ?? [])
+    ]
       .filter(Boolean)
       .join(" ");
+    const dataAttr = isInsert ? "data-entry" : "data-chapter";
     sections.push(
-      `<section class="${cls}${leadClass()}" data-chapter="${i + 1}">\n${wrapWithRunningHeader(bodyHtml)}</section>`
+      `<section class="${cls}${leadClass()}" ${dataAttr}="${i + 1}">\n${wrapWithRunningHeader(bodyHtml)}</section>`
     );
   });
 
@@ -767,17 +814,38 @@ function buildTheme(theme) {
   const docTitle = theme.isDefault ? title : `${title} · ${theme.label || theme.name}`;
 
   // 目录页同样带运行页眉（封面/封底不带）
-  const tocRaw = buildToc(tocEntries, { enabled: tocEnabled, title: tocTitle, depth: tocDepth });
-  const tocHtml = tocRaw
+  let tocRaw = buildToc(tocEntries, { enabled: tocEnabled, title: tocTitle, depth: tocDepth });
+  if (hasInFlowContents && tocRaw) {
+    // 标记 in-flow：render-pdf 据此把目录当作正文页计页
+    //（count_toc: false 对流内目录不适用——拼接机制假设目录紧随封面）。
+    tocRaw = tocRaw.replace('<nav class="toc" id="toc">', '<nav class="toc" id="toc" data-hb-in-flow="true">');
+  }
+  const wrappedToc = tocRaw
     ? tocRaw.replace(
-        /^(<nav class="toc" id="toc">\n)([\s\S]*)(\n<\/nav>)$/,
+        /^(<nav class="toc" id="toc"[^>]*>\n)([\s\S]*)(\n<\/nav>)$/,
         (whole, open, inner, close) => open + wrapWithRunningHeader(inner) + close
       )
     : "";
 
-  const bodyHtml = dialect
-    ? dialect.finalizeLinks(sections.join("\n\n"))
-    : sections.join("\n\n");
+  let tocHtml = wrappedToc;
+  let joinedSections = sections.join("\n\n");
+  if (hasInFlowContents) {
+    if (!tocRaw && theme.isDefault) {
+      console.warn(
+        'Warning: "contents: true" has no effect — the TOC is disabled or empty (toc.enabled).'
+      );
+    }
+    if ((pdfCfg.page_numbers?.count_toc ?? true) === false && theme.isDefault) {
+      console.warn(
+        "Warning: an in-flow contents page is always counted in page numbering; " +
+          "ignoring pdf.page_numbers.count_toc: false."
+      );
+    }
+    joinedSections = joinedSections.replace(CONTENTS_SLOT_MARKER, wrappedToc);
+    tocHtml = ""; // 模板的 {{toc}} 槽位空置
+  }
+
+  const bodyHtml = dialect ? dialect.finalizeLinks(joinedSections) : joinedSections;
   const dialectScripts = dialectClientScripts(dialect);
 
   const handoutHtml = renderTemplate(documentTemplate, {

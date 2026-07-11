@@ -178,6 +178,39 @@ body {
   opacity: 0.75;
 }
 
+/* ---------- Declared special pages (chapters: divider / blank) ---------- */
+.hb-divider {
+  text-align: center;
+  padding: 96px 24px;
+}
+
+.hb-divider-inner {
+  max-width: 34em;
+  margin: 0 auto;
+}
+
+.hb-divider-title {
+  font-size: 2em;
+  margin: 0 0 12px;
+  border: none;
+  padding: 0;
+}
+
+.hb-divider-subtitle {
+  font-size: 1.15em;
+  opacity: 0.72;
+  margin: 0 0 8px;
+}
+
+.hb-divider-note {
+  opacity: 0.6;
+  margin: 24px 0 0;
+}
+
+.hb-blank {
+  min-height: 1px;
+}
+
 .cover-title {
   font-size: 2.4em;
   margin: 0 0 12px;
@@ -1036,7 +1069,27 @@ hr.footnotes-sep {
   }
 
   .toc {
+    /* in-flow contents（chapters 里的 contents: true）从任意位置起新页；
+       跟在封面后时与 .cover 的 break-after 合并，不产生空页。 */
+    break-before: page;
     break-after: page;
+  }
+
+  /* 篇章隔页恰占一页：封底同款的安全 min-height（精确贴合会因强制分页
+     处的边距渗入溢出一张空白页）。出血背景由官方 PDF 管线整页覆盖。 */
+  .hb-divider {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: calc(
+      var(--hb-page-height, 297mm) - var(--hb-page-margin-top) -
+        var(--hb-page-margin-bottom) - 6mm
+    );
+  }
+
+  .hb-blank {
+    min-height: 1px;
   }
 
   /* Each chapter and each raw insert page starts on a new page. The first body

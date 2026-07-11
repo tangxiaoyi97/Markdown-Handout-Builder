@@ -413,22 +413,22 @@ async function postProcessPdf(filePath, { overlays, themeLabel, pageBackground }
   fs.writeFileSync(filePath, await doc.save());
 }
 
-// 仅封底的单页打印：隐藏其余内容后，封底成为文档第一页，print.css 的
-// @page :first { margin: 0 } 让它天然全出血（与封面同一机制）。注入的
-// 样式在内联 CSS 之后，@page :first 的 margin 覆盖一定生效（无封面 /
-// 封面带页眉时 build 会把 :first 改回正常边距）。
-async function renderBackCoverBytes(browser, htmlPath, basePdfOptions) {
+// 任意"出血区段"的独立单页打印：隐藏其余内容后，该区段成为文档第一页，
+// print.css 的 @page :first { margin: 0 } 让它天然全出血（与封面同一机制，
+// 注入样式在内联 CSS 之后，:first 的 margin 覆盖一定生效）。封底与出血
+// divider 共用这条机线。selector 只接受本工具生成的 id 选择器。
+async function renderBleedSectionBytes(browser, htmlPath, basePdfOptions, selector) {
   const page = await preparePage(browser, htmlPath);
-  await page.evaluate(() => {
+  await page.evaluate((sel) => {
     const style = document.createElement("style");
-    style.setAttribute("data-mhb-back-cover-only", "true");
+    style.setAttribute("data-mhb-bleed-only", "true");
     style.textContent =
       "@media print {\n" +
       "  @page :first { margin: 0; }\n" +
-      "  .book > :not(#back-cover) { display: none !important; }\n" +
-      // position: fixed 让封底按页面盒（margin 0 → 整页）绘制，避免
-      // min-height: 100vh 在整页高度上因亚像素舍入溢出出第二页。
-      "  #back-cover {\n" +
+      `  .book > :not(${sel}) { display: none !important; }\n` +
+      // position: fixed 让区段按页面盒（margin 0 → 整页）绘制，避免
+      // min-height 在整页高度上因亚像素舍入溢出出第二页。
+      `  ${sel} {\n` +
       "    position: fixed !important;\n" +
       "    inset: 0 !important;\n" +
       "    margin: 0 !important;\n" +
@@ -437,7 +437,7 @@ async function renderBackCoverBytes(browser, htmlPath, basePdfOptions) {
       "  }\n" +
       "}";
     document.head.appendChild(style);
-  });
+  }, selector);
   const bytes = await page.pdf({
     ...basePdfOptions,
     outline: false,
@@ -673,7 +673,6 @@ try {
     );
     const pageNumberCfg = pdfCfg.page_numbers ?? {};
     const countCover = pageNumberCfg.count_cover ?? true;
-    const countToc = pageNumberCfg.count_toc ?? true;
     const countBackCover = pageNumberCfg.count_back_cover ?? true;
 
     const basePdfOptions = {
@@ -699,14 +698,24 @@ try {
     const present = await page.evaluate(() => ({
       cover: !!document.getElementById("cover"),
       toc: !!document.getElementById("toc"),
+      tocInFlow: Boolean(document.getElementById("toc")?.dataset.hbInFlow),
       back: !!document.getElementById("back-cover"),
-      tocTargets: document.querySelectorAll(".toc-page[data-target]").length
+      tocTargets: document.querySelectorAll(".toc-page[data-target]").length,
+      // 出血区段（divider）：正文流内背景只能铺到内容盒，这些区段
+      // 需要独立单页打印 + 后处理整页覆盖
+      bleedSections: Array.from(document.querySelectorAll("[data-hb-bleed]")).map((el) => ({
+        selector: `#${el.id}`,
+        headingId: el.getAttribute("data-hb-bleed")
+      }))
     }));
 
     const hasCover = present.cover && coverEnabled;
     const hasBack = present.back && backCoverEnabled;
     const hasMainToc = present.toc;
     const doTocNumbers = withTocPageNumbers && present.tocTargets > 0;
+    // in-flow contents（chapters 里布点的主目录）永远计页：拼接机制
+    // 假设被剔除的目录紧随封面，对流内位置不成立（build 已发出警告）。
+    const countToc = present.tocInFlow ? true : (pageNumberCfg.count_toc ?? true);
 
     // count_cover / count_toc / count_back_cover: keep the section in the PDF but
     // exclude it from page numbering. Chapter mini TOCs live in the body flow and
@@ -768,7 +777,7 @@ try {
     // 封底：主渲染中它只是一张普通页边距页（保证分页与页码稳定）；
     // 这里单独打印全出血版本，后处理时整页覆盖到最后一页上。
     const backCoverBytes = hasBack
-      ? await renderBackCoverBytes(browser, htmlPath, basePdfOptions)
+      ? await renderBleedSectionBytes(browser, htmlPath, basePdfOptions, "#back-cover")
       : null;
 
     fs.mkdirSync(path.dirname(pdfPath), { recursive: true });
@@ -793,10 +802,43 @@ try {
       });
     }
 
+    // 出血 divider：借 h1 的 outline 目的地在最终 PDF 中定位物理页，
+    // 独立单页打印后整页覆盖（与封底同一机线）。定位失败则降级保留
+    // 正文流内的内容盒背景，并给出警告。
+    const bleedOverlays = [];
+    if (present.bleedSections.length > 0) {
+      const finalBytes = fs.readFileSync(pdfPath);
+      let headingPages = null;
+      try {
+        headingPages = await resolveTocPageNumbers(finalBytes, page);
+      } catch (err) {
+        console.warn(
+          `Warning: cannot map bleed divider pages (${err.message}); keeping in-flow backgrounds.`
+        );
+      }
+      for (const section of present.bleedSections) {
+        const pageNo = headingPages?.find((h) => h.id === section.headingId)?.pageNo;
+        if (!pageNo) {
+          console.warn(
+            `Warning: cannot locate the page of bleed divider "${section.headingId}"; ` +
+              "keeping its in-flow background."
+          );
+          continue;
+        }
+        bleedOverlays.push({
+          index: pageNo - 1,
+          bytes: await renderBleedSectionBytes(browser, htmlPath, basePdfOptions, section.selector),
+          srcIndex: 0,
+          expectSinglePage: true
+        });
+      }
+    }
+
     const overlays = [];
     if (coverNeedsCleanOverlay && plainBytes) {
       overlays.push({ index: 0, bytes: plainBytes, srcIndex: 0 });
     }
+    overlays.push(...bleedOverlays);
     if (backCoverBytes) {
       overlays.push({ index: -1, bytes: backCoverBytes, srcIndex: 0, expectSinglePage: true });
     }

@@ -16,6 +16,8 @@ import {
 import { formatDate, marginParts, pageHeightMm, sanitizeCssValue } from "../scripts/lib/util.mjs";
 import { buildToc, buildChapterToc } from "../scripts/lib/toc.mjs";
 import { buildOverrideCss } from "../scripts/lib/css.mjs";
+import { normalizeChapterEntry, normalizeChapters } from "../scripts/lib/chapters.mjs";
+import { dividerSectionHtml, blankSectionHtml } from "../scripts/lib/special-pages.mjs";
 
 test("parseObsidianReference: targets, fragments, aliases, embed sizes", () => {
   assert.deepEqual(
@@ -210,6 +212,75 @@ test("toc builders: level jumps stay balanced; chapter toc filters by depth", ()
   );
   assert.match(mini, /data-target="s1"/);
   assert.doesNotMatch(mini, /data-target="deep"/); // depth 3 过滤 h4
+});
+
+test("chapters entries: path roles, declared special pages, and strict typos", () => {
+  // 字符串与既有对象形态不变
+  assert.equal(normalizeChapterEntry("notes/a.md").kind, "chapter");
+  assert.equal(normalizeChapterEntry("notes/p.html").kind, "insert");
+  assert.equal(normalizeChapterEntry({ path: "notes/a.md", chapter_toc: true }).chapterToc, true);
+
+  // as 覆盖角色；.html 不能当章节
+  const mdInsert = normalizeChapterEntry({ path: "front/preface.md", as: "insert" });
+  assert.equal(mdInsert.kind, "insert");
+  assert.equal(mdInsert.format, "markdown");
+  assert.match(normalizeChapterEntry({ path: "p.html", as: "chapter" }).error ?? "", /cannot be "as: chapter"/);
+
+  // 每条目主目录控制
+  assert.equal(normalizeChapterEntry({ path: "a.md", toc: false }).toc, false);
+  assert.equal(normalizeChapterEntry({ path: "a.md", toc: "附录 A" }).toc, "附录 A");
+  assert.match(normalizeChapterEntry({ path: "a.md", toc: 3 }).error ?? "", /"toc" must be/);
+
+  // 声明式特殊页
+  const divider = normalizeChapterEntry({
+    divider: { title: "第一部分", subtitle: "Basics", bleed: true, toc: "第一部分" }
+  });
+  assert.equal(divider.kind, "divider");
+  assert.equal(divider.bleed, true);
+  assert.match(normalizeChapterEntry({ divider: { bleed: true } }).error ?? "", /requires a "title"/);
+  assert.match(normalizeChapterEntry({ divider: { title: "T", oops: 1 } }).error ?? "", /unknown key/);
+
+  assert.deepEqual(normalizeChapterEntry({ blank: true }), { kind: "blank", count: 1 });
+  assert.equal(normalizeChapterEntry({ blank: 3 }).count, 3);
+  assert.match(normalizeChapterEntry({ blank: 0 }).error ?? "", /blank entry/);
+
+  assert.equal(normalizeChapterEntry({ contents: true }).kind, "contents");
+  assert.match(normalizeChapterEntry({ contents: "yes" }).error ?? "", /contents: true/);
+
+  // 拼错的类型键不落入路径解释
+  assert.match(normalizeChapterEntry({ divder: { title: "T" } }).error ?? "", /exactly one of/);
+  assert.match(normalizeChapterEntry({ path: "a.md", divider: {} }).error ?? "", /exactly one of/);
+  assert.match(normalizeChapterEntry({ path: "a.md", oops: 1 }).error ?? "", /unknown key/);
+
+  // 列表级约束：contents 至多一次、至少一个实体页
+  const onlyDeclared = normalizeChapters({ chapters: [{ blank: true }] }, "/tmp");
+  assert.match(onlyDeclared.error ?? "", /at least one \.md or \.html/);
+  const twoContents = normalizeChapters(
+    { chapters: ["a.md", { contents: true }, { contents: true }] },
+    "/tmp"
+  );
+  assert.match(twoContents.error ?? "", /at most once/);
+});
+
+test("special pages: divider html carries heading id, bleed hook, sanitized style", () => {
+  const html = dividerSectionHtml(
+    {
+      title: "第一部分",
+      subtitle: "Basics",
+      note: "",
+      className: "part-one",
+      background: "linear-gradient(145deg, #111, #222)",
+      color: "#fff",
+      bleed: true
+    },
+    { headingId: "hb-divider-1", lead: "" }
+  );
+  assert.match(html, /<section class="insert hb-divider part-one" id="hb-divider-1-sec" data-hb-bleed="hb-divider-1"/);
+  assert.match(html, /<h1 class="hb-divider-title" id="hb-divider-1"[^>]*>第一部分<\/h1>/);
+  assert.match(html, /background: linear-gradient\(145deg, #111, #222\)/);
+  assert.doesNotMatch(html, /data-hb-bleed=""/);
+
+  assert.match(blankSectionHtml(), /class="insert hb-blank" aria-hidden="true"/);
 });
 
 test("css: override block mirrors margins, emits page height, restores :first", () => {

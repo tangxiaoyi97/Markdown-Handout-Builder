@@ -21,16 +21,34 @@ keywords:                                # Optional PDF Keywords metadata
   - "PDF"
 
 chapters:                                # Required: order + role of each page.
-  # Every entry is a FILE PATH; the extension decides its role:
+  # A file entry's role comes from the extension (override with "as"):
   #   .md / .markdown -> chapter (rendered; joins the TOC and PDF bookmarks)
   #   .html / .htm    -> insert  (trusted raw-HTML page, verbatim, its own page)
   - notes/00-intro.md                    # string form = just the path
   - notes/01-topic.md
   - notes/interlude.html                 # a raw-HTML insert page
-  # Mapping form, for the few entries that need extra options:
+  # Mapping form, for entries that need extra options:
   - path: notes/02-deep.md               # "path" is required
     class: deep-dive                     #   extra CSS class(es) on the <section>
     chapter_toc: true                    #   open this chapter with a mini-TOC
+    # toc: false                         #   keep this chapter out of the main TOC
+    # toc: "Appendix A"                  #   ... or just rename its main-TOC row
+  # A Markdown special page (preface/colophon): rendered, but stays out of
+  # the main TOC and carries the "insert" styling hooks:
+  #   - path: front/preface.md
+  #     as: insert
+  # Declared special pages need no file at all:
+  #   - divider:                         # part-divider page (one full page)
+  #       title: "Part One"              #   becomes a real <h1> + PDF bookmark
+  #       subtitle: "Foundations"
+  #       class: part-one                #   style it from style.custom_css
+  #       background: "#25304a"          #   any CSS color/gradient
+  #       color: "#ffffff"
+  #       bleed: true                    #   official PDF paints it edge-to-edge
+  #       toc: "Part One"                #   optional main-TOC row
+  #   - blank: true                      # intentionally blank page (duplex)
+  #   - contents: true                   # place the main TOC here (at most once;
+  #                                      # an in-flow TOC is always page-counted)
   # The whole list may instead live in its own file, like book.yml:
   #   chapters: chapters.yml             # a .yml/.yaml list (or a {chapters:} map)
 

@@ -4,6 +4,20 @@
 
 Prerelease of the `dialects` branch; published under the `next` dist-tag.
 
+### Added
+
+- Free page layout in `chapters`: `as: insert` renders a Markdown file as a
+  special page (preface/colophon — no main-TOC entry, insert styling);
+  declared `divider:` part pages (title/subtitle/note, custom class, colors,
+  optional main-TOC row, and `bleed: true` for edge-to-edge painting in the
+  official PDF via the same standalone-print overlay as the back cover);
+  `blank: true` intentional blank pages; `contents: true` places the main TOC
+  anywhere in the flow (front-matter ordering); per-entry `toc: false` or
+  `toc: "label"` controls a chapter's main-TOC row. Unknown or ambiguous
+  entry keys are hard errors in `check` — typos cannot become blank pages.
+  (`break-before: recto` was evaluated and left out: current Chromium
+  ignores it in print.)
+
 ### Fixed
 
 - Back cover: the CSS named-page mechanism (`@page hb-backcover`) made Chromium

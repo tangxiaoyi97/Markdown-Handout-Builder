@@ -497,6 +497,67 @@ Back to [[Start]].
   assert.ok(await outExists(dir, "vault/notes/assets/p.png"), "Obsidian attachment copied");
 });
 
+test("layout freedom: as:insert, divider, blank, in-flow contents, per-entry toc", async () => {
+  const dir = await makeFixture({
+    "book.yml": `title: "Free Layout"
+chapters:
+  - path: front/preface.md
+    as: insert
+    class: preface
+  - contents: true
+  - divider:
+      title: "第一部分"
+      subtitle: "Basics"
+      background: "#223"
+      color: "#fff"
+      toc: "第一部分 · 基础"
+  - notes/01-one.md
+  - blank: true
+  - path: notes/02-two.md
+    toc: "第二章（改名）"
+  - path: notes/03-secret.md
+    toc: false
+`,
+    "front/preface.md": "# 前言\n\n这一页不进目录。\n",
+    "notes/01-one.md": "# One\n\nBody.\n",
+    "notes/02-two.md": "# Two\n\nBody.\n",
+    "notes/03-secret.md": "# Secret\n\nBody.\n"
+  });
+
+  const result = await runScript("build.mjs", { cwd: dir });
+  assert.equal(result.code, 0, result.stderr);
+  const html = await readOut(dir, "handout.html");
+
+  // as:insert 的 Markdown 页：insert 语义 + 自定义 class，正文照常渲染
+  assert.match(html, /<section class="insert preface hb-lead" data-entry="1">/);
+  assert.match(html, /这一页不进目录/);
+
+  // in-flow contents：主目录出现在正文流（preface 之后），模板槽位不再有第二份
+  assert.equal((html.match(/<nav class="toc" id="toc"/g) ?? []).length, 1);
+  assert.match(html, /<nav class="toc" id="toc" data-hb-in-flow="true">/);
+  const tocPos = html.indexOf('<nav class="toc"');
+  const prefacePos = html.indexOf('data-entry="1"');
+  const dividerPos = html.indexOf("hb-divider-1-sec");
+  assert.ok(prefacePos < tocPos && tocPos < dividerPos, "contents sits between preface and divider");
+
+  // divider：标题成为真实 h1；toc 文案进入主目录并带页码占位
+  assert.match(html, /<h1 class="hb-divider-title" id="hb-divider-1"/);
+  assert.match(html, /<a href="#hb-divider-1">第一部分 · 基础<\/a>/);
+  assert.match(html, /data-target="hb-divider-1"/);
+
+  // blank 占位页
+  assert.match(html, /<section class="insert hb-blank" aria-hidden="true">/);
+
+  // 每条目 toc 控制：改名生效；toc:false 的章节不在主目录但正文仍在
+  assert.match(html, /<a href="#two">第二章（改名）<\/a>/);
+  assert.doesNotMatch(html, /<a href="#secret">/);
+  assert.match(html, /<h1 id="secret"/);
+
+  // 主目录只有 divider + One + Two（preface/secret 除外）
+  const tocNav = html.match(/<nav class="toc"[\s\S]*?<\/nav>/)?.[0] ?? "";
+  assert.equal((tocNav.match(/class="toc-row"/g) ?? []).length, 3);
+});
+
 test("Obsidian dialect: frontmatter edge cases and inline-parser hardening", async () => {
   const dir = await makeFixture({
     "book.yml":
