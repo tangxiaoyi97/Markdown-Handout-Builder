@@ -412,3 +412,62 @@ flowchart LR
     await destroy();
   }
 });
+
+test("v3 PDF: chapter cover bleeds onto the page before its chapter; running fm footer applies", { skip: !hasChromium && "Playwright Chromium not installed" }, async () => {
+  const { dir, pdfStderr } = await buildAndRender({
+    "book.yml": `title: "FM3"
+date: "2026-01-02"
+cover:
+  enabled: false
+frontmatter:
+  meta: [modified]
+structure:
+  - type: chapter
+    path: notes/01-one.md
+  - type: chapter
+    path: notes/02-two.md
+    cover:
+      background: "#25304a"
+      color: "#ffffff"
+      bleed: true
+    running:
+      footer:
+        center: "{{fm.status}}"
+output:
+  html: dist/handout.html
+  pdf: dist/handout.pdf
+`,
+    "notes/01-one.md": "# One\n\nBody.\n",
+    "notes/02-two.md": `---
+title: "第二章"
+status: FINAL-DRAFT
+modified: 2026-01-01
+---
+# Two
+
+Body two.
+`
+  });
+
+  assert.doesNotMatch(pdfStderr, /cannot locate the page before anchor/);
+
+  const { doc, destroy } = await loadPdf(path.join(dir, "dist", "handout.pdf"));
+  try {
+    // TOC(1) + One(2) + chapter cover(3) + Two(4)
+    assert.equal(doc.numPages, 4);
+    // 文本抽取可能把 CJK 映射成康熙部首变体（二 → ⼆），按两种写法匹配
+    const CHAPTER_TITLE = /第\s*[二⼆]\s*章/;
+    const coverText = await pageText(doc, 3);
+    assert.match(coverText, CHAPTER_TITLE); // cover 标题 = fm.title
+    assert.match(coverText, /2026-01-01/);  // 默认元信息行（更新时间）
+    const chapterText = await pageText(doc, 4);
+    assert.match(chapterText, /Body two/);
+    assert.match(chapterText, /FINAL-DRAFT/); // running fm 页脚
+    // cover 标题不是书签；章 h1 是
+    const titles = await outlineTitles(doc);
+    assert.ok(titles.includes("Two"));
+    assert.equal(titles.filter((t) => CHAPTER_TITLE.test(t)).length, 0);
+  } finally {
+    await destroy();
+  }
+});

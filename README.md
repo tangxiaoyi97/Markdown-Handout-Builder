@@ -2,7 +2,7 @@
 
 Build a polished handout from plain Markdown: HTML for reading, PDF for printing, and an optional GitHub Pages showcase.
 
-**Live showcase:** [read online](https://tangxiaoyi97.github.io/Markdown-Handout-Builder/) &middot; [handbook PDF (2.0)](https://tangxiaoyi97.github.io/Markdown-Handout-Builder/handout-2.0.pdf) &middot; [Obsidian dialect showcase PDF (2.0-dialect)](https://tangxiaoyi97.github.io/Markdown-Handout-Builder/showcase/obsidian-syntax-showcase-2.0-dialect.pdf)
+**Live showcase:** [read online](https://tangxiaoyi97.github.io/Markdown-Handout-Builder/) &middot; [handbook PDF (2.0)](https://tangxiaoyi97.github.io/Markdown-Handout-Builder/handout-2.0.pdf) &middot; [Obsidian dialect showcase PDF (3.0-dialect)](https://tangxiaoyi97.github.io/Markdown-Handout-Builder/showcase/obsidian-syntax-showcase-3.0-dialect.pdf)
 
 The package is designed for small note repositories. Your content repo can keep only `book.yml`, `notes/`, optional local custom templates, and a thin `package.json`. The renderer, default templates, print CSS, PDF pipeline, and preview server live in this npm package.
 

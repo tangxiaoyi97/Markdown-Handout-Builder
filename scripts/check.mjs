@@ -223,14 +223,17 @@ for (const entry of structureEntries) {
   // Wikilink / local-image checks apply to every Markdown page (chapters and
   // as:insert pages alike). Raw HTML inserts are trusted, author-controlled.
   if (entry.format === "markdown") {
-    if (entry.running?.custom) {
+    if (entry.running?.custom || entry.cover?.bleed) {
       const source = fs.readFileSync(absPath, "utf8").replace(/^﻿/, "");
       const hasAtxH1 = /^ {0,3}#(?!#)\s+\S.*$/m.test(source);
       const hasSetextH1 = /^\S.*\r?\n {0,3}=+\s*$/m.test(source);
-      if (!hasAtxH1 && !hasSetextH1) {
-        fail(
-          `${entry.file}: per-entry running header/footer control requires a top-level Markdown heading`
-        );
+      // frontmatter.title_as_heading 开启时，无 h1 的章节可由 fm.title 注入标题
+      const canInjectTitle =
+        book.frontmatter?.title_as_heading === true &&
+        Boolean(parseObsidianFrontmatter(source).data?.title);
+      if (!hasAtxH1 && !hasSetextH1 && !canInjectTitle) {
+        const need = entry.running?.custom ? "per-entry running header/footer control" : "cover.bleed";
+        fail(`${entry.file}: ${need} requires a top-level Markdown heading`);
       }
     }
     checkChapterContent(absPath, toPosix(entry.file));
@@ -415,6 +418,14 @@ function checkPdfConfig(scope, where) {
         fail(`${configName}: ${where}pdf.${section}.${slot} must be a string.`);
         continue;
       }
+      // fm 占位符按章取值，只在每条目的 running 策略（或章节 cover）中有意义
+      if (/\{\{\s*(?:fm|frontmatter)\./.test(value)) {
+        fail(
+          `${configName}: ${where}pdf.${section}.${slot}: {{fm.*}} placeholders are per-chapter — ` +
+            "move them into an entry's (or layout's) running policy."
+        );
+        continue;
+      }
       for (const m of value.matchAll(/\{\{(\w+)\}\}/g)) {
         if (!KNOWN_PLACEHOLDERS.has(m[1])) {
           warnings.push(
@@ -442,6 +453,58 @@ function checkPdfConfig(scope, where) {
 checkPdfConfig(book, "");
 if (Array.isArray(book.themes)) {
   book.themes.forEach((theme, i) => checkPdfConfig(theme, `themes[${i}].`));
+}
+
+/* ---------- frontmatter 集成配置校验 ---------- */
+
+if (book.frontmatter !== undefined) {
+  const fm = book.frontmatter;
+  if (!fm || typeof fm !== "object" || Array.isArray(fm)) {
+    fail(`${configName}: "frontmatter" must be a mapping.`);
+  } else {
+    const known = new Set(["title_as_heading", "meta", "labels", "dates"]);
+    for (const key of Object.keys(fm)) {
+      if (!known.has(key)) {
+        fail(`${configName}: frontmatter.${key}: unknown key (use title_as_heading / meta / labels / dates).`);
+      }
+    }
+    if (fm.title_as_heading !== undefined && typeof fm.title_as_heading !== "boolean") {
+      fail(`${configName}: frontmatter.title_as_heading must be true or false.`);
+    }
+    if (fm.meta !== undefined && fm.meta !== false) {
+      if (!Array.isArray(fm.meta) || fm.meta.some((key) => typeof key !== "string" || !key.trim())) {
+        fail(`${configName}: frontmatter.meta must be false or a list of frontmatter keys.`);
+      }
+    }
+    if (fm.labels !== undefined) {
+      if (!fm.labels || typeof fm.labels !== "object" || Array.isArray(fm.labels)) {
+        fail(`${configName}: frontmatter.labels must be a mapping of key -> display text.`);
+      } else {
+        for (const [key, value] of Object.entries(fm.labels)) {
+          if (typeof value !== "string") {
+            fail(`${configName}: frontmatter.labels.${key} must be a string.`);
+          }
+        }
+      }
+    }
+    if (fm.dates !== undefined) {
+      if (!fm.dates || typeof fm.dates !== "object" || Array.isArray(fm.dates)) {
+        fail(`${configName}: frontmatter.dates must be a mapping.`);
+      } else {
+        for (const key of Object.keys(fm.dates)) {
+          if (key !== "fallback_modified") {
+            fail(`${configName}: frontmatter.dates.${key}: unknown key (use fallback_modified).`);
+          }
+        }
+        if (
+          fm.dates.fallback_modified !== undefined &&
+          !["none", "file"].includes(String(fm.dates.fallback_modified))
+        ) {
+          fail(`${configName}: frontmatter.dates.fallback_modified must be "none" or "file".`);
+        }
+      }
+    }
+  }
 }
 
 /* ---------- labels / numbering 配置校验 ---------- */

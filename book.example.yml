@@ -95,6 +95,21 @@ chapters:                                # Required: order + role of each page.
 #     layout: chapter-running             # Or no-footer
 #     flow: { break_before: page, break_after: auto }
 #     navigation: { label: "Appendix A", level: 1 }
+#     meta: [authors, modified]           # Frontmatter byline under the h1
+#     cover:                              # Chapter cover page from frontmatter
+#       background: "#25304a"
+#       color: "#ffffff"
+#       bleed: true                       #   official PDF paints edge-to-edge
+#
+# Running slots may reference this chapter's frontmatter: "{{fm.status}}".
+#
+# Dialect-independent frontmatter integration (v3):
+# frontmatter:
+#   title_as_heading: true                # fm.title becomes the h1 when absent
+#   meta: [authors, created, modified, tags]   # global byline under each h1
+#   labels: { created: "Created", modified: "Updated" }
+#   dates:
+#     fallback_modified: none             # "file" = use source mtime (unreliable in CI)
 
 output:                                  # Output paths
   html: dist/handout.html                # Non-default themes append .<theme>

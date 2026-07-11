@@ -1,4 +1,13 @@
-# 07 · Obsidian 语法全参考
+---
+title: "Obsidian 语法全参考"
+authors:
+  - "Markdown Handout Builder"
+created: 2026-07-11
+modified: 2026-07-11
+tags:
+  - guide/obsidian
+---
+# 08 · Obsidian 语法全参考
 
 本章逐项列出方言模式支持的全部静态语法。可运行的对照成品见《Obsidian Markdown · 静态语法全覆盖》（`docs/obsidian-showcase/`，输出 `dist/showcase/`）。
 

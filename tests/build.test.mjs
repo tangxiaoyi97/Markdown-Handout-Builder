@@ -789,3 +789,76 @@ test("Obsidian dialect: official attachment embeds render and copy offline", asy
     assert.ok(await outExists(dir, file), `${file} copied`);
   }
 });
+
+test("v3 frontmatter: strip in standard dialect, meta band, title injection, cover, running fm", async () => {
+  const dir = await makeFixture({
+    "book.yml": `title: "FM"
+date_format: "YYYY.MM.DD"
+frontmatter:
+  title_as_heading: true
+  meta: [authors, modified, tags]
+  labels: { modified: "更新" }
+structure:
+  - type: chapter
+    path: notes/01-with-h1.md
+  - type: chapter
+    path: notes/02-no-h1.md
+    cover:
+      background: "#25304a"
+      color: "#ffffff"
+      bleed: true
+    running:
+      footer:
+        center: "{{fm.status}} · {{fm.owner}}"
+output:
+  html: dist/handout.html
+  pdf: dist/handout.pdf
+`,
+    "notes/01-with-h1.md": `---
+authors: [Alice, Bob]
+modified: 2026-07-11
+tags: alpha, beta
+---
+# 有标题的章
+
+正文。
+`,
+    "notes/02-no-h1.md": `---
+title: "注入的章题"
+status: draft
+owner: 唐
+modified: 2026-07-10
+---
+没有一级标题的正文。
+`
+  });
+
+  const result = await runScript("build.mjs", { cwd: dir });
+  assert.equal(result.code, 0, result.stderr);
+  const html = await readOut(dir, "handout.html");
+
+  // 标准方言剥离 frontmatter：不再泄漏 <hr> + 字面 YAML
+  assert.doesNotMatch(html, /authors: \[Alice/);
+  assert.doesNotMatch(html, /<h2>title: /);
+
+  // meta band：作者、带标签的日期、标签胶囊
+  assert.match(html, /<div class="hb-chapter-meta">/);
+  assert.match(html, /Alice, Bob/);
+  assert.match(html, /<span class="hb-meta-label">更新<\/span>2026\.07\.11/);
+  assert.match(html, /class="hb-tag" data-tag="alpha"/);
+
+  // title_as_heading：fm.title 成为真实 h1（锚点 + 目录行）
+  assert.match(html, /<h1 id="注入的章题"[^>]*>注入的章题<\/h1>/);
+  assert.match(html, /<a href="#注入的章题">注入的章题<\/a>/);
+
+  // 章节 cover：位于章节 section 之前、带 bleed-before 锚点与背景
+  const coverAt = html.indexOf("hb-chapter-cover-1-sec");
+  const chapterAt = html.indexOf('data-chapter="2"');
+  assert.ok(coverAt !== -1 && coverAt < chapterAt, "cover precedes its chapter");
+  assert.match(html, /data-hb-bleed-before="注入的章题"/);
+  assert.match(html, /<p class="hb-divider-title">注入的章题<\/p>/);
+  assert.match(html, /更新 2026\.07\.10/);
+
+  // running fm：占位符在构建期解析进 data-hb-running
+  assert.match(html, /data-hb-running="[^"]*draft · 唐/);
+});

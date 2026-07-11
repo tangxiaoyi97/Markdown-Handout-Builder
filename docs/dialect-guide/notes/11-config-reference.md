@@ -1,3 +1,12 @@
+---
+title: "book.yml 全键参考"
+authors:
+  - "Markdown Handout Builder"
+created: 2026-07-11
+modified: 2026-07-11
+tags:
+  - guide/reference
+---
 # book.yml 全键参考
 
 类型标注：`str` 字符串、`num` 数字、`bool` 布尔、`list` 列表、`map` 映射。**加粗**为必填。本章页眉即 running 策略的活演示（`reference` layout：页眉中位 = 章名）。
@@ -39,7 +48,9 @@
 | navigation.outline | bool | true | 进 PDF 书签；false 须与 toc:false 同用 |
 | flow.break_before | page/auto | page | 条目前分页 |
 | flow.break_after | page/auto | auto | 条目后分页 |
-| running | false/map | 继承全局 | 见第 05 章：header/footer 为 bool 或 left/center/right 槽位；style 为 font_size/color/font_family/offset |
+| running | false/map | 继承全局 | 见第 05 章：header/footer 为 bool 或 left/center/right 槽位；style 为 font_size/color/font_family/offset；槽位可用 {{fm.*}} |
+| meta | false/list | 全局 frontmatter.meta | 本章 byline 键序（见第 06 章） |
+| cover | bool/map | — | 章节 cover 页：enabled/class/background/color/bleed/title/subtitle/meta（模板行）（见第 06 章） |
 
 ### 各类型专有键
 
@@ -103,6 +114,10 @@
 | themes[] | list | 单默认主题 | name（**必填**，进文件名）、label、default、style、cover、back_cover、pdf（嵌套键二层合并） |
 | labels.\<key\> | str | 英文默认 | 覆盖内置标签文本；新键注册自定义容器（`pagebreak` 保留） |
 | markdown.dialect | str | standard | standard \| obsidian |
+| frontmatter.title_as_heading | bool | false | 无 h1 章节以 fm.title 注入一级标题 |
+| frontmatter.meta | false/list | false | 全局 byline 键序（如 [authors, modified, tags]） |
+| frontmatter.labels.\<key\> | str | created/modified 内置 | byline 与章节 cover 的字段标签 |
+| frontmatter.dates.fallback_modified | str | none | none \| file（mtime 回退，CI 不可靠） |
 | markdown.obsidian.vault_root | str | . | vault 根（相对 book.yml） |
 | markdown.obsidian.properties | str | visible | visible \| hidden \| source |
 
@@ -118,6 +133,7 @@
 | {{theme}} | 页眉页脚 | 主题 label |
 | {{page}} {{total}} | 页眉页脚、page_numbers.format | 逻辑页码 / 总页数 |
 | {{chapterTitle}} {{sectionTitle}} | 每章 running 槽位 | 本章一级标题 |
+| {{fm.\<key\>}} {{frontmatter.\<key\>}} | 每章 running 槽位、章节 cover 模板 | 本章 frontmatter 值（构建期解析；全局槽位禁用） |
 
 未知占位符保留字面并在 `check` 警告。
 

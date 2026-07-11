@@ -463,3 +463,39 @@ test("Obsidian checks recurse through transcluded notes", async () => {
   assert.equal(result.code, 1);
   assert.match(result.stderr, /notes\/b\.md:3: Obsidian embed target not found/);
 });
+
+test("v3 frontmatter validation: global fm placeholders, block keys, cover.bleed anchor", async () => {
+  const bad = await makeFixture({
+    "book.yml": `title: T
+frontmatter:
+  meta: [status]
+  oops: 1
+pdf:
+  footer:
+    center: "{{fm.status}}"
+chapters:
+  - path: notes/a.md
+    cover: { bleed: true }
+`,
+    "notes/a.md": "没有一级标题。\n"
+  });
+  const r1 = await runScript("check.mjs", { cwd: bad });
+  assert.equal(r1.code, 1);
+  assert.match(r1.stderr, /\{\{fm\.\*\}\} placeholders are per-chapter/);
+  assert.match(r1.stderr, /frontmatter\.oops: unknown key/);
+  assert.match(r1.stderr, /cover\.bleed requires a top-level Markdown heading/);
+
+  // title_as_heading + fm.title 可满足锚点要求
+  const ok = await makeFixture({
+    "book.yml": `title: T
+frontmatter:
+  title_as_heading: true
+chapters:
+  - path: notes/a.md
+    cover: { bleed: true }
+`,
+    "notes/a.md": "---\ntitle: 注入\n---\n正文。\n"
+  });
+  const r2 = await runScript("check.mjs", { cwd: ok });
+  assert.equal(r2.code, 0, r2.stderr);
+});

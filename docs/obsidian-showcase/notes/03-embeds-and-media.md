@@ -1,6 +1,11 @@
 ---
 aliases:
   - Embeds and Media
+title: "笔记与媒体嵌入"
+authors:
+  - "Markdown Handout Builder"
+created: 2026-07-10
+modified: 2026-07-11
 tags:
   - showcase/embeds
 cssclasses:

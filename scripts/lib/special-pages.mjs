@@ -54,3 +54,63 @@ export function blankSectionHtml(entry = {}) {
   const layoutAttr = entry.layout ? ` data-layout="${escapeHtml(entry.layout)}"` : "";
   return `<section class="${cls}"${layoutAttr} aria-hidden="true"></section>`;
 }
+
+// ---- v3：frontmatter 驱动的章节元素 ----
+
+// 章标题下的 byline（frontmatter meta band）。keys 决定顺序；空值跳过。
+// tags 渲染为胶囊；authors 取拼接串；其余键有 label 则带标签前缀。
+export function chapterMetaHtml(keys, fm, { labels = {} } = {}) {
+  const items = [];
+  for (const key of keys) {
+    if (key === "tags") {
+      for (const tag of fm.derived.tagsList) {
+        items.push(`<span class="hb-tag" data-tag="${escapeHtml(tag)}">${escapeHtml(tag)}</span>`);
+      }
+      continue;
+    }
+    const value = key === "authors"
+      ? fm.derived.authorsList.join(", ")
+      : (fm.values[key] ?? "");
+    if (!value) continue;
+    const label = labels[key];
+    items.push(
+      label
+        ? `<span class="hb-meta-item"><span class="hb-meta-label">${escapeHtml(label)}</span>${escapeHtml(value)}</span>`
+        : `<span class="hb-meta-item">${escapeHtml(value)}</span>`
+    );
+  }
+  if (!items.length) return "";
+  return `<div class="hb-chapter-meta">${items.join("\n")}</div>`;
+}
+
+// 章节 cover 页：divider 同款版面（恰占一页 / 可出血），但标题不是真实
+// h1——章的书签与锚点属于正文一级标题；出血定位经 data-hb-bleed-before
+// 指向该锚点（官方管线覆盖"锚点页的前一页"）。
+export function chapterCoverHtml(cover, { seq, anchorId, title, subtitle, metaLines = [], tags = [], lead = "" }) {
+  const styleParts = [];
+  if (cover.background) styleParts.push(`background: ${sanitizeCssValue(cover.background)};`);
+  if (cover.color) styleParts.push(`color: ${sanitizeCssValue(cover.color)};`);
+  const styleAttr = styleParts.length > 0 ? ` style="${escapeHtml(styleParts.join(" "))}"` : "";
+  const bleedAttr = cover.bleed && anchorId ? ` data-hb-bleed-before="${escapeHtml(anchorId)}"` : "";
+  const cls = ["insert", "hb-divider", "hb-chapter-cover", cover.className, lead]
+    .filter(Boolean)
+    .join(" ");
+
+  const lines = [];
+  if (title) lines.push(`<p class="hb-divider-title">${escapeHtml(title)}</p>`);
+  if (subtitle) lines.push(`<p class="hb-divider-subtitle">${escapeHtml(subtitle)}</p>`);
+  for (const line of metaLines) lines.push(`<p class="hb-divider-note">${escapeHtml(line)}</p>`);
+  if (tags.length > 0) {
+    lines.push(
+      `<p class="hb-cover-tags">${tags
+        .map((tag) => `<span class="hb-tag" data-tag="${escapeHtml(tag)}">${escapeHtml(tag)}</span>`)
+        .join(" ")}</p>`
+    );
+  }
+
+  return (
+    `<section class="${cls}" id="hb-chapter-cover-${seq}-sec"${bleedAttr}${styleAttr}>\n` +
+    `<div class="hb-divider-inner">\n${lines.join("\n")}\n</div>\n` +
+    "</section>"
+  );
+}

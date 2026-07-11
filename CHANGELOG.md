@@ -1,5 +1,36 @@
 # Changelog
 
+## 2.3.0-beta.1 — 2026-07-11 (frontmatter integration)
+
+### Added
+
+- Dialect-independent frontmatter layer: every Markdown page's YAML header is
+  stripped and parsed in both dialects (the standard dialect previously leaked
+  it into the body as literal Markdown). Derived values normalize common keys
+  (title/subtitle, authors/author, created/date, modified/updated with an
+  optional file-mtime fallback, comma-tolerant tags, status), format dates via
+  date_format, and feed every v3 feature.
+- `frontmatter.meta` (global) and per-entry/layout `meta:` render a byline
+  under each chapter h1 — authors, dates with configurable `labels`, tag
+  pills — skipping empty values.
+- `frontmatter.title_as_heading` injects `fm.title` as the h1 of chapters
+  that have none: anchors, TOC rows, PDF bookmarks, and running-policy
+  anchors all work as if the heading were authored.
+- `{{fm.<key>}}` / `{{frontmatter.<key>}}` placeholders resolve per chapter
+  inside per-entry running header/footer slots (build-time; missing keys warn
+  once and render empty). Using them in the global pdf.header/footer is a
+  `check` error — there is no chapter to read them from.
+- Per-chapter `cover:` pages: a full divider-style page before the chapter
+  built from frontmatter (default: fm.title falling back to the chapter h1,
+  authors line, created/updated line, tag pills; or explicit `title` /
+  `subtitle` / `meta` template lines). `bleed: true` reuses the
+  standalone-print overlay, targeting the page before the chapter-heading
+  outline destination. Inheritable through layouts and part defaults.
+- Editions: the dialect documentation line moves to `3.0-dialect`
+  (guide + syntax showcase); prior PDFs are preserved under `docs/archive/`
+  (including the 1.0-dialect showcase re-rendered from its exact committed
+  source after the artifact had been cleaned from dist/).
+
 ## 2.2.0-beta.1 — 2026-07-11 (document structure and page policies)
 
 ### Added

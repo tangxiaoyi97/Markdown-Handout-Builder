@@ -889,6 +889,11 @@ try {
         selector: `#${el.id}`,
         headingId: el.getAttribute("data-hb-bleed")
       })),
+      // 章节 cover 页：覆盖"锚点标题所在页的前一页"
+      bleedBeforeSections: Array.from(document.querySelectorAll("[data-hb-bleed-before]")).map((el) => ({
+        selector: `#${el.id}`,
+        anchorId: el.getAttribute("data-hb-bleed-before")
+      })),
       runningSections: Array.from(document.querySelectorAll("[data-hb-anchor]")).map((el) => {
         let running = null;
         try {
@@ -1015,7 +1020,7 @@ try {
     const needsRunningRanges = hasPerEntryRunning;
     let headingPages = null;
     let finalBytes = null;
-    if (present.bleedSections.length > 0 || needsRunningRanges) {
+    if (present.bleedSections.length > 0 || present.bleedBeforeSections.length > 0 || needsRunningRanges) {
       finalBytes = fs.readFileSync(pdfPath);
       try {
         headingPages = await resolveTocPageNumbers(finalBytes, page);
@@ -1026,6 +1031,24 @@ try {
         );
       }
     }
+    for (const section of present.bleedBeforeSections ?? []) {
+      const pageNo = headingPages?.find((heading) => heading.id === section.anchorId)?.pageNo;
+      const targetIndex = pageNo ? pageNo - 2 : -1; // 锚点页的前一页（0 基）
+      if (!pageNo || targetIndex < 0) {
+        console.warn(
+          `Warning: cannot locate the page before anchor "${section.anchorId}" for a chapter cover; ` +
+            "keeping its in-flow background."
+        );
+        continue;
+      }
+      bleedOverlays.push({
+        index: targetIndex,
+        bytes: await renderBleedSectionBytes(browser, htmlPath, basePdfOptions, section.selector),
+        srcIndex: 0,
+        expectSinglePage: true
+      });
+    }
+
     if (present.bleedSections.length > 0) {
       for (const section of present.bleedSections) {
         const pageNo = headingPages?.find((h) => h.id === section.headingId)?.pageNo;

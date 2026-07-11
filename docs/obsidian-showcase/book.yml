@@ -3,7 +3,7 @@ subtitle: "静态语法全覆盖 · HTML / PDF Showcase"
 language: "zh-CN"
 date: "2026-07-10"
 date_format: "YYYY.MM.DD"
-version: "2.0-dialect"
+version: "3.0-dialect"
 authors:
   - "Markdown Handout Builder"
 keywords:
@@ -19,8 +19,13 @@ chapters:
     chapter_toc: true
   - path: notes/02-tasks-and-callouts.md
     chapter_toc: true
+    meta: [status, tags]         # v3：章标题下的 frontmatter byline
   - path: notes/03-embeds-and-media.md
     chapter_toc: true
+    cover:                       # v3：frontmatter 驱动的出血章节 cover
+      background: "linear-gradient(150deg, #1d2a44 0%, #3f6cae 62%, #5f58b6 100%)"
+      color: "#ffffff"
+      bleed: true
   - path: notes/04-tables-code-math.md
     chapter_toc: true
   - path: notes/05-mermaid-and-boundaries.md
@@ -34,11 +39,19 @@ chapters:
       toc: "参考资料"
   - path: "notes/Reference Library.md"
     chapter_toc: true
+    running:                     # v3：页脚中位取本章 frontmatter
+      footer:
+        center: "{{fm.status}} · {{fm.owner}}"
 
 # 与手册同用 dist/ 输出约定（CI 将 dist/ 整体发布到 Pages）；文件名带版次
 output:
-  html: ../../dist/showcase/obsidian-syntax-showcase-2.0-dialect.html
-  pdf: ../../dist/showcase/obsidian-syntax-showcase-2.0-dialect.pdf
+  html: ../../dist/showcase/obsidian-syntax-showcase-3.0-dialect.html
+  pdf: ../../dist/showcase/obsidian-syntax-showcase-3.0-dialect.pdf
+
+frontmatter:                     # v3：byline / cover 的字段标签
+  labels:
+    created: "创建"
+    modified: "更新"
 
 markdown:
   dialect: obsidian

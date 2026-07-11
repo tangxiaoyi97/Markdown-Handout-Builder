@@ -8,7 +8,7 @@ subtitle: "Dialects 版完全指南 · 功能与配置全参考"
 language: "zh-CN"
 date: "2026-07-11"
 date_format: "YYYY.MM.DD"
-version: "2.0-dialect"
+version: "3.0-dialect"
 authors:
   - "Markdown Handout Builder"
 keywords:
@@ -21,11 +21,20 @@ keywords:
 layouts:
   body:                          # 全书正文章节的公共默认：开章小目录
     chapter_toc: true
-  reference:                     # 参考章：继承 body，页眉中位改为章名
-    extends: body
+  reference:                     # 参考章：继承 body，页眉中位改为章名，
+    extends: body                # 页脚右位取本章 frontmatter 的更新时间
     running:
       header:
         center: "{{chapterTitle}}"
+      footer:
+        right: "更新 {{fm.modified}}"
+
+# v3 自举：每章标题下显示更新时间 byline；fm 日期按 date_format 格式化
+frontmatter:
+  meta: [modified]
+  labels:
+    created: "创建"
+    modified: "更新"
 
 structure:
   - type: insert                 # Markdown 前言页：渲染但不进主目录
@@ -54,6 +63,7 @@ structure:
       - notes/03-structure.md
       - notes/04-layouts-flow-navigation.md
       - notes/05-running.md
+      - notes/06-frontmatter.md
   - type: part
     title: "第三部分 · Obsidian 方言"
     subtitle: "vault 感知渲染与全语法参考"
@@ -63,8 +73,13 @@ structure:
     navigation: { label: "第三部分 · Obsidian 方言", level: 1 }
     defaults: { layout: body }
     children:
-      - notes/06-obsidian.md
-      - notes/07-obsidian-syntax.md
+      - notes/07-obsidian.md
+      - type: chapter            # v3 演示：frontmatter 驱动的出血章节 cover
+        path: notes/08-obsidian-syntax.md
+        cover:
+          background: "linear-gradient(150deg, #2c2440 0%, #6d4b8c 58%, #a35d7c 100%)"
+          color: "#ffffff"
+          bleed: true
   - type: part
     title: "第四部分 · 外观与 PDF"
     subtitle: "主题 · 样式钩子 · 官方打印管线"
@@ -74,8 +89,8 @@ structure:
     navigation: { label: "第四部分 · 外观与 PDF", level: 1 }
     defaults: { layout: body }
     children:
-      - notes/08-theming.md
-      - notes/09-pdf.md
+      - notes/09-theming.md
+      - notes/10-pdf.md
   - type: part
     title: "第五部分 · 参考"
     subtitle: "book.yml 全键速查与占位符总表"
@@ -85,14 +100,14 @@ structure:
     navigation: { label: "第五部分 · 参考", level: 1 }
     children:
       - type: chapter
-        path: notes/10-config-reference.md
+        path: notes/11-config-reference.md
         layout: reference        # 演示 running 策略：页眉中位 = 章名
         navigation: { label: "book.yml 全键参考" }
 
 # 输出到仓库根 dist/（Pages 部署目录）；文件名带版次
 output:
-  html: ../../dist/guide/dialect-guide-2.0-dialect.html
-  pdf: ../../dist/guide/dialect-guide-2.0-dialect.pdf
+  html: ../../dist/guide/dialect-guide-3.0-dialect.html
+  pdf: ../../dist/guide/dialect-guide-3.0-dialect.pdf
 
 toc:
   title: "目录"

@@ -33,7 +33,7 @@ const NAME_RE = /^[A-Za-z_][A-Za-z0-9_-]*$/;
 
 const LEGACY_PATH_KEYS = new Set([
   "path", "as", "role", "class", "layout", "chapter_toc", "toc",
-  "navigation", "flow", "running"
+  "navigation", "flow", "running", "meta", "cover"
 ]);
 const LONG_FILE_KEYS = new Set([...LEGACY_PATH_KEYS, "type"]);
 const DIVIDER_KEYS = new Set([
@@ -46,10 +46,15 @@ const PART_KEYS = new Set([
 ]);
 const LONG_PART_KEYS = new Set([...PART_KEYS, "type"]);
 const DEFAULT_KEYS = new Set([
-  "class", "layout", "chapter_toc", "toc", "navigation", "flow", "running"
+  "class", "layout", "chapter_toc", "toc", "navigation", "flow", "running",
+  "meta", "cover"
 ]);
 const LAYOUT_KEYS = new Set([
-  "extends", "class", "chapter_toc", "toc", "navigation", "flow", "running"
+  "extends", "class", "chapter_toc", "toc", "navigation", "flow", "running",
+  "meta", "cover"
+]);
+const COVER_KEYS = new Set([
+  "enabled", "class", "background", "color", "bleed", "title", "subtitle", "meta"
 ]);
 const NAV_KEYS = new Set(["toc", "label", "level", "outline"]);
 const FLOW_KEYS = new Set(["break_before", "break_after"]);
@@ -288,6 +293,78 @@ function mergeRunning(base = {}, override = {}) {
   };
 }
 
+// meta（章标题下的 frontmatter byline）：false 关闭；字符串列表指定键序；
+// true / 缺省 = 继承（全局 frontmatter.meta 或上层默认）。
+function normalizeMeta(value, where) {
+  if (value === undefined || value === null || value === true) return { value: undefined };
+  if (value === false) return { value: false };
+  if (Array.isArray(value)) {
+    const keys = value.map((item) => String(item ?? "").trim());
+    if (keys.some((item) => !item)) {
+      return { error: `${where}.meta entries must be non-empty frontmatter keys.` };
+    }
+    return { value: keys };
+  }
+  return { error: `${where}.meta must be false or a list of frontmatter keys.` };
+}
+
+// cover（章节前页）：true 全默认；false 显式关闭（覆盖继承）；映射逐键配置。
+function normalizeCover(value, where) {
+  if (value === undefined || value === null) return { value: undefined };
+  if (value === true) return { value: { set: true, enabled: true } };
+  if (value === false) return { value: { set: true, enabled: false } };
+  if (!isMapping(value)) {
+    return { error: `${where}.cover must be true, false, or a mapping.` };
+  }
+  const extra = unknownKeys(value, COVER_KEYS);
+  if (extra.length) return { error: `${where}.cover: unknown key(s) ${extra.join(", ")}.` };
+  const cls = cleanClass(value.class, `${where}.cover`);
+  if (cls.error) return cls;
+  const text = (item) => (item === undefined || item === null ? undefined : String(item).trim());
+  let metaLines;
+  if (value.meta !== undefined && value.meta !== null) {
+    if (!Array.isArray(value.meta) || value.meta.some((line) => typeof line !== "string" || !line.trim())) {
+      return { error: `${where}.cover.meta must be a list of non-empty template strings.` };
+    }
+    metaLines = value.meta.map((line) => line.trim());
+  }
+  if (value.enabled !== undefined && typeof value.enabled !== "boolean") {
+    return { error: `${where}.cover.enabled must be true or false.` };
+  }
+  if (value.bleed !== undefined && typeof value.bleed !== "boolean") {
+    return { error: `${where}.cover.bleed must be true or false.` };
+  }
+  return {
+    value: {
+      set: true,
+      enabled: value.enabled ?? true,
+      className: cls.value || undefined,
+      background: text(value.background),
+      color: text(value.color),
+      bleed: value.bleed,
+      title: text(value.title),
+      subtitle: text(value.subtitle),
+      metaLines
+    }
+  };
+}
+
+function mergeCover(base, override) {
+  if (override === undefined) return base;
+  if (base === undefined || override.enabled === false) return override;
+  return {
+    set: true,
+    enabled: override.enabled ?? base.enabled ?? true,
+    className: joinClasses(base.className, override.className) || undefined,
+    background: override.background ?? base.background,
+    color: override.color ?? base.color,
+    bleed: override.bleed ?? base.bleed,
+    title: override.title ?? base.title,
+    subtitle: override.subtitle ?? base.subtitle,
+    metaLines: override.metaLines ?? base.metaLines
+  };
+}
+
 function normalizeDefaults(value, where) {
   if (value === undefined || value === null) return {};
   if (!isMapping(value)) return { error: `${where} must be a mapping.` };
@@ -304,6 +381,10 @@ function normalizeDefaults(value, where) {
   if (navigation.error) return navigation;
   const running = normalizeRunning(value.running, where, { partial: true });
   if (running.error) return running;
+  const meta = normalizeMeta(value.meta, where);
+  if (meta.error) return meta;
+  const cover = normalizeCover(value.cover, where);
+  if (cover.error) return cover;
   if (value.chapter_toc !== undefined && typeof value.chapter_toc !== "boolean") {
     return { error: `${where}.chapter_toc must be true or false.` };
   }
@@ -316,7 +397,9 @@ function normalizeDefaults(value, where) {
     chapterToc: value.chapter_toc,
     flow,
     navigation,
-    running
+    running,
+    meta: meta.value,
+    cover: cover.value
   };
 }
 
@@ -327,7 +410,9 @@ function mergeOptions(...values) {
     chapterToc: undefined,
     flow: {},
     navigation: {},
-    running: {}
+    running: {},
+    meta: undefined,
+    cover: undefined
   };
   for (const value of values.filter(Boolean)) {
     out.className = joinClasses(out.className, value.className);
@@ -336,6 +421,8 @@ function mergeOptions(...values) {
     out.flow = { ...out.flow, ...(value.flow ?? {}) };
     out.navigation = { ...out.navigation, ...(value.navigation ?? {}) };
     out.running = mergeRunning(out.running, value.running);
+    if (value.meta !== undefined) out.meta = value.meta;
+    out.cover = mergeCover(out.cover, value.cover);
   }
   return out;
 }
@@ -527,6 +614,16 @@ function normalizePathEntry(raw, where, inherited, layouts, explicitType = null)
   ) {
     return { error: `${where}: per-entry running header/footer control currently requires a Markdown page with an h1 anchor.` };
   }
+  const cover = options.cover?.set && options.cover.enabled !== false ? options.cover : null;
+  if (cover && format === "html") {
+    return { error: `${where}: a chapter cover page requires a Markdown page (raw-HTML inserts have no frontmatter).` };
+  }
+  if (cover && kind !== "chapter") {
+    return { error: `${where}: a chapter cover page applies to chapters only.` };
+  }
+  if (cover?.bleed && options.navigation.outline === false) {
+    return { error: `${where}: cover.bleed requires navigation.outline: true (page lookup uses the chapter heading).` };
+  }
   return {
     kind,
     role: kind,
@@ -538,7 +635,9 @@ function normalizePathEntry(raw, where, inherited, layouts, explicitType = null)
     toc: options.navigation.toc === false ? false : (options.navigation.label ?? null),
     navigation: options.navigation,
     flow: options.flow,
-    running: options.running
+    running: options.running,
+    meta: options.meta,
+    cover
   };
 }
 

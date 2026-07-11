@@ -421,3 +421,64 @@ test("css: override block mirrors margins, emits page height, restores :first", 
   // 无封面：第一页恢复正常边距
   assert.match(css, /@page :first \{\n {2}margin: 17mm 16mm 19mm 16mm;\n\}/);
 });
+
+test("frontmatter context: derived keys, dates, lists, placeholders", async () => {
+  const { frontmatterContext, resolveFmPlaceholders } = await import("../scripts/lib/frontmatter.mjs");
+  const fm = frontmatterContext(
+    {
+      title: "章题",
+      author: "唐",
+      created: "2026-07-01",
+      updated: "2026-07-11",
+      tags: "a, b/c, #d",
+      status: "draft",
+      rating: 5,
+      done: true
+    },
+    { dateFormat: "YYYY.MM.DD" }
+  );
+  assert.equal(fm.derived.title, "章题");
+  assert.deepEqual(fm.derived.authorsList, ["唐"]);
+  assert.equal(fm.derived.created, "2026.07.01");
+  assert.equal(fm.derived.modified, "2026.07.11"); // updated 别名
+  assert.deepEqual(fm.derived.tagsList, ["a", "b/c", "d"]); // 逗号拆分 + 去 #
+  assert.equal(fm.values.rating, "5");
+  assert.equal(fm.values.done, "true");
+  assert.equal(fm.values.author, "唐");
+  assert.equal(fm.values.modified, "2026.07.11");
+
+  const warned = [];
+  const out = resolveFmPlaceholders(
+    "{{fm.status}} · {{frontmatter.modified}} · {{fm.missing}} · {{page}}",
+    fm.values,
+    { warn: (m) => warned.push(m) }
+  );
+  assert.equal(out, "draft · 2026.07.11 ·  · {{page}}"); // 其余占位符原样保留
+  assert.equal(warned.length, 1);
+  assert.match(warned[0], /"missing"/);
+});
+
+test("chapters entries: v3 meta and cover keys normalize and validate", () => {
+  const withMeta = normalizeChapterEntry({ path: "a.md", meta: ["authors", "modified"] });
+  assert.deepEqual(withMeta.meta, ["authors", "modified"]);
+  assert.equal(normalizeChapterEntry({ path: "a.md", meta: false }).meta, false);
+  assert.match(normalizeChapterEntry({ path: "a.md", meta: [""] }).error ?? "", /non-empty/);
+
+  const withCover = normalizeChapterEntry({
+    path: "a.md",
+    cover: { background: "#123", bleed: true, meta: ["更新 {{fm.modified}}"] }
+  });
+  assert.equal(withCover.cover.enabled, true);
+  assert.equal(withCover.cover.bleed, true);
+  assert.deepEqual(withCover.cover.metaLines, ["更新 {{fm.modified}}"]);
+  assert.equal(normalizeChapterEntry({ path: "a.md", cover: false }).cover, null);
+  assert.match(normalizeChapterEntry({ path: "p.html", cover: true }).error ?? "", /Markdown page/);
+  assert.match(
+    normalizeChapterEntry({ path: "a.md", as: "insert", cover: true }).error ?? "",
+    /chapters only/
+  );
+  assert.match(
+    normalizeChapterEntry({ path: "a.md", cover: { oops: 1 } }).error ?? "",
+    /unknown key/
+  );
+});

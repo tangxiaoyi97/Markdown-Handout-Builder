@@ -1,3 +1,12 @@
+---
+title: "命令行与流水线"
+authors:
+  - "Markdown Handout Builder"
+created: 2026-07-11
+modified: 2026-07-11
+tags:
+  - guide/cli
+---
 # 02 · 命令行与流水线
 
 所有命令均可用 `mhb <命令>` 或 `npx markdown-handout-builder <命令>` 调用；`mdhb` 是等价别名。默认读取当前目录的 `book.yml`，任何命令都接受 `--config <file>` 指向别处。
@@ -57,7 +66,7 @@ RUNNING 列的记号：`+H/+F` 继承全局页眉/页脚；`-H` / `-F` 该章关
 
 ## pdf：官方打印管线
 
-`mhb pdf` 打开各主题 HTML，切换打印介质渲染 PDF。页码回填、计页剔除、封面/封底/出血覆盖、每章 running 策略、元数据与书签的完整机制见第 09 章。
+`mhb pdf` 打开各主题 HTML，切换打印介质渲染 PDF。页码回填、计页剔除、封面/封底/出血覆盖、每章 running 策略、元数据与书签的完整机制见第 10 章。
 
 ## serve：本地预览
 

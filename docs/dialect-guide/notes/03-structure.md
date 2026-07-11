@@ -1,3 +1,12 @@
+---
+title: "文档结构语言"
+authors:
+  - "Markdown Handout Builder"
+created: 2026-07-11
+modified: 2026-07-11
+tags:
+  - guide/structure
+---
 # 03 · 文档结构语言
 
 文档顺序由 `book.yml` 里的 **`chapters:`（紧凑形）** 或 **`structure:`（语义形）** 声明。两者**二选一**，同时出现是错误；它们归一化为同一套扁平渲染序列，因此紧凑形能做的，语义形都能做，反之亦然。整份清单也可以外置：`chapters: chapters.yml`（或 `structure: structure.yml`），指向一个 YAML 列表文件。

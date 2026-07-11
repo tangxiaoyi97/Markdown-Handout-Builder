@@ -1,3 +1,12 @@
+---
+title: "Layouts、分页与导航"
+authors:
+  - "Markdown Handout Builder"
+created: 2026-07-11
+modified: 2026-07-11
+tags:
+  - guide/structure
+---
 # 04 · Layouts、分页与导航
 
 ## 命名 layouts

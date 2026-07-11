@@ -1,4 +1,13 @@
-# 06 · Obsidian 方言：启用与解析模型
+---
+title: "Obsidian 方言"
+authors:
+  - "Markdown Handout Builder"
+created: 2026-07-11
+modified: 2026-07-11
+tags:
+  - guide/obsidian
+---
+# 07 · Obsidian 方言：启用与解析模型
 
 Obsidian 方言让 mhb 直接从一个 Obsidian vault 出版：wikilink、transclusion、properties、callouts、标签、Mermaid 与官方附件类型全部静态渲染进 HTML 与 PDF。**默认不启用**——默认方言保持严格、可移植的 Markdown。
 
@@ -49,4 +58,4 @@ markdown:
 
 ## 与结构语言的关系
 
-方言与第 03–05 章的结构能力完全正交：Obsidian 书同样可用 `structure:`、layouts、divider、running 策略——本仓库的《Obsidian 语法 Showcase》即混用两者（方言 + 出血隔页）。
+方言与第 03–06 章的结构与 frontmatter 能力完全正交：Obsidian 书同样可用 `structure:`、layouts、divider、running 策略——本仓库的《Obsidian 语法 Showcase》即混用两者（方言 + 出血隔页）。

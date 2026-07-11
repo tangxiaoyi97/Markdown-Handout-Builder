@@ -59,8 +59,15 @@ import { buildOverrideCss, assembleInlineCss } from "./lib/css.mjs";
 import {
   CONTENTS_SLOT_MARKER,
   dividerSectionHtml,
-  blankSectionHtml
+  blankSectionHtml,
+  chapterMetaHtml,
+  chapterCoverHtml
 } from "./lib/special-pages.mjs";
+import {
+  parseFrontmatter,
+  frontmatterContext,
+  resolveFmPlaceholders
+} from "./lib/frontmatter.mjs";
 
 const require = createRequire(import.meta.url);
 
@@ -104,6 +111,40 @@ if (dialectCfg.errors.length > 0) {
   process.exit(1);
 }
 const dialectVault = createDialectVault(dialectCfg);
+
+/* ---------- Frontmatter 集成（v3，方言无关） ---------- */
+
+const fmCfg = book.frontmatter ?? {};
+const fmTitleAsHeading = fmCfg.title_as_heading === true;
+const fmGlobalMeta = Array.isArray(fmCfg.meta) ? fmCfg.meta : false;
+const fmLabels = { created: "Created", modified: "Updated", ...(fmCfg.labels ?? {}) };
+const fmDatesFallback = String(fmCfg.dates?.fallback_modified ?? "none");
+
+// {{fm.*}} 缺键告警去重（每文件每键一次）
+const warnedFmMessages = new Set();
+function fmWarn(file) {
+  return (message) => {
+    const dedupeKey = `${file}: ${message}`;
+    if (warnedFmMessages.has(dedupeKey)) return;
+    warnedFmMessages.add(dedupeKey);
+    console.warn(`Warning: ${file}: ${message}`);
+  };
+}
+
+// running 槽位里的 {{fm.*}} 在构建期按本章 frontmatter 解析；
+// 其余占位符（{{page}} 等）留给官方 PDF 管线。
+function resolveRunningFm(running, values, warn) {
+  const band = (value) =>
+    value && typeof value === "object"
+      ? Object.fromEntries(
+          Object.entries(value).map(([slot, template]) => [
+            slot,
+            resolveFmPlaceholders(template, values, { warn })
+          ])
+        )
+      : value;
+  return { ...running, header: band(running.header), footer: band(running.footer) };
+}
 
 const title = book.title ? String(book.title) : "Untitled Handout";
 const subtitle = book.subtitle ? String(book.subtitle) : "";
@@ -648,6 +689,7 @@ function buildTheme(theme) {
   }
 
   let dividerSeq = 0;
+  let coverSeq = 0;
   let hasInFlowContents = false;
   const hasPerEntryRunningPolicy = chapterEntries.some(
     (entry) => entry.running?.custom
@@ -762,6 +804,33 @@ function buildTheme(theme) {
       process.exit(1);
     }
 
+    // v3：frontmatter 上下文（方言无关）。标准方言同样剥离 YAML 头——
+    // 此前它会作为字面 Markdown 泄漏进正文。
+    const parsedFm = parseFrontmatter(source);
+    if (!dialect && parsedFm.error) {
+      console.warn(
+        `Warning: invalid frontmatter in ${entry.file} (${parsedFm.error}); rendering without it`
+      );
+    }
+    const fm = frontmatterContext(parsedFm.data, {
+      dateFormat,
+      filePath: absPath,
+      fallbackModified: fmDatesFallback
+    });
+
+    // title_as_heading：无一级标题的章节以 fm.title 注入 h1（锚点/目录/
+    // 书签/running 锚点全部照常生成）。已有 h1 的章节不受影响。
+    let fmBody = parsedFm.body;
+    if (
+      fmTitleAsHeading &&
+      fm.derived.title &&
+      !/^ {0,3}#(?!#)\s+\S/m.test(fmBody) &&
+      !/^\S.*\r?\n {0,3}=+\s*$/m.test(fmBody)
+    ) {
+      fmBody = `# ${fm.derived.title}\n\n${fmBody}`;
+      source = source.slice(0, source.length - parsedFm.body.length) + fmBody;
+    }
+
     // docId 用于给脚注 ID 加章节前缀，避免跨章节 ID 冲突
     const env = {
       docId: `ch${i + 1}`,
@@ -771,9 +840,12 @@ function buildTheme(theme) {
         : {})
     };
     const headingStart = tocEntries.length;
+    // 方言路径消费完整 source（自行剥离头部）；标准方言渲染剥离后的正文
     const dialectRender = dialect ? renderDialectSource(source, env) : null;
-    let bodyHtml = dialectRender?.html ?? md.render(source, env);
+    let bodyHtml = dialectRender?.html ?? md.render(fmBody, env);
     const sectionHeadingId = tocEntries[headingStart]?.id ?? "";
+    const chapterH1Title =
+      tocEntries[headingStart]?.level === 1 ? tocEntries[headingStart].title : "";
     if (
       !sectionHeadingId &&
       entry.running?.custom
@@ -784,20 +856,28 @@ function buildTheme(theme) {
       );
     }
 
+    // 章标题下方的 frontmatter byline（meta band），其后是可选的章节小目录。
+    const metaKeys = isInsert ? false : entry.meta !== undefined ? entry.meta : fmGlobalMeta;
+    const metaBand =
+      Array.isArray(metaKeys) && metaKeys.length > 0
+        ? chapterMetaHtml(metaKeys, fm, { labels: fmLabels })
+        : "";
+
     // Optional per-chapter mini TOC, inserted right after the chapter's h1.
     const wantChapterToc =
       !isInsert && (entry.chapterToc === null ? chapterTocDefault : entry.chapterToc);
-    if (wantChapterToc) {
-      const miniToc = buildChapterToc(tocEntries.slice(headingStart), {
-        title: chapterTocTitle,
-        depth: chapterTocDepth,
-        className: chapterTocClass
-      });
-      if (miniToc) {
-        bodyHtml = /<\/h1>/.test(bodyHtml)
-          ? bodyHtml.replace("</h1>", `</h1>\n${miniToc}`)
-          : miniToc + bodyHtml;
-      }
+    const miniToc = wantChapterToc
+      ? buildChapterToc(tocEntries.slice(headingStart), {
+          title: chapterTocTitle,
+          depth: chapterTocDepth,
+          className: chapterTocClass
+        })
+      : "";
+    const afterH1 = [metaBand, miniToc].filter(Boolean).join("\n");
+    if (afterH1) {
+      bodyHtml = /<\/h1>/.test(bodyHtml)
+        ? bodyHtml.replace("</h1>", `</h1>\n${afterH1}`)
+        : afterH1 + bodyHtml;
     }
 
     // 主目录控制：insert 页与 toc: false 的章节不进主目录（锚点与 PDF
@@ -823,6 +903,62 @@ function buildTheme(theme) {
       bodyHtml = bodyHtml.replace(/<h([1-6])\b(?![^>]*\brole=)/g, '<h$1 role="paragraph"');
     }
 
+    // 章节 cover 页：正文前的一整页，内容取自 frontmatter（缺省回退章 h1）。
+    // 先构建、先推入，使其位于章节 section 之前；若为首个正文条目，
+    // cover 消费 hb-lead（紧随封面/目录，不产生空页）。
+    if (entry.cover) {
+      coverSeq += 1;
+      const warn = fmWarn(entry.file);
+      const coverTitle =
+        entry.cover.title !== undefined
+          ? resolveFmPlaceholders(entry.cover.title, fm.values, { warn })
+          : fm.derived.title || chapterH1Title;
+      const coverSubtitle =
+        entry.cover.subtitle !== undefined
+          ? resolveFmPlaceholders(entry.cover.subtitle, fm.values, { warn })
+          : fm.derived.subtitle;
+      let metaLines;
+      let coverTags = [];
+      if (entry.cover.metaLines) {
+        metaLines = entry.cover.metaLines
+          .map((line) => resolveFmPlaceholders(line, fm.values, { warn }).trim())
+          .filter(Boolean);
+      } else {
+        // 默认元信息：作者行 + 创建/更新行 + 标签胶囊
+        const dateBits = [
+          fm.derived.created && `${fmLabels.created ?? "Created"} ${fm.derived.created}`,
+          fm.derived.modified && `${fmLabels.modified ?? "Updated"} ${fm.derived.modified}`
+        ].filter(Boolean);
+        metaLines = [
+          fm.derived.authorsList.join(", "),
+          dateBits.join(" · ")
+        ].filter(Boolean);
+        coverTags = fm.derived.tagsList;
+      }
+      if (entry.cover.bleed && !sectionHeadingId) {
+        warn("cover.bleed needs the chapter's top-level heading anchor; rendering without full bleed");
+      }
+      sections.push(
+        chapterCoverHtml(
+          { ...entry.cover, bleed: Boolean(entry.cover.bleed && sectionHeadingId) },
+          {
+            seq: coverSeq,
+            anchorId: sectionHeadingId,
+            title: coverTitle,
+            subtitle: coverSubtitle,
+            metaLines,
+            tags: coverTags,
+            lead: leadClass()
+          }
+        )
+      );
+    }
+
+    // running 槽位中的 {{fm.*}} 按本章 frontmatter 在构建期解析
+    const entryForAttrs = entry.running?.custom
+      ? { ...entry, running: resolveRunningFm(entry.running, fm.values, fmWarn(entry.file)) }
+      : entry;
+
     const cls = [
       isInsert ? "insert" : "chapter",
       entry.className,
@@ -833,7 +969,7 @@ function buildTheme(theme) {
       .join(" ");
     const dataAttr = isInsert ? "data-entry" : "data-chapter";
     sections.push(
-      `<section class="${cls}${leadClass()}" ${dataAttr}="${i + 1}"${entryDataAttributes(entry, sectionHeadingId)}>\n${wrapWithRunningHeader(bodyHtml)}</section>`
+      `<section class="${cls}${leadClass()}" ${dataAttr}="${i + 1}"${entryDataAttributes(entryForAttrs, sectionHeadingId)}>\n${wrapWithRunningHeader(bodyHtml)}</section>`
     );
   });
 

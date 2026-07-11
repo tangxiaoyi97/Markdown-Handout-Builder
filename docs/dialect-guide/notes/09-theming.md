@@ -1,4 +1,13 @@
-# 08 · 主题、样式与封面
+---
+title: "主题、样式与封面"
+authors:
+  - "Markdown Handout Builder"
+created: 2026-07-11
+modified: 2026-07-11
+tags:
+  - guide/theming
+---
+# 09 · 主题、样式与封面
 
 ## style —— 全局样式入口
 
