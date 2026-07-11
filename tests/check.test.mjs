@@ -240,6 +240,121 @@ chapters:
   assert.match(r2.stderr, /in-flow contents page is always counted/);
 });
 
+test("structure DSL validation: layouts, includes, flow, and outline constraints", async () => {
+  const valid = await makeFixture({
+    "book.yml": `title: T
+layouts:
+  base:
+    class: base-layout
+  compact:
+    extends: base
+    flow:
+      break_before: auto
+structure:
+  - type: part
+    title: P
+    children:
+      - include: part.yml
+`,
+    "part.yml": "- type: chapter\n  path: notes/a.md\n  layout: compact\n",
+    "notes/a.md": "# A\n"
+  });
+  const ok = await runScript("check.mjs", { cwd: valid });
+  assert.equal(ok.code, 0, ok.stderr);
+
+  const invalid = await makeFixture({
+    "book.yml": `title: T
+layouts:
+  a: { extends: b }
+  b: { extends: a }
+structure:
+  - type: chapter
+    path: notes/a.md
+    flow: { break_before: recto }
+  - type: chapter
+    path: notes/b.md
+    navigation: { outline: false }
+  - include: missing.yml
+`,
+    "notes/a.md": "# A\n",
+    "notes/b.md": "# B\n"
+  });
+  const bad = await runScript("check.mjs", { cwd: invalid });
+  assert.equal(bad.code, 1);
+  assert.match(bad.stderr, /layout inheritance cycle/);
+  assert.match(bad.stderr, /break_before must be "auto" or "page"/);
+  assert.match(bad.stderr, /outline: false currently requires navigation\.toc: false/);
+  assert.match(bad.stderr, /include file not found/);
+});
+
+test("per-entry running policy requires an isolated, outline-addressable Markdown chapter", async () => {
+  const dir = await makeFixture({
+    "book.yml": `title: T
+structure:
+  - type: chapter
+    path: notes/a.md
+    flow: { break_before: auto }
+    running: { footer: false }
+  - type: chapter
+    path: notes/b.md
+    navigation: { toc: false, outline: false }
+    running: { header: false }
+output: { html: dist/a.html, pdf: dist/a.pdf }
+`,
+    "notes/a.md": "# A\n",
+    "notes/b.md": "# B\n"
+  });
+  const result = await runScript("check.mjs", { cwd: dir });
+  assert.equal(result.code, 1);
+  assert.match(result.stderr, /requires flow\.break_before: page/);
+  assert.match(result.stderr, /requires navigation\.outline: true/);
+});
+
+test("per-entry running policy requires a top-level Markdown heading anchor", async () => {
+  const dir = await makeFixture({
+    "book.yml": `title: T
+structure:
+  - type: chapter
+    path: notes/a.md
+    running: { footer: false }
+output: { html: dist/a.html, pdf: dist/a.pdf }
+`,
+    "notes/a.md": "No top-level heading.\n"
+  });
+  const result = await runScript("check.mjs", { cwd: dir });
+  assert.equal(result.code, 1);
+  assert.match(result.stderr, /requires a top-level Markdown heading/);
+});
+
+test("per-entry running content validates slots/style and warns on unknown placeholders", async () => {
+  const invalid = await makeFixture({
+    "book.yml": `title: T
+structure:
+  - path: notes/a.md
+    running:
+      header: { middle: "No such slot" }
+      style: { color: 123 }
+`,
+    "notes/a.md": "# A\n"
+  });
+  const bad = await runScript("check.mjs", { cwd: invalid });
+  assert.equal(bad.code, 1);
+  assert.match(bad.stderr, /unknown slot\(s\) middle/);
+
+  const warning = await makeFixture({
+    "book.yml": `title: T
+structure:
+  - path: notes/a.md
+    running:
+      footer: { right: "{{mystery}}" }
+`,
+    "notes/a.md": "# A\n"
+  });
+  const checked = await runScript("check.mjs", { cwd: warning });
+  assert.equal(checked.code, 0, checked.stderr);
+  assert.match(checked.stderr, /unknown placeholder \{\{mystery\}\}/);
+});
+
 test("missing custom_css and cover component fail", async () => {
   const dir = await makeFixture({
     "book.yml":

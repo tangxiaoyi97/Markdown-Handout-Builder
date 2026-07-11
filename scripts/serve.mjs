@@ -19,6 +19,7 @@ import path from "node:path";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import YAML from "yaml";
+import { normalizeChapters } from "./lib/chapters.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const buildScript = path.join(scriptDir, "build.mjs");
@@ -80,6 +81,7 @@ function rebuild(reason) {
     building = false;
     if (code === 0) {
       version += 1;
+      refreshStructureDependencyWatchers();
       console.log(`[serve] build ok — browser will reload (v${version})`);
     } else {
       console.error("[serve] build failed — fix the error and save again");
@@ -118,6 +120,42 @@ watchDir(userTemplatesDir, "templates");
 fs.watch(baseDir, (_event, filename) => {
   if (filename === path.basename(configPath)) onChange(path.basename(configPath));
 });
+
+// External structure files and recursive include files are not necessarily
+// under notes/. Watch their exact paths without watching the whole project
+// tree (which would rebuild again when dist/ changes).
+const dependencyWatchers = new Map();
+function refreshStructureDependencyWatchers() {
+  let currentBook;
+  try {
+    currentBook = YAML.parse(fs.readFileSync(configPath, "utf8")) ?? {};
+  } catch {
+    return; // the next successful build will refresh the watcher graph
+  }
+  const files = normalizeChapters(currentBook, baseDir).dependencies ?? [];
+  const groups = new Map();
+  for (const file of files) {
+    const dir = path.dirname(file);
+    if (!groups.has(dir)) groups.set(dir, new Set());
+    groups.get(dir).add(path.basename(file));
+  }
+  for (const record of dependencyWatchers.values()) record.names = new Set();
+  for (const [dir, names] of groups) {
+    const existing = dependencyWatchers.get(dir);
+    if (existing) {
+      existing.names = names;
+      continue;
+    }
+    const record = { names, watcher: null };
+    record.watcher = fs.watch(dir, (_event, filename) => {
+      if (filename && record.names.has(String(filename))) {
+        onChange(`structure/${filename}`);
+      }
+    });
+    dependencyWatchers.set(dir, record);
+  }
+}
+refreshStructureDependencyWatchers();
 
 /* ---------- 静态服务器 + 热刷新 ---------- */
 
@@ -198,7 +236,7 @@ server.listen(port, () => {
   console.log("");
   console.log(`[serve] http://localhost:${port}/            （首页）`);
   console.log(`[serve] http://localhost:${port}/handout.html（讲义）`);
-  console.log("[serve] watching: notes/, templates/, book.yml — 保存后自动重建并刷新浏览器");
+  console.log("[serve] watching: notes/, templates/, book.yml, structure includes — 保存后自动重建并刷新浏览器");
   console.log('[serve] 提示：PDF 不会自动重建，需要时另行运行 "npm run pdf"');
   console.log("");
 });

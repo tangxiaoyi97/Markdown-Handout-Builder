@@ -1,78 +1,156 @@
-# Chapters and Page Layout
+# Document Structure and Page Layout
 
-The `chapters` list controls both the order of the handout and the role of each page. Every entry is a file path — never a free label — and its extension decides what it becomes, so a mistyped path is caught by `check` instead of silently turning into a blank page.
+`chapters:` remains the shortest way to order a simple handout. For a book with front matter, parts, includes, reusable layouts, or per-chapter page policies, use `structure:`. The two spellings are mutually exclusive and normalize to the same linear renderer sequence.
 
-## Two Kinds of Entry
+## Compact Chapters
 
-A `.md` (or `.markdown`) file is a **chapter**: it is rendered from Markdown, joins the table of contents and the PDF bookmarks, and starts on a new page. A preface, an afterword, or an appendix is just an ordinary Markdown chapter.
-
-A `.html` (or `.htm`) file is an **insert**: a trusted raw-HTML page for layout that Markdown cannot express — a part divider, a full-bleed diagram, a colophon. It is dropped in verbatim (placeholders such as `{{title}}` and `{{date}}` are filled) and, like a chapter, gets its own page.
-
-```yaml
-chapters:
-  - notes/00-overview.md      # chapter
-  - notes/01-quickstart.md
-  - notes/interlude.html      # raw-HTML insert page
-  - notes/02-writing.md
-```
-
-## Per-Entry Options
-
-Most entries are a bare path. When an entry needs more, write it as a mapping with a `path` key. The extension still decides its role, so there is only ever one rule to remember.
+A Markdown file is a rendered chapter; an HTML file is a trusted insert. Existing configurations remain unchanged:
 
 ```yaml
 chapters:
   - notes/00-overview.md
   - path: notes/02-writing.md
-    class: deep-dive          # extra CSS class on the <section>
-    chapter_toc: true         # this chapter opens with a mini table of contents
+    class: deep-dive
+    chapter_toc: true
+  - notes/colophon.html
 ```
 
-`class` adds stable style hooks — a chapter becomes `<section class="chapter deep-dive">`, an insert `<section class="insert ...">` — that you can target from a `custom_css` file.
+## Semantic Structure
 
-## Chapter Mini Tables of Contents
-
-Set `chapter_toc: true` on a chapter to open it with an automatically built list of its own sub-headings — handy for long chapters. This very chapter uses one. The list is an isolated `<nav class="chapter-toc">`, styled independently of the main contents page, and in the PDF each row gets a real page number from the same numbering pass as the main table of contents.
-
-Turn it on everywhere, or tune its look, from the top level:
+The long form uses an explicit discriminator and can represent the whole document flow:
 
 ```yaml
-chapter_toc:
-  default: false              # per-chapter default (true = on for every chapter)
-  title: "In this chapter"    # heading above each mini table of contents
-  depth: 3                    # include heading levels 2..3
-  class: ""                   # extra CSS class on every chapter-toc
+structure:
+  - type: insert
+    path: front/preface.md
+  - type: contents
+  - type: part
+    title: "Part One"
+    navigation:
+      label: "I · Foundations"
+      level: 1
+    children:
+      - type: chapter
+        path: notes/01-intro.md
+      - include: parts/foundations.yml
+  - type: blank
+    count: 1
 ```
 
-Because chapter mini-tables live in the body flow, their pages are always counted in the page numbering — only the main contents page can be excluded (see below).
+`part` is semantic, not merely decorative: its divider gets a real heading and PDF bookmark, while child chapters inherit a deeper main-TOC level. Includes are resolved relative to the YAML file that contains them; chapter paths stay relative to `book.yml`. Include cycles and ambiguous entry types fail during `check`.
 
-## Keeping the List in a Separate File
+## Named Layouts
 
-For large handouts the chapter list can live on its own, next to `book.yml`, exactly the way `book.yml` itself does:
+Layouts collect reusable entry defaults. Inheritance is resolved before rendering, and classes from parent and child layouts are combined:
 
 ```yaml
-# book.yml
-chapters: chapters.yml
+layouts:
+  body:
+    class: layout-body
+    chapter_toc: true
+
+  compact:
+    extends: body
+    class: layout-compact
+    flow:
+      break_before: auto
+
+structure:
+  - type: chapter
+    path: notes/short-note.md
+    layout: compact
 ```
+
+Use the stable `data-layout` attribute or generated classes from `style.custom_css`. A layout controls policy and hooks; typography remains CSS, so the configuration does not become a second styling language.
+
+## Flow and Navigation
+
+Pagination and navigation are independent:
 
 ```yaml
-# chapters.yml
-- notes/00-overview.md
-- notes/01-quickstart.md
-- path: notes/02-writing.md
-  chapter_toc: true
+- type: chapter
+  path: notes/appendix.md
+  flow:
+    break_before: page        # page | auto
+    break_after: auto         # page | auto
+  navigation:
+    toc: true
+    label: "Appendix A"
+    level: 2
+    outline: true
 ```
 
-## Front Matter That Is Not Numbered
+`outline: false` currently requires `toc: false`, because the real TOC page-number pass uses PDF outline destinations. Chromium ignores `break-before: recto`; recto/verso starts are therefore not exposed as a misleading option.
 
-Books do not number the cover or the contents page, and neither does this tool when you ask it to. Each front-matter section can stay in the PDF while being excluded from page numbering:
+## A Markdown Chapter Without a Footer
+
+Content rendering and running furniture are separate. This is a normal Markdown chapter whose official PDF pages retain the header but omit the footer:
+
+```yaml
+- type: chapter
+  path: notes/special.md
+  running:
+    footer: false
+```
+
+The chapter must start on a new page and contain one top-level heading. Chromium offers only one global header/footer template, so the final PDF pass maps that heading to its physical page range and repaints only the footer margin band. Body content, links, bookmarks, and page-number calculations stay intact.
+
+The policy can be reused through a layout:
+
+```yaml
+layouts:
+  no-footer:
+    running:
+      footer: false
+
+structure:
+  - type: chapter
+    path: notes/special.md
+    layout: no-footer
+```
+
+## Chapter-Specific Header and Footer Content
+
+A band may be a three-slot mapping instead of a boolean. Only the named slots change; the other slots inherit the global `pdf.header` or `pdf.footer` configuration. The `font_size`, `color`, `font_family`, and `offset` style values likewise inherit from `pdf.header_footer_style`:
+
+```yaml
+- type: chapter
+  path: notes/special.md
+  running:
+    header:
+      center: "{{chapterTitle}}"
+    footer:
+      left: "Internal draft"
+      center: "{{page}} / {{total}}"
+      right: "Chapter A"
+    style:
+      font_size: "8px"
+      color: "#667085"
+```
+
+The chapter-local placeholders `{{chapterTitle}}` and `{{sectionTitle}}` both resolve to the entry's top-level heading. Every global placeholder remains available, and page placeholders use logical numbering even when the cover, main contents, or back cover is excluded from the count. Layout inheritance deep-merges `header`, `footer`, and `style`, so a child layout can replace one slot without repeating the rest. With `pdf.header_footer: false`, an explicitly configured chapter `header` or `footer` opts only that band back in; omitted bands remain off.
+
+## Inspect Before Rendering
+
+Use the normalized view when a book has nested parts or includes:
+
+```bash
+mhb inspect
+mhb inspect --json
+```
+
+The table shows every flattened entry, resolved layout, page-break policy, TOC/outline status, running header/footer status, and source path.
+
+## Front-Matter Numbering
+
+Front matter can remain in the PDF without joining logical body numbering:
 
 ```yaml
 pdf:
   page_numbers:
-    count_cover: false        # cover stays, numbering starts after it
-    count_toc: false          # the contents page carries no number
-    count_back_cover: false   # back cover excluded from the total
+    count_cover: false
+    count_toc: false
+    count_back_cover: false
 ```
 
-With both `count_cover` and `count_toc` off, the body starts at page 1 and the contents page still shows those real numbers — the conventional layout for a printed handout.
+Chapter mini-TOCs remain body content and are always counted.

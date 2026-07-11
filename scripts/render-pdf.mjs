@@ -121,8 +121,12 @@ function normalizePageNumberFormat(value) {
 
 function renderHeaderFooterContent(template, values) {
   return String(template ?? "").replace(/\{\{(\w+)\}\}/g, (whole, key) => {
-    if (key === "page") return '<span class="pageNumber"></span>';
-    if (key === "total") return '<span class="totalPages"></span>';
+    if (key === "page" && values.page === undefined) {
+      return '<span class="pageNumber"></span>';
+    }
+    if (key === "total" && values.total === undefined) {
+      return '<span class="totalPages"></span>';
+    }
     return Object.hasOwn(values, key) ? escapeHtml(values[key]) : whole;
   });
 }
@@ -144,7 +148,12 @@ function slotTemplate(slots, values, style) {
   );
 }
 
-function buildHeaderFooterTemplates(pdfCfg, theme, pageMargin) {
+function buildHeaderFooterTemplates(
+  pdfCfg,
+  theme,
+  pageMargin,
+  { running = null, pageNumber, totalPages, chapterTitle = "" } = {}
+) {
   const pageNumbers = pdfCfg.page_numbers ?? {};
   const pageFormat = normalizePageNumberFormat(pageNumbers.format ?? "{{page}} / {{total}}");
   const displayDate = formatDate(rawDate, pdfCfg.date_format ?? baseDateFormat);
@@ -158,10 +167,17 @@ function buildHeaderFooterTemplates(pdfCfg, theme, pageMargin) {
     version: bookVersion,
     commit: gitCommit,
     lang: language,
-    theme: theme.label || theme.name || ""
+    theme: theme.label || theme.name || "",
+    chapterTitle,
+    sectionTitle: chapterTitle
   };
+  if (pageNumber !== undefined) values.page = pageNumber;
+  if (totalPages !== undefined) values.total = totalPages;
 
-  const styleCfg = pdfCfg.header_footer_style ?? {};
+  const styleCfg = {
+    ...(pdfCfg.header_footer_style ?? {}),
+    ...(running?.style ?? {})
+  };
   const style = {
     fontFamily: sanitizeCssValue(styleCfg.font_family ?? hfFontFamily),
     fontSize: sanitizeCssValue(styleCfg.font_size ?? "8.5px"),
@@ -175,18 +191,28 @@ function buildHeaderFooterTemplates(pdfCfg, theme, pageMargin) {
   const left = sanitizeCssValue(pageMargin.left);
   const right = sanitizeCssValue(pageMargin.right);
 
-  const headerSlots = {
+  let headerSlots = {
     left: "{{title}}",
     center: "",
     right: "{{date}}",
     ...(pdfCfg.header ?? {})
   };
-  const footerSlots = {
+  let footerSlots = {
     left: "",
     center: pageFormat,
     right: "",
     ...(pdfCfg.footer ?? {})
   };
+  if (running?.header === false) {
+    headerSlots = { left: "", center: "", right: "" };
+  } else if (running?.header && typeof running.header === "object") {
+    headerSlots = { ...headerSlots, ...running.header };
+  }
+  if (running?.footer === false) {
+    footerSlots = { left: "", center: "", right: "" };
+  } else if (running?.footer && typeof running.footer === "object") {
+    footerSlots = { ...footerSlots, ...running.footer };
+  }
 
   return {
     headerTemplate: slotTemplate(headerSlots, values, {
@@ -198,6 +224,43 @@ function buildHeaderFooterTemplates(pdfCfg, theme, pageMargin) {
       padding: `0 ${right} ${footerPadBottom} ${left}`
     })
   };
+}
+
+async function renderRunningOverlayBytes(
+  browser,
+  { pdfCfg, theme, pageMargin, running, pageNumber, totalPages, chapterTitle }
+) {
+  const page = await browser.newPage({ viewport: { width: 800, height: 600 } });
+  const pageSize = sanitizeCssValue(pdfCfg.page_size ?? "A4");
+  const margin = sanitizeCssValue(pdfCfg.margin ?? "18mm 16mm 20mm 16mm");
+  await page.setContent(
+    `<!doctype html><html><head><style>` +
+      `@page { size: ${pageSize}; margin: ${margin}; }` +
+      // Keep the overlay page transparent: post-processing first paints the
+      // target band with the real theme background, then adds only this text.
+      `html, body { margin: 0; background: transparent; }` +
+      `</style></head><body><div>&nbsp;</div></body></html>`,
+    { waitUntil: "load" }
+  );
+  await page.emulateMedia({ media: "print" });
+  await page.evaluate(() => document.fonts.ready);
+  const { headerTemplate, footerTemplate } = buildHeaderFooterTemplates(
+    pdfCfg,
+    theme,
+    pageMargin,
+    { running, pageNumber, totalPages, chapterTitle }
+  );
+  const bytes = await page.pdf({
+    preferCSSPageSize: true,
+    printBackground: true,
+    displayHeaderFooter: true,
+    headerTemplate,
+    footerTemplate,
+    outline: false,
+    tagged: false
+  });
+  await page.close();
+  return bytes;
 }
 
 const hfFontFamily =
@@ -293,7 +356,18 @@ async function resolveTocPageNumbers(pdfBuffer, page) {
 
 /* ---------- 后处理：元数据 + 封面/封底无页眉页脚 ---------- */
 
-async function postProcessPdf(filePath, { overlays, themeLabel, pageBackground }) {
+async function postProcessPdf(
+  filePath,
+  {
+    overlays,
+    themeLabel,
+    pageBackground,
+    runningMasks,
+    runningOverlays,
+    runningMaskMargins,
+    runningMaskTailPages = 0
+  }
+) {
   let PDFDocument, rgb, PDFName, PDFArray, PDFRef, PDFRawStream;
   try {
     ({ PDFDocument, rgb, PDFName, PDFArray, PDFRef, PDFRawStream } = await import("pdf-lib"));
@@ -408,6 +482,108 @@ async function postProcessPdf(filePath, { overlays, themeLabel, pageBackground }
     // 白色底防止透出下层，再叠替换页
     page.drawRectangle({ x: 0, y: 0, width, height, color: rgb(1, 1, 1) });
     page.drawPage(embedded, { x: 0, y: 0, width, height });
+  }
+
+  // ---- Per-section running header/footer policy ----
+  // Chromium exposes one global header/footer template for the whole print
+  // job. Sections marked by build.mjs are mapped to physical page ranges via
+  // their h1 outline destinations; suppressing a slot then means repainting
+  // only that page-margin band with the page base color. Body content begins
+  // outside these bands, so no chapter content or link annotation is touched.
+  if (runningMasks?.length) {
+    const base = pageBackground
+      ? rgb(pageBackground.r / 255, pageBackground.g / 255, pageBackground.b / 255)
+      : rgb(1, 1, 1);
+    const mmToPt = (mm) => Number(mm || 0) * 72 / 25.4;
+    const top = mmToPt(runningMaskMargins?.top);
+    const bottom = mmToPt(runningMaskMargins?.bottom);
+    const pages = doc.getPages();
+    const lastBodyIndex = Math.max(-1, pages.length - 1 - runningMaskTailPages);
+
+    for (const mask of runningMasks) {
+      const start = Math.max(0, mask.startIndex);
+      const end = Math.min(
+        lastBodyIndex,
+        mask.endIndex === null || mask.endIndex === undefined ? lastBodyIndex : mask.endIndex
+      );
+      for (let index = start; index <= end; index += 1) {
+        const page = pages[index];
+        if (!page) continue;
+        const { width, height } = page.getSize();
+        if (mask.footer === false && bottom > 0) {
+          page.drawRectangle({ x: 0, y: 0, width, height: bottom, color: base });
+        }
+        if (mask.header === false && top > 0) {
+          page.drawRectangle({ x: 0, y: height - top, width, height: top, color: base });
+        }
+      }
+    }
+  }
+
+  // Custom bands are rendered by Chromium as one-page PDFs, then cropped to
+  // the relevant margin strip. This preserves browser font shaping (including
+  // CJK), HTML escaping, and the exact header/footer flex layout.
+  if (runningOverlays?.length) {
+    const base = pageBackground
+      ? rgb(pageBackground.r / 255, pageBackground.g / 255, pageBackground.b / 255)
+      : rgb(1, 1, 1);
+    const mmToPt = (mm) => Number(mm || 0) * 72 / 25.4;
+    const top = mmToPt(runningMaskMargins?.top);
+    const bottom = mmToPt(runningMaskMargins?.bottom);
+    const pages = doc.getPages();
+
+    for (const overlay of runningOverlays) {
+      const target = pages[overlay.index];
+      if (!target || !overlay.bytes) continue;
+      const sourceDoc = await PDFDocument.load(overlay.bytes, { updateMetadata: false });
+      const source = sourceDoc.getPage(0);
+      const sourceSize = source.getSize();
+      const targetSize = target.getSize();
+
+      if (overlay.footer && bottom > 0) {
+        target.drawRectangle({
+          x: 0,
+          y: 0,
+          width: targetSize.width,
+          height: bottom,
+          color: base
+        });
+        const embedded = await doc.embedPage(source, {
+          left: 0,
+          bottom: 0,
+          right: sourceSize.width,
+          top: Math.min(sourceSize.height, bottom)
+        });
+        target.drawPage(embedded, {
+          x: 0,
+          y: 0,
+          width: targetSize.width,
+          height: bottom
+        });
+      }
+
+      if (overlay.header && top > 0) {
+        target.drawRectangle({
+          x: 0,
+          y: targetSize.height - top,
+          width: targetSize.width,
+          height: top,
+          color: base
+        });
+        const embedded = await doc.embedPage(source, {
+          left: 0,
+          bottom: Math.max(0, sourceSize.height - top),
+          right: sourceSize.width,
+          top: sourceSize.height
+        });
+        target.drawPage(embedded, {
+          x: 0,
+          y: targetSize.height - top,
+          width: targetSize.width,
+          height: top
+        });
+      }
+    }
   }
 
   fs.writeFileSync(filePath, await doc.save());
@@ -604,6 +780,12 @@ async function pageBackgroundFrom(page) {
   return null;
 }
 
+async function pdfPageCount(buffer) {
+  const { PDFDocument } = await import("pdf-lib");
+  const doc = await PDFDocument.load(buffer, { updateMetadata: false });
+  return doc.getPageCount();
+}
+
 // Resolve logical page numbers for every heading by printing once and reading
 // the outline. Returns [{ id, pageNo }] or null. When called on a page whose
 // uncounted sections were removed, the numbers are logical (counting starts
@@ -706,7 +888,25 @@ try {
       bleedSections: Array.from(document.querySelectorAll("[data-hb-bleed]")).map((el) => ({
         selector: `#${el.id}`,
         headingId: el.getAttribute("data-hb-bleed")
-      }))
+      })),
+      runningSections: Array.from(document.querySelectorAll("[data-hb-anchor]")).map((el) => {
+        let running = null;
+        try {
+          running = el.hasAttribute("data-hb-running")
+            ? JSON.parse(el.getAttribute("data-hb-running"))
+            : null;
+        } catch {
+          // build.mjs owns this attribute; a malformed value degrades to globals
+        }
+        const heading = el.querySelector("h1, h2, h3, h4, h5, h6");
+        return {
+          anchorId: el.getAttribute("data-hb-anchor"),
+          header: el.getAttribute("data-hb-running-header") !== "false",
+          footer: el.getAttribute("data-hb-running-footer") !== "false",
+          running,
+          chapterTitle: (heading?.textContent || "").trim()
+        };
+      })
     }));
 
     const hasCover = present.cover && coverEnabled;
@@ -723,8 +923,12 @@ try {
     const excludeCover = hasCover && !countCover;
     const excludeToc = hasMainToc && !countToc;
     const excludeBack = hasBack && !countBackCover;
+    const hasPerEntryRunning = present.runningSections.some(
+      (section) => section.running !== null
+    );
     const useNumberedSubset =
-      (excludeCover || excludeToc || excludeBack) && (withHeaderFooter || doTocNumbers);
+      (excludeCover || excludeToc || excludeBack) &&
+      (withHeaderFooter || doTocNumbers || hasPerEntryRunning);
 
     if (withHeaderFooter && coverHeaderFooter && excludeCover) {
       console.warn(
@@ -782,8 +986,10 @@ try {
 
     fs.mkdirSync(path.dirname(pdfPath), { recursive: true });
 
+    let numberedPageCount = null;
     if (useNumberedSubset) {
       const numberedBytes = await page.pdf(pdfOptions);
+      numberedPageCount = await pdfPageCount(numberedBytes);
       const assembledBytes = await assembleWithExcluded({
         numberedBytes,
         plainBytes,
@@ -806,16 +1012,21 @@ try {
     // 独立单页打印后整页覆盖（与封底同一机线）。定位失败则降级保留
     // 正文流内的内容盒背景，并给出警告。
     const bleedOverlays = [];
-    if (present.bleedSections.length > 0) {
-      const finalBytes = fs.readFileSync(pdfPath);
-      let headingPages = null;
+    const needsRunningRanges = hasPerEntryRunning;
+    let headingPages = null;
+    let finalBytes = null;
+    if (present.bleedSections.length > 0 || needsRunningRanges) {
+      finalBytes = fs.readFileSync(pdfPath);
       try {
         headingPages = await resolveTocPageNumbers(finalBytes, page);
       } catch (err) {
         console.warn(
-          `Warning: cannot map bleed divider pages (${err.message}); keeping in-flow backgrounds.`
+          `Warning: cannot map section pages (${err.message}); ` +
+            "keeping in-flow backgrounds and global running headers/footers."
         );
       }
+    }
+    if (present.bleedSections.length > 0) {
       for (const section of present.bleedSections) {
         const pageNo = headingPages?.find((h) => h.id === section.headingId)?.pageNo;
         if (!pageNo) {
@@ -834,6 +1045,82 @@ try {
       }
     }
 
+    const mappedRunningSections = present.runningSections
+      .map((section) => ({
+        ...section,
+        pageNo: headingPages?.find((heading) => heading.id === section.anchorId)?.pageNo ?? null
+      }))
+      .filter((section) => section.pageNo !== null);
+    const physicalPageCount = finalBytes
+      ? await pdfPageCount(finalBytes)
+      : await pdfPageCount(fs.readFileSync(pdfPath));
+    const excludedCoverPages = excludeCover ? 1 : 0;
+    const excludedBackPages = excludeBack ? 1 : 0;
+    const excludedTocPages = excludeToc
+      ? Math.max(
+          0,
+          physicalPageCount - Number(numberedPageCount ?? physicalPageCount) -
+            excludedCoverPages - excludedBackPages
+        )
+      : 0;
+    const logicalPageCount = Number(numberedPageCount ?? physicalPageCount);
+    const logicalPageNumber = (physicalPageNo) =>
+      physicalPageNo -
+      (excludeCover && physicalPageNo > 1 ? 1 : 0) -
+      (excludeToc && physicalPageNo > (hasCover ? 1 : 0) + excludedTocPages
+        ? excludedTocPages
+        : 0);
+    const runningMasks = [];
+    const runningOverlays = [];
+    for (let index = 0; index < mappedRunningSections.length; index += 1) {
+      const section = mappedRunningSections[index];
+      const next = mappedRunningSections[index + 1];
+      const profile = section.running;
+      if (!profile) continue;
+      const startPage = section.pageNo;
+      const endPage = next
+        ? Math.max(startPage, next.pageNo - 1)
+        : Math.max(startPage, physicalPageCount - (hasBack ? 1 : 0));
+      if (withHeaderFooter && (profile.header === false || profile.footer === false)) {
+        runningMasks.push({
+          startIndex: startPage - 1,
+          endIndex: endPage - 1,
+          header: profile.header,
+          footer: profile.footer
+        });
+      }
+
+      const hasStyleOverride = Object.keys(profile.style ?? {}).length > 0;
+      const overlayHeader =
+        profile.header !== false &&
+        (withHeaderFooter
+          ? hasStyleOverride || Boolean(profile.header && typeof profile.header === "object")
+          : Boolean(profile.headerSet));
+      const overlayFooter =
+        profile.footer !== false &&
+        (withHeaderFooter
+          ? hasStyleOverride || Boolean(profile.footer && typeof profile.footer === "object")
+          : Boolean(profile.footerSet));
+      if (!overlayHeader && !overlayFooter) continue;
+
+      for (let physicalPageNo = startPage; physicalPageNo <= endPage; physicalPageNo += 1) {
+        runningOverlays.push({
+          index: physicalPageNo - 1,
+          bytes: await renderRunningOverlayBytes(browser, {
+            pdfCfg,
+            theme,
+            pageMargin,
+            running: profile,
+            pageNumber: logicalPageNumber(physicalPageNo),
+            totalPages: logicalPageCount,
+            chapterTitle: section.chapterTitle
+          }),
+          header: overlayHeader,
+          footer: overlayFooter
+        });
+      }
+    }
+
     const overlays = [];
     if (coverNeedsCleanOverlay && plainBytes) {
       overlays.push({ index: 0, bytes: plainBytes, srcIndex: 0 });
@@ -846,7 +1133,14 @@ try {
     await postProcessPdf(pdfPath, {
       overlays,
       themeLabel: theme.isDefault ? "" : theme.label || theme.name,
-      pageBackground
+      pageBackground,
+      runningMasks,
+      runningOverlays,
+      runningMaskMargins: {
+        top: cssLengthToMm(pageMargin.top),
+        bottom: cssLengthToMm(pageMargin.bottom)
+      },
+      runningMaskTailPages: hasBack ? 1 : 0
     });
 
     await page.close();

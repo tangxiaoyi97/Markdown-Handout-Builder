@@ -1,7 +1,8 @@
 # =============================================================
+# yaml-language-server: $schema=./book.schema.json
 # book.example.yml - annotated configuration template
 # Copy the fields you need into book.yml.
-# Everything except title, chapters, and output is optional.
+# Everything except title, one of chapters/structure, and output is optional.
 # Commented values document the defaults or common choices.
 # =============================================================
 
@@ -51,6 +52,49 @@ chapters:                                # Required: order + role of each page.
   #                                      # an in-flow TOC is always page-counted)
   # The whole list may instead live in its own file, like book.yml:
   #   chapters: chapters.yml             # a .yml/.yaml list (or a {chapters:} map)
+
+# For richer books, replace the active `chapters:` block above with
+# `structure:`. Both forms are supported, but they cannot appear together.
+# Named layouts are reusable defaults; parts inherit defaults and flatten into
+# the same linear renderer sequence. Includes may nest and are cycle-checked.
+#
+# layouts:
+#   body:
+#     class: layout-body
+#     chapter_toc: true
+#   no-footer:
+#     extends: body
+#     running:
+#       footer: false
+#   chapter-running:
+#     extends: body
+#     running:                            # Unspecified slots inherit global pdf.*
+#       header:
+#         center: "{{chapterTitle}}"
+#       footer:
+#         left: "Internal draft"
+#         right: "Chapter A"
+#       style:                            # Field-wise override of header_footer_style
+#         font_size: "8px"
+#         color: "#667085"
+#
+# structure:
+#   - type: insert
+#     path: front/preface.md
+#   - type: contents
+#   - type: part
+#     title: "Part One"
+#     navigation: { label: "I · Foundations", level: 1 }
+#     defaults: { layout: body }
+#     children:
+#       - type: chapter
+#         path: notes/00-intro.md
+#       - include: parts/foundations.yml
+#   - type: chapter
+#     path: notes/appendix.md
+#     layout: chapter-running             # Or no-footer
+#     flow: { break_before: page, break_after: auto }
+#     navigation: { label: "Appendix A", level: 1 }
 
 output:                                  # Output paths
   html: dist/handout.html                # Non-default themes append .<theme>

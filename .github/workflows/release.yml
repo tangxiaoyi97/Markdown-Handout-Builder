@@ -99,6 +99,12 @@ jobs:
           node bin/mhb.mjs build --config docs/obsidian-showcase/book.yml
           node bin/mhb.mjs pdf --config docs/obsidian-showcase/book.yml
 
+      - name: Build dialect guide (check + build + pdf)
+        run: |
+          node bin/mhb.mjs check --config docs/dialect-guide/book.yml
+          node bin/mhb.mjs build --config docs/dialect-guide/book.yml
+          node bin/mhb.mjs pdf --config docs/dialect-guide/book.yml
+
       - name: Resolve npm dist-tag (prerelease → next)
         id: dist-tag
         run: echo "tag=$(node -p "require('./package.json').version.includes('-') ? 'next' : 'latest'")" >> "$GITHUB_OUTPUT"

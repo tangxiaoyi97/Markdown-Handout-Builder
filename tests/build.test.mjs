@@ -558,6 +558,100 @@ chapters:
   assert.equal((tocNav.match(/class="toc-row"/g) ?? []).length, 3);
 });
 
+test("structure DSL: layout inheritance, semantic parts, includes, flow, and navigation", async () => {
+  const dir = await makeFixture({
+    "book.yml": `title: Structured Book
+layouts:
+  body:
+    class: layout-body
+    chapter_toc: true
+  compact:
+    extends: body
+    class: layout-compact
+    flow:
+      break_before: auto
+structure:
+  - type: part
+    title: Part One
+    navigation:
+      label: I · Foundations
+      level: 1
+    defaults:
+      layout: compact
+    children:
+      - type: chapter
+        path: notes/a.md
+      - include: parts/more.yml
+  - type: chapter
+    path: notes/hidden.md
+    navigation:
+      toc: false
+      outline: false
+toc:
+  depth: 3
+`,
+    "parts/more.yml": `- type: chapter
+  path: notes/b.md
+  navigation:
+    label: Renamed B
+`,
+    "notes/a.md": "# Alpha\n\n## Detail\n\nA.\n",
+    "notes/b.md": "# Beta\n\nB.\n",
+    "notes/hidden.md": "# Hidden\n\nNot in navigation.\n"
+  });
+
+  const result = await runScript("build.mjs", { cwd: dir });
+  assert.equal(result.code, 0, result.stderr);
+  const html = await readOut(dir, "handout.html");
+
+  assert.match(html, /class="chapter layout-body layout-compact hb-break-before-auto"/);
+  assert.match(html, /data-layout="compact"/);
+  assert.match(html, /<nav class="chapter-toc">/);
+  assert.match(html, /<a href="#hb-divider-1">I · Foundations<\/a>/);
+  assert.match(html, /<a href="#alpha">Alpha<\/a>/);
+  assert.match(html, /<a href="#beta">Renamed B<\/a>/);
+  assert.doesNotMatch(html.match(/<nav class="toc"[\s\S]*?<\/nav>/)?.[0] ?? "", /Hidden/);
+  assert.match(html, /<h1 role="paragraph" id="hidden"/);
+});
+
+test("per-chapter running policy: content/style override and suppression are serialized", async () => {
+  const dir = await makeFixture({
+    "book.yml": `title: Running Profiles
+structure:
+  - type: chapter
+    path: notes/plain.md
+    running:
+      header:
+        center: "{{chapterTitle}}"
+      footer:
+        left: "CHAPTER-ONLY"
+      style:
+        color: "#345678"
+  - type: chapter
+    path: notes/normal.md
+    running:
+      footer: false
+output:
+  html: dist/handout.html
+  pdf: dist/handout.pdf
+`,
+    "notes/plain.md": "# Plain Markdown\n\nRendered normally, without a PDF footer.\n",
+    "notes/normal.md": "# Normal\n\nDefault running footer.\n"
+  });
+
+  const result = await runScript("build.mjs", { cwd: dir });
+  assert.equal(result.code, 0, result.stderr);
+  const html = await readOut(dir, "handout.html");
+  const plain = html.match(/<section[^>]*data-hb-anchor="plain-markdown"[^>]*>/)?.[0] ?? "";
+  assert.match(plain, /data-hb-running=/);
+  assert.match(plain, /&quot;center&quot;:&quot;\{\{chapterTitle\}\}&quot;/);
+  assert.match(plain, /&quot;left&quot;:&quot;CHAPTER-ONLY&quot;/);
+  assert.match(plain, /&quot;color&quot;:&quot;#345678&quot;/);
+  const normal = html.match(/<section[^>]*data-hb-anchor="normal"[^>]*>/)?.[0] ?? "";
+  assert.match(normal, /data-hb-running-footer="false"/);
+  assert.match(normal, /data-hb-running=/);
+});
+
 test("Obsidian dialect: frontmatter edge cases and inline-parser hardening", async () => {
   const dir = await makeFixture({
     "book.yml":

@@ -262,6 +262,128 @@ test("chapters entries: path roles, declared special pages, and strict typos", (
   assert.match(twoContents.error ?? "", /at most once/);
 });
 
+test("structure IR: named layouts, part inheritance, navigation levels, and explicit types", () => {
+  const result = normalizeChapters(
+    {
+      layouts: {
+        body: { class: "layout-body", chapter_toc: true },
+        compact: {
+          extends: "body",
+          class: "layout-compact",
+          flow: { break_before: "auto", break_after: "page" }
+        }
+      },
+      structure: [
+        {
+          type: "part",
+          title: "Part One",
+          navigation: { label: "I · Part One", level: 1 },
+          defaults: { layout: "compact" },
+          children: [
+            { type: "chapter", path: "notes/a.md" },
+            {
+              type: "chapter",
+              path: "notes/b.md",
+              navigation: { toc: false, outline: false }
+            }
+          ]
+        }
+      ]
+    },
+    "/tmp"
+  );
+
+  assert.equal(result.error, undefined, result.errors?.join("\n"));
+  assert.equal(result.entries.length, 3);
+  const [part, first, second] = result.entries;
+  assert.equal(part.kind, "divider");
+  assert.equal(part.toc, "I · Part One");
+  assert.equal(first.kind, "chapter");
+  assert.equal(first.layout, "compact");
+  assert.equal(first.className, "layout-body layout-compact");
+  assert.equal(first.chapterToc, true);
+  assert.deepEqual(first.flow, { breakBefore: "auto", breakAfter: "page" });
+  assert.equal(first.navigation.level, 2);
+  assert.equal(second.navigation.toc, false);
+  assert.equal(second.navigation.outline, false);
+});
+
+test("structure IR: running header/footer slots and style inherit field by field", () => {
+  const result = normalizeChapters(
+    {
+      layouts: {
+        runningBase: {
+          running: {
+            header: { left: "Base left", center: "Base center" },
+            footer: { left: "Base footer", center: "{{page}} / {{total}}" },
+            style: { color: "#555", font_size: "8px" }
+          }
+        },
+        runningChild: {
+          extends: "runningBase",
+          running: {
+            header: { right: "Child right" },
+            footer: { right: "{{chapterTitle}}" },
+            style: { color: "#246" }
+          }
+        }
+      },
+      structure: [
+        {
+          type: "chapter",
+          path: "notes/a.md",
+          layout: "runningChild",
+          running: { footer: { left: "Chapter footer" } }
+        }
+      ]
+    },
+    "/tmp"
+  );
+
+  assert.equal(result.error, undefined, result.errors?.join("\n"));
+  assert.deepEqual(result.entries[0].running, {
+    header: { left: "Base left", center: "Base center", right: "Child right" },
+    footer: {
+      left: "Chapter footer",
+      center: "{{page}} / {{total}}",
+      right: "{{chapterTitle}}"
+    },
+    style: { color: "#246", font_size: "8px" },
+    headerSet: true,
+    footerSet: true,
+    styleSet: true,
+    custom: true
+  });
+
+  const sharedPage = normalizeChapters(
+    {
+      structure: [
+        { path: "notes/a.md", running: { footer: { left: "A" } } },
+        { path: "notes/b.md", flow: { break_before: "auto" } }
+      ]
+    },
+    "/tmp"
+  );
+  assert.match(sharedPage.errors.join("\n"), /cannot share a physical page/);
+});
+
+test("structure IR: layout cycles and structure/chapters ambiguity are hard errors", () => {
+  const cycle = normalizeChapters(
+    {
+      layouts: { a: { extends: "b" }, b: { extends: "a" } },
+      structure: [{ type: "chapter", path: "notes/a.md", layout: "a" }]
+    },
+    "/tmp"
+  );
+  assert.match(cycle.errors.join("\n"), /layout inheritance cycle/);
+
+  const ambiguous = normalizeChapters(
+    { chapters: ["a.md"], structure: ["b.md"] },
+    "/tmp"
+  );
+  assert.match(ambiguous.error ?? "", /either "structure" or "chapters"/);
+});
+
 test("special pages: divider html carries heading id, bleed hook, sanitized style", () => {
   const html = dividerSectionHtml(
     {

@@ -1,0 +1,289 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tangxiaoyi97.github.io/Markdown-Handout-Builder/book.schema.json",
+  "title": "Markdown Handout Builder book configuration",
+  "type": "object",
+  "required": ["title", "output"],
+  "oneOf": [
+    { "required": ["chapters"], "not": { "required": ["structure"] } },
+    { "required": ["structure"], "not": { "required": ["chapters"] } }
+  ],
+  "properties": {
+    "title": { "type": ["string", "number"] },
+    "subtitle": { "type": ["string", "number"] },
+    "language": { "type": "string" },
+    "date": { "type": ["string", "number"] },
+    "date_format": { "type": "string" },
+    "version": { "type": ["string", "number"] },
+    "authors": {
+      "oneOf": [
+        { "type": ["string", "number"] },
+        { "type": "array", "items": { "type": ["string", "number"] } }
+      ]
+    },
+    "keywords": { "type": "array", "items": { "type": ["string", "number"] } },
+    "chapters": { "$ref": "#/$defs/rootStructure" },
+    "structure": { "$ref": "#/$defs/rootStructure" },
+    "layouts": {
+      "type": "object",
+      "propertyNames": { "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$" },
+      "additionalProperties": { "$ref": "#/$defs/layout" }
+    },
+    "output": {
+      "type": "object",
+      "required": ["html", "pdf"],
+      "properties": {
+        "html": { "type": "string" },
+        "pdf": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "toc": { "type": "object" },
+    "chapter_toc": { "type": "object" },
+    "pdf": { "type": "object" },
+    "style": { "type": "object" },
+    "cover": { "type": "object" },
+    "back_cover": { "type": "object" },
+    "themes": { "type": "array", "items": { "type": "object" } },
+    "labels": { "type": "object" },
+    "markdown": { "type": "object" }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "class": {
+      "type": "string",
+      "pattern": "^[A-Za-z_-][A-Za-z0-9_-]*(?:\\s+[A-Za-z_-][A-Za-z0-9_-]*)*$"
+    },
+    "flow": {
+      "type": "object",
+      "properties": {
+        "break_before": { "enum": ["auto", "page"] },
+        "break_after": { "enum": ["auto", "page"] }
+      },
+      "additionalProperties": false
+    },
+    "navigation": {
+      "type": "object",
+      "properties": {
+        "toc": { "type": ["boolean", "string"] },
+        "label": { "type": "string", "minLength": 1 },
+        "level": { "type": "integer", "minimum": 1, "maximum": 6 },
+        "outline": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "running": {
+      "oneOf": [
+        { "const": false },
+        {
+          "type": "object",
+          "properties": {
+            "header": { "$ref": "#/$defs/runningBand" },
+            "footer": { "$ref": "#/$defs/runningBand" },
+            "style": { "$ref": "#/$defs/runningStyle" }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "runningBand": {
+      "oneOf": [
+        { "type": "boolean" },
+        {
+          "type": "object",
+          "properties": {
+            "left": { "type": "string" },
+            "center": { "type": "string" },
+            "right": { "type": "string" }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "runningStyle": {
+      "type": "object",
+      "properties": {
+        "font_size": { "type": "string", "minLength": 1 },
+        "color": { "type": "string", "minLength": 1 },
+        "font_family": { "type": "string", "minLength": 1 },
+        "offset": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "common": {
+      "type": "object",
+      "properties": {
+        "class": { "$ref": "#/$defs/class" },
+        "layout": { "type": "string", "minLength": 1 },
+        "chapter_toc": { "type": "boolean" },
+        "toc": { "type": ["boolean", "string"] },
+        "navigation": { "$ref": "#/$defs/navigation" },
+        "flow": { "$ref": "#/$defs/flow" },
+        "running": { "$ref": "#/$defs/running" }
+      }
+    },
+    "layout": {
+      "unevaluatedProperties": false,
+      "allOf": [
+        { "$ref": "#/$defs/common" },
+        {
+          "type": "object",
+          "properties": { "extends": { "type": "string", "minLength": 1 } }
+        }
+      ]
+    },
+    "rootStructure": {
+      "oneOf": [
+        { "type": "string", "pattern": "\\.ya?ml$" },
+        { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/entry" } }
+      ]
+    },
+    "explicitFile": {
+      "unevaluatedProperties": false,
+      "allOf": [
+        { "$ref": "#/$defs/common" },
+        {
+          "type": "object",
+          "required": ["type", "path"],
+          "properties": {
+            "type": { "enum": ["chapter", "insert"] },
+            "path": { "type": "string", "minLength": 1 },
+            "role": { "enum": ["chapter", "insert"] },
+            "as": { "enum": ["chapter", "insert"] }
+          }
+        }
+      ]
+    },
+    "legacyFile": {
+      "unevaluatedProperties": false,
+      "allOf": [
+        { "$ref": "#/$defs/common" },
+        {
+          "type": "object",
+          "required": ["path"],
+          "properties": {
+            "path": { "type": "string", "minLength": 1 },
+            "role": { "enum": ["chapter", "insert"] },
+            "as": { "enum": ["chapter", "insert"] }
+          }
+        }
+      ]
+    },
+    "dividerBody": {
+      "allOf": [
+        { "$ref": "#/$defs/common" },
+        {
+          "type": "object",
+          "properties": {
+            "title": { "type": ["string", "number"] },
+            "subtitle": { "type": ["string", "number"] },
+            "note": { "type": ["string", "number"] },
+            "background": { "type": "string" },
+            "color": { "type": "string" },
+            "bleed": { "type": "boolean" }
+          }
+        }
+      ]
+    },
+    "explicitDivider": {
+      "unevaluatedProperties": false,
+      "allOf": [
+        { "$ref": "#/$defs/dividerBody" },
+        {
+          "type": "object",
+          "required": ["type"],
+          "properties": { "type": { "const": "divider" } }
+        }
+      ]
+    },
+    "legacyDivider": {
+      "type": "object",
+      "required": ["divider"],
+      "properties": { "divider": { "$ref": "#/$defs/dividerBody" } },
+      "additionalProperties": false
+    },
+    "blank": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["blank"],
+          "properties": { "blank": { "oneOf": [{ "const": true }, { "type": "integer", "minimum": 1, "maximum": 20 }] } },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["type"],
+          "properties": {
+            "type": { "const": "blank" },
+            "count": { "type": "integer", "minimum": 1, "maximum": 20 },
+            "class": { "$ref": "#/$defs/class" },
+            "layout": { "type": "string" },
+            "flow": { "$ref": "#/$defs/flow" }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "contents": {
+      "oneOf": [
+        { "type": "object", "required": ["contents"], "properties": { "contents": { "const": true } }, "additionalProperties": false },
+        { "type": "object", "required": ["type"], "properties": { "type": { "const": "contents" } }, "additionalProperties": false }
+      ]
+    },
+    "include": {
+      "oneOf": [
+        { "type": "object", "required": ["include"], "properties": { "include": { "type": "string", "pattern": "\\.ya?ml$" } }, "additionalProperties": false },
+        { "type": "object", "required": ["type", "path"], "properties": { "type": { "const": "include" }, "path": { "type": "string", "pattern": "\\.ya?ml$" } }, "additionalProperties": false }
+      ]
+    },
+    "defaults": {
+      "unevaluatedProperties": false,
+      "allOf": [
+        { "$ref": "#/$defs/common" },
+        { "type": "object" }
+      ]
+    },
+    "partBody": {
+      "allOf": [
+        { "$ref": "#/$defs/dividerBody" },
+        {
+          "type": "object",
+          "properties": {
+            "defaults": { "$ref": "#/$defs/defaults" },
+            "children": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/entry" } },
+            "chapters": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/entry" } },
+            "structure": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/entry" } }
+          },
+          "anyOf": [{ "required": ["children"] }, { "required": ["chapters"] }, { "required": ["structure"] }]
+        }
+      ]
+    },
+    "explicitPart": {
+      "unevaluatedProperties": false,
+      "allOf": [
+        { "$ref": "#/$defs/partBody" },
+        { "type": "object", "required": ["type"], "properties": { "type": { "const": "part" } } }
+      ]
+    },
+    "legacyPart": {
+      "type": "object",
+      "required": ["part"],
+      "properties": { "part": { "$ref": "#/$defs/partBody" } },
+      "additionalProperties": false
+    },
+    "entry": {
+      "oneOf": [
+        { "type": "string", "minLength": 1 },
+        { "$ref": "#/$defs/explicitFile" },
+        { "$ref": "#/$defs/legacyFile" },
+        { "$ref": "#/$defs/explicitDivider" },
+        { "$ref": "#/$defs/legacyDivider" },
+        { "$ref": "#/$defs/blank" },
+        { "$ref": "#/$defs/contents" },
+        { "$ref": "#/$defs/include" },
+        { "$ref": "#/$defs/explicitPart" },
+        { "$ref": "#/$defs/legacyPart" }
+      ]
+    }
+  }
+}

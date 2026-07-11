@@ -6,7 +6,7 @@ Use these rules for Markdown content that should build cleanly with Markdown Han
 
 Put official content under `notes/`. Put local images and other local assets under `notes/assets/`.
 
-Chapter order is controlled by the `chapters` list in `book.yml`. Files not listed there are not included in the handout. Each chapter file should normally have one top-level `#` heading, which becomes the chapter title and enters the PDF outline.
+Document order is controlled by either `chapters` (compact, backward-compatible) or `structure` (parts, includes, layouts, and per-entry policies) in `book.yml`. Files not listed or included there are not part of the handout. Each chapter file should normally have one top-level `#` heading, which becomes the chapter title and enters the PDF outline; a per-chapter `running` policy requires this heading as its page-range anchor. That policy may disable a header/footer band or override its `left`, `center`, and `right` slots plus `style`; omitted values inherit the global PDF configuration.
 
 ## Supported Syntax
 
@@ -145,7 +145,7 @@ Prefix draft filenames with `_`, for example `notes/_wip-topic.md`.
 `npm run check` warns about:
 
 - Markdown files under `notes/` that are neither listed in `book.yml` nor
-  transcluded by an Obsidian note embed.
+  included in the document structure or transcluded by an Obsidian note embed.
 - Unused files under `notes/assets/`.
 
 These warnings do not fail the build. Draft files prefixed with `_` are ignored by the unlisted-chapter warning.

@@ -17,6 +17,20 @@ export function dividerSectionHtml(entry, { headingId, lead = "" }) {
   const styleAttr = styleParts.length > 0 ? ` style="${escapeHtml(styleParts.join(" "))}"` : "";
   const bleedAttr = entry.bleed ? ` data-hb-bleed="${headingId}"` : "";
   const cls = ["insert", "hb-divider", entry.className, lead].filter(Boolean).join(" ");
+  const layoutAttr = entry.layout ? ` data-layout="${escapeHtml(entry.layout)}"` : "";
+  const anchorAttr = entry.anchorId ? ` data-hb-anchor="${escapeHtml(entry.anchorId)}"` : "";
+  const headerAttr = entry.running?.header === false ? ' data-hb-running-header="false"' : "";
+  const footerAttr = entry.running?.footer === false ? ' data-hb-running-footer="false"' : "";
+  const runningAttr = entry.running?.custom
+    ? ` data-hb-running="${escapeHtml(JSON.stringify({
+        header: entry.running.header,
+        footer: entry.running.footer,
+        style: entry.running.style ?? {},
+        headerSet: Boolean(entry.running.headerSet),
+        footerSet: Boolean(entry.running.footerSet),
+        styleSet: Boolean(entry.running.styleSet)
+      }))}"`
+    : "";
 
   const lines = [];
   if (entry.title) {
@@ -28,13 +42,15 @@ export function dividerSectionHtml(entry, { headingId, lead = "" }) {
   if (entry.note) lines.push(`<p class="hb-divider-note">${escapeHtml(entry.note)}</p>`);
 
   return (
-    `<section class="${cls}" id="${headingId}-sec"${bleedAttr}${styleAttr}>\n` +
+    `<section class="${cls}" id="${headingId}-sec"${bleedAttr}${layoutAttr}${anchorAttr}${headerAttr}${footerAttr}${runningAttr}${styleAttr}>\n` +
     `<div class="hb-divider-inner">\n${lines.join("\n")}\n</div>\n` +
     "</section>"
   );
 }
 
 // 占位空白页：占据整整一页（双面印刷的对页排版）。不带运行页眉。
-export function blankSectionHtml() {
-  return '<section class="insert hb-blank" aria-hidden="true"></section>';
+export function blankSectionHtml(entry = {}) {
+  const cls = ["insert", "hb-blank", entry.className].filter(Boolean).join(" ");
+  const layoutAttr = entry.layout ? ` data-layout="${escapeHtml(entry.layout)}"` : "";
+  return `<section class="${cls}"${layoutAttr} aria-hidden="true"></section>`;
 }

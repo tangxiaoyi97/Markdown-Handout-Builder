@@ -3,9 +3,8 @@
  * scripts/check.mjs
  *
  * 构建前检查：
- *   1. book.yml 存在、可解析；chapters 为非空列表或指向外部 .yml 列表文件；
- *   2. 每个条目按扩展名分派（.md/.markdown=章节，.html/.htm=插页），文件存在，
- *      对象形态的 class/chapter_toc 合法（chapter_toc 只对章节有意义）；
+ *   1. book.yml 存在、可解析；structure/chapters 归一化成功；
+ *   2. 文件、layout/part/include、flow/navigation/running 策略合法；
  *   3. 章节（仅 .md）按方言检查：默认拒绝 Obsidian 语法，obsidian 模式
  *      解析 properties 并验证 wikilink / embed 目标；
  *   4. 章节的本地图片引用必须存在（相对当前 Markdown 文件所在目录解析）；
@@ -21,7 +20,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { resolveChapterList, normalizeChapterEntry, isValidClassAttr } from "./lib/chapters.mjs";
+import { normalizeChapters, isValidClassAttr } from "./lib/chapters.mjs";
 import {
   obsidianFragmentExists,
   parseObsidianFrontmatter,
@@ -59,18 +58,12 @@ for (const message of dialectCfg.errors) fail(`${configName}: ${message}`);
 const obsidianEnabled = dialectCfg.enabled;
 const obsidianVault = createDialectVault(dialectCfg);
 
-/* ---------- 2. chapters：解析（内联列表或外部 chapters 文件） ---------- */
+/* ---------- 2. structure / chapters：归一化为扁平文档流 ---------- */
 
-const chaptersResult = resolveChapterList(book, baseDir);
-if (chaptersResult.error) {
-  console.error(`Error: ${chaptersResult.error}`);
-  process.exit(1);
-}
-const rawChapters = chaptersResult.list;
-if (rawChapters.length === 0) {
-  console.error(`Error: "chapters" in ${configName} must not be empty.`);
-  process.exit(1);
-}
+const structureResult = normalizeChapters(book, baseDir);
+for (const message of structureResult.errors ?? []) fail(`${configName}: ${message}`);
+const structureEntries = structureResult.entries ?? [];
+const structureKey = structureResult.key ?? (book.structure !== undefined ? "structure" : "chapters");
 
 /* ---------- 3 & 4. 逐章检查 ---------- */
 
@@ -193,26 +186,13 @@ function checkChapterContent(absPath, relPath) {
 
 const seenChapters = new Set();
 const chapterResolvedPaths = []; // all listed entries' abs paths (orphan detection)
-let contentsCount = 0;
-let pathEntryCount = 0;
-for (const raw of rawChapters) {
-  const entry = normalizeChapterEntry(raw);
-  if (entry.error) {
-    fail(`${configName}: ${entry.error}`);
-    continue;
-  }
-
+for (const entry of structureEntries) {
   // 声明式特殊页（无文件）：类型与字段已在归一化中校验
   if (entry.kind === "divider" || entry.kind === "blank") continue;
   if (entry.kind === "contents") {
-    contentsCount += 1;
-    if (contentsCount > 1) {
-      fail(`${configName}: "contents: true" may appear at most once in chapters.`);
-    }
     continue;
   }
 
-  pathEntryCount += 1;
   const absPath = path.resolve(baseDir, entry.file);
   if (seenChapters.has(absPath)) {
     fail(`${configName}: chapter listed more than once: ${entry.file}`);
@@ -243,16 +223,22 @@ for (const raw of rawChapters) {
   // Wikilink / local-image checks apply to every Markdown page (chapters and
   // as:insert pages alike). Raw HTML inserts are trusted, author-controlled.
   if (entry.format === "markdown") {
+    if (entry.running?.custom) {
+      const source = fs.readFileSync(absPath, "utf8").replace(/^﻿/, "");
+      const hasAtxH1 = /^ {0,3}#(?!#)\s+\S.*$/m.test(source);
+      const hasSetextH1 = /^\S.*\r?\n {0,3}=+\s*$/m.test(source);
+      if (!hasAtxH1 && !hasSetextH1) {
+        fail(
+          `${entry.file}: per-entry running header/footer control requires a top-level Markdown heading`
+        );
+      }
+    }
     checkChapterContent(absPath, toPosix(entry.file));
   }
 }
 
-if (pathEntryCount === 0 && errors.length === 0) {
-  fail(`${configName}: "chapters" must include at least one .md or .html page.`);
-}
-
 // in-flow contents 与目录/页码配置的组合
-if (contentsCount > 0) {
+if (structureEntries.some((entry) => entry.kind === "contents")) {
   if (book.toc?.enabled === false) {
     warnings.push('"contents: true" has no effect while toc.enabled is false');
   }
@@ -340,9 +326,28 @@ if (Array.isArray(book.themes)) {
 
 const KNOWN_PLACEHOLDERS = new Set([
   "page", "total", "title", "subtitle", "authors", "author", "date", "rawDate",
-  "version", "commit", "lang", "theme"
+  "version", "commit", "lang", "theme", "chapterTitle", "sectionTitle"
 ]);
 const KNOWN_HF_STYLE_KEYS = new Set(["font_size", "color", "font_family", "offset"]);
+
+for (const entry of structureEntries) {
+  if (!entry.running?.custom) continue;
+  const label = entry.file ?? entry.title ?? entry.kind;
+  for (const band of ["header", "footer"]) {
+    const slots = entry.running[band];
+    if (!slots || typeof slots !== "object") continue;
+    for (const [slot, value] of Object.entries(slots)) {
+      for (const match of value.matchAll(/\{\{(\w+)\}\}/g)) {
+        if (!KNOWN_PLACEHOLDERS.has(match[1])) {
+          warnings.push(
+            `${label}: running.${band}.${slot}: unknown placeholder {{${match[1]}}} ` +
+              "(kept as literal text)"
+          );
+        }
+      }
+    }
+  }
+}
 
 if (book.date_format !== undefined && typeof book.date_format !== "string") {
   fail(`${configName}: "date_format" must be a string (e.g. "YYYY-MM-DD").`);
@@ -530,7 +535,7 @@ if (fs.existsSync(notesDir)) {
     if (path.basename(file).startsWith("_")) continue; // "_" 开头视为草稿，不提醒
     if (!chapterSet.has(file) && !embeddedNotes.has(file)) {
       warnings.push(
-        `${toPosix(path.relative(baseDir, file))}: not listed in ${configName} "chapters" — ` +
+        `${toPosix(path.relative(baseDir, file))}: not listed in ${configName} "${structureKey}" — ` +
           `it will NOT appear in the handout (prefix the filename with "_" to mark it as a draft)`
       );
     }

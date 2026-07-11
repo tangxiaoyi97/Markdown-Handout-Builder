@@ -1,0 +1,145 @@
+# yaml-language-server: $schema=../../book.schema.json
+#
+# Dialects 版完全指南 —— 本配置刻意自举（dogfood）本书所讲解的全部结构
+# 能力：structure 长写法、layouts 继承、part 嵌套与 defaults、出血隔页、
+# 流内目录（contents）、每章 running 页眉策略。改动它就是在做实验。
+title: "Markdown Handout Builder"
+subtitle: "Dialects 版完全指南 · 功能与配置全参考"
+language: "zh-CN"
+date: "2026-07-11"
+date_format: "YYYY.MM.DD"
+version: "2.0-dialect"
+authors:
+  - "Markdown Handout Builder"
+keywords:
+  - "Markdown"
+  - "PDF"
+  - "Obsidian"
+  - "document structure"
+  - "handout"
+
+layouts:
+  body:                          # 全书正文章节的公共默认：开章小目录
+    chapter_toc: true
+  reference:                     # 参考章：继承 body，页眉中位改为章名
+    extends: body
+    running:
+      header:
+        center: "{{chapterTitle}}"
+
+structure:
+  - type: insert                 # Markdown 前言页：渲染但不进主目录
+    path: notes/00-preface.md
+  - type: contents               # 主目录在此布点（前言之后）
+  - type: part
+    title: "第一部分 · 总览"
+    subtitle: "定位、安装与命令行流水线"
+    background: "linear-gradient(150deg, #1d2a44 0%, #3f6cae 62%, #5f58b6 100%)"
+    color: "#ffffff"
+    bleed: true
+    navigation: { label: "第一部分 · 总览", level: 1 }
+    defaults: { layout: body }
+    children:
+      - notes/01-overview.md
+      - notes/02-cli.md
+  - type: part
+    title: "第二部分 · 文档结构语言"
+    subtitle: "structure / chapters · layouts · parts · includes"
+    background: "linear-gradient(150deg, #25304a 0%, #5f58b6 60%, #8d4f73 100%)"
+    color: "#ffffff"
+    bleed: true
+    navigation: { label: "第二部分 · 文档结构语言", level: 1 }
+    defaults: { layout: body }
+    children:
+      - notes/03-structure.md
+      - notes/04-layouts-flow-navigation.md
+      - notes/05-running.md
+  - type: part
+    title: "第三部分 · Obsidian 方言"
+    subtitle: "vault 感知渲染与全语法参考"
+    background: "linear-gradient(150deg, #2c2440 0%, #6d4b8c 58%, #a35d7c 100%)"
+    color: "#ffffff"
+    bleed: true
+    navigation: { label: "第三部分 · Obsidian 方言", level: 1 }
+    defaults: { layout: body }
+    children:
+      - notes/06-obsidian.md
+      - notes/07-obsidian-syntax.md
+  - type: part
+    title: "第四部分 · 外观与 PDF"
+    subtitle: "主题 · 样式钩子 · 官方打印管线"
+    background: "linear-gradient(150deg, #1f3a33 0%, #4f7c68 60%, #7d9c6a 100%)"
+    color: "#ffffff"
+    bleed: true
+    navigation: { label: "第四部分 · 外观与 PDF", level: 1 }
+    defaults: { layout: body }
+    children:
+      - notes/08-theming.md
+      - notes/09-pdf.md
+  - type: part
+    title: "第五部分 · 参考"
+    subtitle: "book.yml 全键速查与占位符总表"
+    background: "linear-gradient(150deg, #232323 0%, #4a4d86 62%, #667085 100%)"
+    color: "#ffffff"
+    bleed: true
+    navigation: { label: "第五部分 · 参考", level: 1 }
+    children:
+      - type: chapter
+        path: notes/10-config-reference.md
+        layout: reference        # 演示 running 策略：页眉中位 = 章名
+        navigation: { label: "book.yml 全键参考" }
+
+# 输出到仓库根 dist/（Pages 部署目录）；文件名带版次
+output:
+  html: ../../dist/guide/dialect-guide-2.0-dialect.html
+  pdf: ../../dist/guide/dialect-guide-2.0-dialect.pdf
+
+toc:
+  title: "目录"
+  depth: 2                       # 部（level 1）+ 章（level 2）
+
+chapter_toc:
+  default: false                 # 由 layouts.body 按章开启
+  title: "本章内容"
+  depth: 3
+
+labels:
+  note: "说明"
+  tip: "提示"
+  warning: "注意"
+  danger: "危险"
+  example: "示例"
+
+style:
+  accent_color: "#5f58b6"
+  content_width: "920px"
+  print_font_size: "10.5pt"
+
+cover:
+  enabled: true
+  background: "linear-gradient(145deg, #f4f0e7 0%, #e8edf7 58%, #eee4df 100%)"
+  color: "#25304a"
+
+back_cover:
+  enabled: true
+  background: "linear-gradient(145deg, #25304a 0%, #4a4d86 100%)"
+  color: "#ffffff"
+
+pdf:
+  page_size: "A4"
+  margin: "17mm 16mm 19mm 16mm"
+  page_numbers:
+    format: "{{page}} / {{total}}"
+    count_cover: false           # 封面不计页：正文逻辑页码从前言起算
+    count_back_cover: false
+  header:
+    left: "{{title}}"
+    center: ""
+    right: "{{version}}"
+  footer:
+    left: "Markdown Handout Builder"
+    center: "{{page}} / {{total}}"
+    right: "{{date}}"
+  header_footer_style:
+    color: "#667085"
+    font_size: "8px"

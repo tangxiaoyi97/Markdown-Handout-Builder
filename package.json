@@ -1,6 +1,6 @@
 {
   "name": "markdown-handout-builder",
-  "version": "2.1.0-beta.1",
+  "version": "2.2.0-beta.1",
   "description": "Markdown Handout Builder — build a handout (HTML + official PDF) from plain Markdown via markdown-it and a Playwright Chromium print pipeline.",
   "license": "MIT",
   "type": "module",
@@ -34,6 +34,7 @@
     "bin/",
     "scripts/",
     "templates/",
+    "book.schema.json",
     "book.example.yml",
     "WRITING_RULES.md",
     "DIALECTS.md",

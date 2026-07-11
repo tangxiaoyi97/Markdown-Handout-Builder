@@ -1,43 +1,24 @@
 /**
  * scripts/lib/chapters.mjs
  *
- * Shared "chapters" normalization for build.mjs and check.mjs.
+ * Document-structure normalization shared by build.mjs and check.mjs.
  *
- * Entry shapes (v2.1):
+ * Backward compatibility:
+ *   chapters: [notes/a.md, ...]
+ * remains valid.  The richer spelling is `structure:`; both feed the same
+ * flat renderer IR.  A book must use one or the other, never both.
  *
- *   - string                      file path; role from the extension
- *       .md / .markdown  -> chapter  (rendered Markdown)
- *       .html / .htm     -> insert   (trusted raw-HTML page)
+ * New composition primitives:
+ *   - explicit `type:` entries (chapter / insert / divider / blank /
+ *     contents / part / include)
+ *   - named `layouts` with inheritance
+ *   - nested parts with inherited defaults
+ *   - recursive YAML includes with cycle detection
+ *   - orthogonal flow and navigation options
  *
- *   - { path, ... }               file entry with per-page options:
- *       as: chapter|insert        role override (.md may render as an insert
- *                                 page — preface/colophon written in Markdown;
- *                                 .html is always an insert)
- *       class: "a b"              extra CSS classes on the <section>
- *       chapter_toc: bool         per-chapter mini TOC (chapters only)
- *       toc: false | "label"      main-TOC control: exclude this chapter, or
- *                                 override its main-TOC row label
- *
- *   - { divider: {...} }          declared part-divider page (no file):
- *       title / subtitle / note   text lines (title becomes a real <h1> and
- *                                 a PDF bookmark)
- *       class                     CSS classes for custom styling
- *       background / color        inline page card colors (any CSS value)
- *       bleed: true               official PDF paints it edge-to-edge via the
- *                                 standalone-print overlay (requires title)
- *       toc: "label"              add a level-1 main-TOC row
- *
- *   - { blank: true | N }         intentionally blank page(s) (duplex layout)
- *
- *   - { contents: true }          place the main TOC at this position in the
- *                                 flow (at most once; TOC is then always
- *                                 counted in page numbering)
- *
- * Typos never fall through: exactly one type key per mapping entry, and
- * unknown keys are errors.
- *
- * The list itself may live inline under book.chapters, OR in a separate file
- * (book.chapters: "chapters.yml"), just like book.yml.
+ * The renderer deliberately still consumes a flat sequence.  Parts and
+ * includes are expanded here, keeping pagination and Markdown rendering
+ * independent from the author-facing configuration language.
  */
 
 import fs from "node:fs";
@@ -46,90 +27,65 @@ import YAML from "yaml";
 
 const MD_EXTS = new Set([".md", ".markdown"]);
 const HTML_EXTS = new Set([".html", ".htm"]);
-const CHAPTERS_FILE_EXTS = new Set([".yml", ".yaml"]);
-
-// One or more space-separated CSS class tokens. Tokens start with a letter,
-// "-" or "_" (never a digit) so they are valid HTML class attribute values.
+const YAML_EXTS = new Set([".yml", ".yaml"]);
 const CLASS_TOKENS_RE = /^[A-Za-z_-][\w-]*(?:\s+[A-Za-z_-][\w-]*)*$/;
+const NAME_RE = /^[A-Za-z_][A-Za-z0-9_-]*$/;
+
+const LEGACY_PATH_KEYS = new Set([
+  "path", "as", "role", "class", "layout", "chapter_toc", "toc",
+  "navigation", "flow", "running"
+]);
+const LONG_FILE_KEYS = new Set([...LEGACY_PATH_KEYS, "type"]);
+const DIVIDER_KEYS = new Set([
+  "title", "subtitle", "note", "class", "layout", "background", "color",
+  "bleed", "toc", "navigation", "flow", "running"
+]);
+const LONG_DIVIDER_KEYS = new Set([...DIVIDER_KEYS, "type"]);
+const PART_KEYS = new Set([
+  ...DIVIDER_KEYS, "defaults", "children", "chapters", "structure"
+]);
+const LONG_PART_KEYS = new Set([...PART_KEYS, "type"]);
+const DEFAULT_KEYS = new Set([
+  "class", "layout", "chapter_toc", "toc", "navigation", "flow", "running"
+]);
+const LAYOUT_KEYS = new Set([
+  "extends", "class", "chapter_toc", "toc", "navigation", "flow", "running"
+]);
+const NAV_KEYS = new Set(["toc", "label", "level", "outline"]);
+const FLOW_KEYS = new Set(["break_before", "break_after"]);
+const RUNNING_KEYS = new Set(["header", "footer", "style"]);
+const RUNNING_SLOT_KEYS = new Set(["left", "center", "right"]);
+const RUNNING_STYLE_KEYS = new Set(["font_size", "color", "font_family", "offset"]);
+const LEGACY_TYPE_KEYS = ["path", "divider", "blank", "contents", "part", "include"];
 
 export function isValidClassAttr(value) {
   return CLASS_TOKENS_RE.test(String(value).trim());
 }
 
-/** "chapter" | "insert" | null (unrecognized extension). */
-export function classifyChapterPath(p) {
-  const ext = path.extname(String(p)).toLowerCase();
+export function classifyChapterPath(value) {
+  const ext = path.extname(String(value)).toLowerCase();
   if (MD_EXTS.has(ext)) return "chapter";
   if (HTML_EXTS.has(ext)) return "insert";
   return null;
 }
 
-/** "markdown" | "html" | null — how a path entry's content is rendered. */
-export function chapterPathFormat(p) {
-  const ext = path.extname(String(p)).toLowerCase();
+export function chapterPathFormat(value) {
+  const ext = path.extname(String(value)).toLowerCase();
   if (MD_EXTS.has(ext)) return "markdown";
   if (HTML_EXTS.has(ext)) return "html";
   return null;
 }
 
-/**
- * Resolve book.chapters into a raw list.
- * Returns { list } on success, or { error } (a message string).
- * A string value points to an external YAML file (a top-level list, or a
- * mapping with a "chapters:" list).
- */
-export function resolveChapterList(book, baseDir) {
-  const raw = book?.chapters;
-
-  if (typeof raw === "string") {
-    const ref = raw.trim();
-    const ext = path.extname(ref).toLowerCase();
-    if (!CHAPTERS_FILE_EXTS.has(ext)) {
-      return {
-        error:
-          `"chapters" as a string must point to a .yml/.yaml file ` +
-          `(got "${ref}"); use a list for inline chapters.`
-      };
-    }
-    const filePath = path.resolve(baseDir, ref);
-    if (!fs.existsSync(filePath)) {
-      return { error: `chapters file not found: ${ref}` };
-    }
-    let doc;
-    try {
-      doc = YAML.parse(fs.readFileSync(filePath, "utf8"));
-    } catch (err) {
-      return { error: `failed to parse chapters file ${ref}: ${err.message}` };
-    }
-    const list = Array.isArray(doc) ? doc : doc?.chapters;
-    if (!Array.isArray(list)) {
-      return {
-        error: `chapters file ${ref} must be a YAML list (or a mapping with a "chapters:" list).`
-      };
-    }
-    return { list, source: ref };
-  }
-
-  if (Array.isArray(raw)) return { list: raw, source: null };
-
-  return {
-    error: `"chapters" must be a non-empty list of file paths, or a path to a .yml/.yaml chapters file.`
-  };
+function isMapping(value) {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
-const PATH_ENTRY_KEYS = new Set(["path", "as", "class", "chapter_toc", "toc"]);
-const DIVIDER_KEYS = new Set(["title", "subtitle", "note", "class", "background", "color", "bleed", "toc"]);
-const TYPE_KEYS = ["path", "divider", "blank", "contents"];
-
-function unknownKeys(obj, allowed) {
-  return Object.keys(obj).filter((key) => !allowed.has(key));
+function unknownKeys(value, allowed) {
+  return Object.keys(value).filter((key) => !allowed.has(key));
 }
 
-// class 字段的通用归一化；invalid 时返回 { error }
-function normalizeClass(value, where) {
-  if (value === undefined || value === null || String(value).trim() === "") {
-    return { className: "" };
-  }
+function cleanClass(value, where) {
+  if (value === undefined || value === null || String(value).trim() === "") return { value: "" };
   const className = String(value).trim();
   if (!isValidClassAttr(className)) {
     return {
@@ -138,211 +94,807 @@ function normalizeClass(value, where) {
         `(space-separated tokens, each matching [A-Za-z_-][A-Za-z0-9_-]*).`
     };
   }
-  return { className };
+  return { value: className };
 }
 
-// toc 字段：undefined/null → null（默认），false → false（不进主目录），
-// 字符串 → 覆盖主目录条目文案。true 视为默认。
-function normalizeTocOption(value, where) {
-  if (value === undefined || value === null || value === true) return { toc: null };
-  if (value === false) return { toc: false };
-  if (typeof value === "string") {
-    const label = value.trim();
-    if (!label) return { error: `${where}: "toc" label must not be empty.` };
-    return { toc: label };
-  }
-  return { error: `${where}: "toc" must be false or a label string.` };
+function joinClasses(...values) {
+  return [...new Set(values.flatMap((value) => String(value ?? "").trim().split(/\s+/)).filter(Boolean))]
+    .join(" ");
 }
 
-function normalizePathEntry(entry) {
-  const where = `chapter entry ${JSON.stringify(entry.path)}`;
-  const extra = unknownKeys(entry, PATH_ENTRY_KEYS);
-  if (extra.length > 0) {
-    return { error: `${where}: unknown key(s) ${extra.join(", ")} (allowed: path, as, class, chapter_toc, toc).` };
-  }
+function normalizeFlow(value, where, { partial = false } = {}) {
+  if (value === undefined || value === null) return partial ? {} : { breakBefore: "page", breakAfter: "auto" };
+  if (!isMapping(value)) return { error: `${where}.flow must be a mapping.` };
+  const extra = unknownKeys(value, FLOW_KEYS);
+  if (extra.length) return { error: `${where}.flow: unknown key(s) ${extra.join(", ")}.` };
 
-  const file = String(entry.path).trim();
-  const defaultKind = classifyChapterPath(file);
-  const format = chapterPathFormat(file);
-  if (!defaultKind) {
+  const out = {};
+  for (const [rawKey, key] of [["break_before", "breakBefore"], ["break_after", "breakAfter"]]) {
+    if (value[rawKey] === undefined || value[rawKey] === null) continue;
+    const choice = String(value[rawKey]).trim().toLowerCase();
+    if (!["auto", "page"].includes(choice)) {
+      return { error: `${where}.flow.${rawKey} must be "auto" or "page".` };
+    }
+    out[key] = choice;
+  }
+  if (!partial) {
+    out.breakBefore ??= "page";
+    out.breakAfter ??= "auto";
+  }
+  return out;
+}
+
+function normalizeNavigation(value, where, { partial = false, legacyToc } = {}) {
+  if (value !== undefined && value !== null && !isMapping(value)) {
+    return { error: `${where}.navigation must be a mapping.` };
+  }
+  const nav = value ?? {};
+  const extra = unknownKeys(nav, NAV_KEYS);
+  if (extra.length) return { error: `${where}.navigation: unknown key(s) ${extra.join(", ")}.` };
+
+  const out = {};
+  let tocValue = nav.toc;
+  if (tocValue === undefined) tocValue = legacyToc;
+  if (tocValue !== undefined && tocValue !== null) {
+    if (typeof tocValue === "boolean") out.toc = tocValue;
+    else if (typeof tocValue === "string" && tocValue.trim()) {
+      out.toc = true;
+      out.label = tocValue.trim();
+    } else {
+      return { error: `${where}: "toc" must be true, false, or a non-empty label string.` };
+    }
+  }
+  if (nav.label !== undefined && nav.label !== null) {
+    if (typeof nav.label !== "string" || !nav.label.trim()) {
+      return { error: `${where}.navigation.label must be a non-empty string.` };
+    }
+    out.label = nav.label.trim();
+    out.toc ??= true;
+  }
+  if (nav.level !== undefined && nav.level !== null) {
+    if (!Number.isInteger(nav.level) || nav.level < 1 || nav.level > 6) {
+      return { error: `${where}.navigation.level must be an integer between 1 and 6.` };
+    }
+    out.level = nav.level;
+  }
+  if (nav.outline !== undefined && typeof nav.outline !== "boolean") {
+    return { error: `${where}.navigation.outline must be true or false.` };
+  }
+  if (typeof nav.outline === "boolean") out.outline = nav.outline;
+
+  if (!partial) {
+    out.toc ??= true;
+    out.outline ??= true;
+    out.level ??= 1;
+  }
+  if (!partial && out.outline === false && out.toc !== false) {
     return {
-      error: `unrecognized extension: ${JSON.stringify(file)} (use .md/.markdown or .html/.htm)`
+      error:
+        `${where}: navigation.outline: false currently requires navigation.toc: false ` +
+        `(TOC page-number mapping uses PDF outline destinations).`
     };
   }
-
-  let kind = defaultKind;
-  if (entry.as !== undefined && entry.as !== null) {
-    const as = String(entry.as).trim().toLowerCase();
-    if (!["chapter", "insert"].includes(as)) {
-      return { error: `${where}: "as" must be "chapter" or "insert".` };
-    }
-    if (as === "chapter" && format === "html") {
-      return { error: `${where}: a raw-HTML page cannot be "as: chapter" (write it in Markdown).` };
-    }
-    kind = as;
-  }
-
-  const cls = normalizeClass(entry.class, where);
-  if (cls.error) return { error: cls.error };
-
-  let chapterToc = null;
-  if (entry.chapter_toc !== undefined && entry.chapter_toc !== null) {
-    chapterToc = Boolean(entry.chapter_toc);
-  }
-
-  const toc = normalizeTocOption(entry.toc, where);
-  if (toc.error) return { error: toc.error };
-
-  return { kind, format, file, className: cls.className, chapterToc, toc: toc.toc };
+  return out;
 }
 
-function normalizeDividerEntry(value) {
-  const where = "divider entry";
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return { error: `${where}: "divider" must be a mapping (title / subtitle / class / ...).` };
+function normalizeRunning(value, where, { partial = false } = {}) {
+  if (value === undefined || value === null) {
+    return partial
+      ? {}
+      : {
+          header: true,
+          footer: true,
+          style: {},
+          headerSet: false,
+          footerSet: false,
+          styleSet: false,
+          custom: false
+        };
   }
-  const extra = unknownKeys(value, DIVIDER_KEYS);
-  if (extra.length > 0) {
+  if (value === false) {
     return {
-      error: `${where}: unknown key(s) ${extra.join(", ")} (allowed: ${[...DIVIDER_KEYS].join(", ")}).`
+      header: false,
+      footer: false,
+      style: {},
+      headerSet: true,
+      footerSet: true,
+      styleSet: false,
+      custom: true
     };
   }
-
-  const text = (v) => (v === undefined || v === null ? "" : String(v));
-  const title = text(value.title).trim();
-  const subtitle = text(value.subtitle).trim();
-  const note = text(value.note).trim();
-
-  const cls = normalizeClass(value.class, where);
-  if (cls.error) return { error: cls.error };
-
-  const bleed = Boolean(value.bleed);
-  if (bleed && !title) {
-    return { error: `${where}: "bleed: true" requires a "title" (it anchors the page lookup).` };
+  if (!isMapping(value)) {
+    return { error: `${where}.running must be false or a header/footer/style mapping.` };
   }
-  if (!title && !subtitle && !note && !cls.className) {
-    return { error: `${where}: needs at least a title, subtitle, note, or class.` };
-  }
+  const extra = unknownKeys(value, RUNNING_KEYS);
+  if (extra.length) return { error: `${where}.running: unknown key(s) ${extra.join(", ")}.` };
 
-  let toc = null;
-  if (value.toc !== undefined && value.toc !== null && value.toc !== false) {
-    if (typeof value.toc !== "string" || !value.toc.trim()) {
-      return { error: `${where}: "toc" must be a label string (or omitted).` };
+  const out = {
+    style: {},
+    headerSet: Object.hasOwn(value, "header"),
+    footerSet: Object.hasOwn(value, "footer"),
+    styleSet: Object.hasOwn(value, "style"),
+    custom: Object.keys(value).length > 0
+  };
+  for (const key of ["header", "footer"]) {
+    const band = value[key];
+    if (band === undefined) continue;
+    if (typeof band === "boolean") {
+      out[key] = band;
+      continue;
     }
-    toc = value.toc.trim();
+    if (!isMapping(band)) {
+      return {
+        error:
+          `${where}.running.${key} must be true, false, or a left/center/right mapping.`
+      };
+    }
+    const bandExtra = unknownKeys(band, RUNNING_SLOT_KEYS);
+    if (bandExtra.length) {
+      return {
+        error: `${where}.running.${key}: unknown slot(s) ${bandExtra.join(", ")}.`
+      };
+    }
+    const slots = {};
+    for (const [slot, content] of Object.entries(band)) {
+      if (typeof content !== "string") {
+        return { error: `${where}.running.${key}.${slot} must be a string.` };
+      }
+      slots[slot] = content;
+    }
+    out[key] = slots;
   }
 
+  if (value.style !== undefined) {
+    if (!isMapping(value.style)) {
+      return { error: `${where}.running.style must be a mapping.` };
+    }
+    const styleExtra = unknownKeys(value.style, RUNNING_STYLE_KEYS);
+    if (styleExtra.length) {
+      return {
+        error: `${where}.running.style: unknown key(s) ${styleExtra.join(", ")}.`
+      };
+    }
+    for (const [key, setting] of Object.entries(value.style)) {
+      if (typeof setting !== "string" || !setting.trim()) {
+        return { error: `${where}.running.style.${key} must be a non-empty string.` };
+      }
+      out.style[key] = setting.trim();
+    }
+  }
+
+  if (!partial) {
+    out.header ??= true;
+    out.footer ??= true;
+  }
+  out.styleSet = Object.keys(out.style).length > 0;
+  out.custom = Boolean(out.headerSet || out.footerSet || out.styleSet);
+  return out;
+}
+
+function mergeRunning(base = {}, override = {}) {
+  const mergeBand = (left, right) => {
+    if (right === undefined) return left;
+    if (isMapping(left) && isMapping(right)) return { ...left, ...right };
+    return right;
+  };
   return {
-    kind: "divider",
-    title,
-    subtitle,
-    note,
-    className: cls.className,
-    background: text(value.background).trim(),
-    color: text(value.color).trim(),
-    bleed,
-    toc
+    header: mergeBand(base.header, override.header),
+    footer: mergeBand(base.footer, override.footer),
+    style: { ...(base.style ?? {}), ...(override.style ?? {}) },
+    headerSet: Boolean(base.headerSet || override.headerSet),
+    footerSet: Boolean(base.footerSet || override.footerSet),
+    styleSet: Boolean(base.styleSet || override.styleSet),
+    custom: Boolean(base.custom || override.custom)
   };
 }
 
-function normalizeBlankEntry(value) {
-  if (value === true) return { kind: "blank", count: 1 };
-  if (typeof value === "number" && Number.isInteger(value) && value >= 1 && value <= 20) {
-    return { kind: "blank", count: value };
+function normalizeDefaults(value, where) {
+  if (value === undefined || value === null) return {};
+  if (!isMapping(value)) return { error: `${where} must be a mapping.` };
+  const extra = unknownKeys(value, DEFAULT_KEYS);
+  if (extra.length) return { error: `${where}: unknown key(s) ${extra.join(", ")}.` };
+  const cls = cleanClass(value.class, where);
+  if (cls.error) return cls;
+  const flow = normalizeFlow(value.flow, where, { partial: true });
+  if (flow.error) return flow;
+  const navigation = normalizeNavigation(value.navigation, where, {
+    partial: true,
+    legacyToc: value.toc
+  });
+  if (navigation.error) return navigation;
+  const running = normalizeRunning(value.running, where, { partial: true });
+  if (running.error) return running;
+  if (value.chapter_toc !== undefined && typeof value.chapter_toc !== "boolean") {
+    return { error: `${where}.chapter_toc must be true or false.` };
   }
-  return { error: `blank entry: use "blank: true" or a page count 1-20 (got ${JSON.stringify(value)}).` };
+  if (value.layout !== undefined && (typeof value.layout !== "string" || !value.layout.trim())) {
+    return { error: `${where}.layout must be a non-empty layout name.` };
+  }
+  return {
+    className: cls.value,
+    layout: value.layout?.trim(),
+    chapterToc: value.chapter_toc,
+    flow,
+    navigation,
+    running
+  };
+}
+
+function mergeOptions(...values) {
+  const out = {
+    className: "",
+    layout: undefined,
+    chapterToc: undefined,
+    flow: {},
+    navigation: {},
+    running: {}
+  };
+  for (const value of values.filter(Boolean)) {
+    out.className = joinClasses(out.className, value.className);
+    if (value.layout !== undefined) out.layout = value.layout;
+    if (value.chapterToc !== undefined) out.chapterToc = value.chapterToc;
+    out.flow = { ...out.flow, ...(value.flow ?? {}) };
+    out.navigation = { ...out.navigation, ...(value.navigation ?? {}) };
+    out.running = mergeRunning(out.running, value.running);
+  }
+  return out;
+}
+
+function resolveLayouts(raw) {
+  if (raw === undefined || raw === null) return { layouts: new Map(), errors: [] };
+  if (!isMapping(raw)) return { layouts: new Map(), errors: ['"layouts" must be a mapping.'] };
+
+  const definitions = new Map();
+  const errors = [];
+  for (const [name, value] of Object.entries(raw)) {
+    const where = `layouts.${name}`;
+    if (!NAME_RE.test(name)) {
+      errors.push(`${where}: layout names must match [A-Za-z_][A-Za-z0-9_-]*.`);
+      continue;
+    }
+    if (!isMapping(value)) {
+      errors.push(`${where} must be a mapping.`);
+      continue;
+    }
+    const extra = unknownKeys(value, LAYOUT_KEYS);
+    if (extra.length) {
+      errors.push(`${where}: unknown key(s) ${extra.join(", ")}.`);
+      continue;
+    }
+    const normalized = normalizeDefaults(
+      Object.fromEntries(Object.entries(value).filter(([key]) => key !== "extends")),
+      where
+    );
+    if (normalized.error) {
+      errors.push(normalized.error);
+      continue;
+    }
+    if (value.extends !== undefined && (typeof value.extends !== "string" || !value.extends.trim())) {
+      errors.push(`${where}.extends must be a non-empty layout name.`);
+      continue;
+    }
+    definitions.set(name, { ...normalized, extends: value.extends?.trim() });
+  }
+
+  const layouts = new Map();
+  const resolving = [];
+  function visit(name) {
+    if (layouts.has(name)) return layouts.get(name);
+    const definition = definitions.get(name);
+    if (!definition) return null;
+    if (resolving.includes(name)) {
+      errors.push(`layout inheritance cycle: ${[...resolving, name].join(" -> ")}`);
+      return null;
+    }
+    resolving.push(name);
+    let parent = null;
+    if (definition.extends) {
+      parent = visit(definition.extends);
+      if (!definitions.has(definition.extends)) {
+        errors.push(`layouts.${name}.extends references unknown layout ${JSON.stringify(definition.extends)}.`);
+      }
+    }
+    resolving.pop();
+    const merged = mergeOptions(parent, definition);
+    layouts.set(name, merged);
+    return merged;
+  }
+  for (const name of definitions.keys()) visit(name);
+  return { layouts, errors };
+}
+
+function parseYamlList(filePath, acceptedKeys) {
+  let document;
+  try {
+    document = YAML.parse(fs.readFileSync(filePath, "utf8"));
+  } catch (error) {
+    return { error: `failed to parse structure file ${filePath}: ${error.message}` };
+  }
+  if (Array.isArray(document)) return { list: document };
+  if (isMapping(document)) {
+    for (const key of acceptedKeys) {
+      if (Array.isArray(document[key])) return { list: document[key] };
+    }
+  }
+  return { error: `structure file ${filePath} must be a YAML list (or a mapping with a structure/chapters list).` };
+}
+
+/** Resolve the root list. Exported under the old name for API compatibility. */
+export function resolveChapterList(book, baseDir) {
+  const hasStructure = book?.structure !== undefined;
+  const hasChapters = book?.chapters !== undefined;
+  if (hasStructure && hasChapters) {
+    return { error: 'use either "structure" or "chapters", not both.' };
+  }
+  const key = hasStructure ? "structure" : "chapters";
+  const raw = book?.[key];
+  if (typeof raw === "string") {
+    const ref = raw.trim();
+    if (!YAML_EXTS.has(path.extname(ref).toLowerCase())) {
+      return { error: `"${key}" as a string must point to a .yml/.yaml file.` };
+    }
+    const filePath = path.resolve(baseDir, ref);
+    if (!fs.existsSync(filePath)) return { error: `${key} file not found: ${ref}` };
+    const parsed = parseYamlList(filePath, [key, "structure", "chapters"]);
+    return parsed.error ? parsed : { list: parsed.list, source: ref, sourcePath: filePath, key };
+  }
+  if (Array.isArray(raw)) return { list: raw, source: null, sourcePath: null, key };
+  return { error: `"${key}" must be a non-empty list, or a path to a .yml/.yaml structure file.` };
+}
+
+function optionsFromRaw(raw, where, inherited, layouts) {
+  const own = normalizeDefaults(
+    Object.fromEntries(Object.entries(raw).filter(([key]) => DEFAULT_KEYS.has(key))),
+    where
+  );
+  if (own.error) return own;
+  const requestedLayout = own.layout ?? inherited.layout;
+  let layout = null;
+  if (requestedLayout) {
+    layout = layouts.get(requestedLayout);
+    if (!layout) return { error: `${where}.layout references unknown layout ${JSON.stringify(requestedLayout)}.` };
+  }
+  const options = mergeOptions(layout, inherited, own);
+  options.layout = requestedLayout;
+  options.flow = { breakBefore: "page", breakAfter: "auto", ...options.flow };
+  options.navigation = { toc: true, outline: true, level: 1, ...options.navigation };
+  options.running = {
+    header: options.running.header ?? true,
+    footer: options.running.footer ?? true,
+    style: options.running.style ?? {},
+    headerSet: Boolean(options.running.headerSet),
+    footerSet: Boolean(options.running.footerSet),
+    styleSet: Boolean(options.running.styleSet),
+    custom: Boolean(options.running.custom)
+  };
+  if (options.navigation.outline === false && options.navigation.toc !== false) {
+    return {
+      error:
+        `${where}: navigation.outline: false currently requires navigation.toc: false ` +
+        `(TOC page-number mapping uses PDF outline destinations).`
+    };
+  }
+  if (
+    options.running.custom &&
+    options.flow.breakBefore === "auto"
+  ) {
+    return {
+      error:
+        `${where}: a per-entry running header/footer policy requires flow.break_before: page ` +
+        `(a shared physical page cannot have two running profiles).`
+    };
+  }
+  if (
+    options.running.custom &&
+    options.navigation.outline === false
+  ) {
+    return { error: `${where}: a running header/footer policy requires navigation.outline: true for page-range mapping.` };
+  }
+  options.chapterToc = options.chapterToc ?? null;
+  return options;
+}
+
+function normalizePathEntry(raw, where, inherited, layouts, explicitType = null) {
+  const extra = unknownKeys(raw, explicitType ? LONG_FILE_KEYS : LEGACY_PATH_KEYS);
+  if (extra.length) return { error: `${where}: unknown key(s) ${extra.join(", ")}.` };
+  if (raw.path === undefined || raw.path === null || !String(raw.path).trim()) {
+    return { error: `${where}: missing a non-empty path.` };
+  }
+  const file = String(raw.path).trim();
+  const format = chapterPathFormat(file);
+  const defaultKind = classifyChapterPath(file);
+  if (!format) return { error: `${where}: unrecognized extension ${JSON.stringify(file)} (use Markdown or HTML).` };
+
+  let kind = explicitType ?? defaultKind;
+  const role = raw.role ?? raw.as;
+  if (role !== undefined && role !== null) {
+    const requested = String(role).trim().toLowerCase();
+    if (explicitType && requested !== explicitType) {
+      return { error: `${where}: explicit type ${JSON.stringify(explicitType)} conflicts with role/as ${JSON.stringify(requested)}.` };
+    }
+    kind = requested;
+  }
+  if (!["chapter", "insert"].includes(kind)) return { error: `${where}: role/as must be "chapter" or "insert".` };
+  if (kind === "chapter" && format === "html") {
+    return { error: `${where}: a raw-HTML page cannot be "as: chapter" (write it in Markdown).` };
+  }
+
+  const options = optionsFromRaw(raw, where, inherited, layouts);
+  if (options.error) return options;
+  if (
+    format === "html" &&
+    options.running.custom
+  ) {
+    return { error: `${where}: per-entry running header/footer control currently requires a Markdown page with an h1 anchor.` };
+  }
+  return {
+    kind,
+    role: kind,
+    format,
+    file,
+    className: options.className,
+    layout: options.layout ?? "",
+    chapterToc: options.chapterToc,
+    toc: options.navigation.toc === false ? false : (options.navigation.label ?? null),
+    navigation: options.navigation,
+    flow: options.flow,
+    running: options.running
+  };
+}
+
+function dividerFromValue(value, where, inherited, layouts, { defaultToc = false } = {}) {
+  if (!isMapping(value)) return { error: `${where} must be a mapping.` };
+  const extra = unknownKeys(value, DIVIDER_KEYS);
+  if (extra.length) return { error: `${where}: unknown key(s) ${extra.join(", ")}.` };
+  const options = optionsFromRaw(value, where, inherited, layouts);
+  if (options.error) return options;
+  if (value.toc === undefined && value.navigation === undefined) {
+    options.navigation.toc = defaultToc;
+  }
+  const text = (item) => item === undefined || item === null ? "" : String(item).trim();
+  const title = text(value.title);
+  const subtitle = text(value.subtitle);
+  const note = text(value.note);
+  if (value.bleed === true && !title) return { error: `${where}: bleed: true requires a "title".` };
+  if (!title && !subtitle && !note && !options.className) {
+    return { error: `${where}: needs at least a title, subtitle, note, or class.` };
+  }
+  return {
+    kind: "divider",
+    role: "part",
+    title,
+    subtitle,
+    note,
+    className: options.className,
+    layout: options.layout ?? "",
+    background: text(value.background),
+    color: text(value.color),
+    bleed: value.bleed === true,
+    toc: options.navigation.toc === false ? null : (options.navigation.label ?? title ?? null),
+    navigation: options.navigation,
+    flow: options.flow,
+    running: options.running
+  };
+}
+
+function normalizeBlankCount(value, where) {
+  if (value === true) return 1;
+  if (Number.isInteger(value) && value >= 1 && value <= 20) return value;
+  return { error: `${where}: use true or a page count from 1 to 20.` };
+}
+
+function longEntryToLegacy(raw, where) {
+  const type = String(raw.type ?? "").trim().toLowerCase();
+  if (!type) return { error: `${where}.type must be a non-empty string.` };
+  if (["chapter", "insert"].includes(type)) return { kind: "path", explicitType: type };
+  if (["divider", "blank", "contents", "part", "include"].includes(type)) return { kind: type };
+  return { error: `${where}.type is unknown: ${JSON.stringify(type)}.` };
 }
 
 /**
- * Normalize one raw entry (string or mapping) into a descriptor:
- *   path entry   { kind: "chapter"|"insert", format, file, className, chapterToc, toc }
- *   divider      { kind: "divider", title, subtitle, note, className, background, color, bleed, toc }
- *   blank        { kind: "blank", count }
- *   contents     { kind: "contents" }
- * Returns { error } on invalid input.
+ * Legacy single-entry normalizer. New structure features need book-level
+ * layouts/includes, so callers should prefer normalizeChapters().
  */
 export function normalizeChapterEntry(entry) {
-  if (typeof entry === "string") {
-    const file = entry.trim();
-    if (!file) return { error: `empty chapter entry` };
-    const kind = classifyChapterPath(file);
-    if (!kind) {
-      return {
-        error: `unrecognized extension: ${JSON.stringify(file)} (use .md/.markdown or .html/.htm)`
-      };
+  const layouts = new Map();
+  const inherited = { className: "", flow: {}, navigation: {} };
+  if (typeof entry === "string") return normalizePathEntry({ path: entry }, "chapter entry", inherited, layouts);
+  if (!isMapping(entry)) return { error: `invalid chapter entry: ${JSON.stringify(entry)}` };
+  if (entry.type !== undefined) {
+    const typed = longEntryToLegacy(entry, "structure entry");
+    if (typed.error) return typed;
+    if (typed.kind === "path") return normalizePathEntry(entry, "structure entry", inherited, layouts, typed.explicitType);
+    if (typed.kind === "divider") {
+      const extra = unknownKeys(entry, LONG_DIVIDER_KEYS);
+      if (extra.length) return { error: `structure divider: unknown key(s) ${extra.join(", ")}.` };
+      const { type: _type, ...value } = entry;
+      return dividerFromValue(value, "structure divider", inherited, layouts);
     }
-    return { kind, format: chapterPathFormat(file), file, className: "", chapterToc: null, toc: null };
+    if (typed.kind === "blank") {
+      const count = normalizeBlankCount(entry.count ?? true, "blank entry");
+      return count.error ? count : { kind: "blank", role: "blank", count, className: "", layout: "", flow: { breakBefore: "page", breakAfter: "auto" } };
+    }
+    if (typed.kind === "contents") return { kind: "contents", role: "contents" };
+    return { error: `${typed.kind} entries require book-level normalization.` };
   }
-
-  if (entry && typeof entry === "object" && !Array.isArray(entry)) {
-    const present = TYPE_KEYS.filter((key) => entry[key] !== undefined);
-    if (present.length !== 1) {
-      return {
-        error:
-          `chapter entry must have exactly one of ${TYPE_KEYS.map((k) => `"${k}"`).join(" / ")}: ` +
-          JSON.stringify(entry)
-      };
-    }
-
-    if (present[0] === "path") {
-      if (entry.path === null || String(entry.path).trim() === "") {
-        return { error: `chapter object is missing a "path": ${JSON.stringify(entry)}` };
-      }
-      return normalizePathEntry(entry);
-    }
-    if (present[0] === "divider") {
-      const extra = unknownKeys(entry, new Set(["divider"]));
-      if (extra.length > 0) {
-        return { error: `divider entry: move ${extra.join(", ")} inside the "divider:" mapping.` };
-      }
-      return normalizeDividerEntry(entry.divider);
-    }
-    if (present[0] === "blank") {
-      const extra = unknownKeys(entry, new Set(["blank"]));
-      if (extra.length > 0) {
-        return { error: `blank entry: unknown key(s) ${extra.join(", ")}.` };
-      }
-      return normalizeBlankEntry(entry.blank);
-    }
-    // contents
-    const extra = unknownKeys(entry, new Set(["contents"]));
-    if (extra.length > 0) {
-      return { error: `contents entry: unknown key(s) ${extra.join(", ")}.` };
-    }
-    if (entry.contents !== true) {
-      return { error: `contents entry: use "contents: true".` };
-    }
-    return { kind: "contents" };
+  const present = LEGACY_TYPE_KEYS.filter((key) => entry[key] !== undefined);
+  if (present.length !== 1) {
+    return { error: `chapter entry must have exactly one of ${LEGACY_TYPE_KEYS.map((key) => `"${key}"`).join(" / ")}: ${JSON.stringify(entry)}` };
   }
-
-  return { error: `invalid chapter entry: ${JSON.stringify(entry)}` };
+  if (present[0] === "path") return normalizePathEntry(entry, "chapter entry", inherited, layouts);
+  if (present[0] === "divider") return dividerFromValue(entry.divider, "divider entry", inherited, layouts);
+  if (present[0] === "blank") {
+    const count = normalizeBlankCount(entry.blank, "blank entry");
+    return count.error ? count : { kind: "blank", count };
+  }
+  if (present[0] === "contents") {
+    if (entry.contents !== true) return { error: `contents entry: use "contents: true".` };
+    return { kind: "contents", role: "contents" };
+  }
+  return { error: `${present[0]} entries require book-level normalization.` };
 }
 
-/**
- * Full normalization used by build.mjs. Throws-free: returns
- *   { entries, source } on success, or { error } (fatal, single message).
- * Per-entry problems are fatal here because the renderer cannot proceed.
- */
+/** Full book/structure normalization. Returns all errors so `check` can report them together. */
 export function normalizeChapters(book, baseDir) {
-  const resolved = resolveChapterList(book, baseDir);
-  if (resolved.error) return { error: resolved.error };
-  if (!resolved.list || resolved.list.length === 0) {
-    return { error: `"chapters" must not be empty.` };
-  }
-
+  const root = resolveChapterList(book, baseDir);
+  if (root.error) return { entries: [], errors: [root.error], error: root.error };
+  const layoutResult = resolveLayouts(book.layouts);
+  const errors = [...layoutResult.errors];
   const entries = [];
-  for (const raw of resolved.list) {
-    const d = normalizeChapterEntry(raw);
-    if (d.error) return { error: d.error };
-    entries.push(d);
+  const includeStack = [];
+  const dependencies = new Set(root.sourcePath ? [root.sourcePath] : []);
+  let contentsCount = 0;
+
+  function addEntry(raw, inherited = { className: "", flow: {}, navigation: {} }, context = {}) {
+    const where = context.where ?? "structure entry";
+    if (typeof raw === "string") {
+      const normalized = normalizePathEntry({ path: raw }, where, inherited, layoutResult.layouts);
+      if (normalized.error) errors.push(normalized.error);
+      else entries.push(normalized);
+      return;
+    }
+    if (!isMapping(raw)) {
+      errors.push(`${where}: invalid entry ${JSON.stringify(raw)}.`);
+      return;
+    }
+
+    let kind;
+    let explicitType = null;
+    if (raw.type !== undefined) {
+      const typed = longEntryToLegacy(raw, where);
+      if (typed.error) {
+        errors.push(typed.error);
+        return;
+      }
+      kind = typed.kind;
+      explicitType = typed.explicitType ?? null;
+    } else {
+      const present = LEGACY_TYPE_KEYS.filter((key) => raw[key] !== undefined);
+      if (present.length !== 1) {
+        errors.push(
+          `${where}: entry must have exactly one of ` +
+            `"path" / "divider" / "blank" / "contents" / "part" / "include", ` +
+            `or an explicit "type".`
+        );
+        return;
+      }
+      kind = present[0];
+    }
+
+    if (kind === "path") {
+      const normalized = normalizePathEntry(raw, where, inherited, layoutResult.layouts, explicitType);
+      if (normalized.error) errors.push(normalized.error);
+      else entries.push(normalized);
+      return;
+    }
+
+    if (kind === "divider") {
+      let value = raw.divider;
+      if (raw.type !== undefined) {
+        const extra = unknownKeys(raw, LONG_DIVIDER_KEYS);
+        if (extra.length) {
+          errors.push(`${where}: unknown key(s) ${extra.join(", ")}.`);
+          return;
+        }
+        const { type: _type, ...rest } = raw;
+        value = rest;
+      } else if (unknownKeys(raw, new Set(["divider"])).length) {
+        errors.push(`${where}: divider options belong inside the "divider" mapping.`);
+        return;
+      }
+      const normalized = dividerFromValue(value, where, inherited, layoutResult.layouts);
+      if (normalized.error) errors.push(normalized.error);
+      else entries.push(normalized);
+      return;
+    }
+
+    if (kind === "blank") {
+      const value = raw.type !== undefined ? (raw.count ?? true) : raw.blank;
+      const allowed = raw.type !== undefined
+        ? new Set(["type", "count", "class", "layout", "flow"])
+        : new Set(["blank"]);
+      const extra = unknownKeys(raw, allowed);
+      if (extra.length) {
+        errors.push(`${where}: blank entry has unknown key(s) ${extra.join(", ")}.`);
+        return;
+      }
+      const count = normalizeBlankCount(value, where);
+      if (count.error) {
+        errors.push(count.error);
+        return;
+      }
+      const options = optionsFromRaw(
+        raw.type !== undefined ? raw : {},
+        where,
+        inherited,
+        layoutResult.layouts
+      );
+      if (options.error) errors.push(options.error);
+      else if (options.running.custom) {
+        errors.push(
+          `${where}: blank pages cannot inherit a per-entry running policy; ` +
+            "place the policy on an outline-addressable chapter or divider"
+        );
+      } else {
+        entries.push({
+          kind: "blank",
+          role: "blank",
+          count,
+          className: options.className,
+          layout: options.layout ?? "",
+          flow: options.flow,
+          running: options.running
+        });
+      }
+      return;
+    }
+
+    if (kind === "contents") {
+      const allowed = raw.type !== undefined ? new Set(["type"]) : new Set(["contents"]);
+      const extra = unknownKeys(raw, allowed);
+      if (extra.length || (raw.type === undefined && raw.contents !== true)) {
+        errors.push(`${where}: contents entry accepts no options; use contents: true or type: contents.`);
+        return;
+      }
+      contentsCount += 1;
+      entries.push({ kind: "contents", role: "contents" });
+      return;
+    }
+
+    if (kind === "include") {
+      const allowed = raw.type !== undefined ? new Set(["type", "path"]) : new Set(["include"]);
+      const extra = unknownKeys(raw, allowed);
+      if (extra.length) {
+        errors.push(`${where}: include entry has unknown key(s) ${extra.join(", ")}.`);
+        return;
+      }
+      const ref = String(raw.type !== undefined ? raw.path ?? "" : raw.include ?? "").trim();
+      if (!ref || !YAML_EXTS.has(path.extname(ref).toLowerCase())) {
+        errors.push(`${where}: include must reference a .yml/.yaml file.`);
+        return;
+      }
+      const includeBase = context.sourceDir ?? baseDir;
+      const abs = path.resolve(includeBase, ref);
+      if (!fs.existsSync(abs)) {
+        errors.push(`${where}: include file not found: ${ref}`);
+        return;
+      }
+      dependencies.add(abs);
+      if (includeStack.includes(abs)) {
+        errors.push(`structure include cycle: ${[...includeStack, abs].map((p) => path.relative(baseDir, p)).join(" -> ")}`);
+        return;
+      }
+      const parsed = parseYamlList(abs, ["structure", "chapters"]);
+      if (parsed.error) {
+        errors.push(parsed.error);
+        return;
+      }
+      includeStack.push(abs);
+      parsed.list.forEach((child, index) => addEntry(child, inherited, {
+        where: `${path.relative(baseDir, abs)}[${index}]`,
+        sourceDir: path.dirname(abs)
+      }));
+      includeStack.pop();
+      return;
+    }
+
+    // part: render a semantic divider, then flatten its children. Defaults are
+    // inherited by descendants; the part's TOC level becomes their base level.
+    let value = raw.part;
+    if (raw.type !== undefined) {
+      const extra = unknownKeys(raw, LONG_PART_KEYS);
+      if (extra.length) {
+        errors.push(`${where}: part entry has unknown key(s) ${extra.join(", ")}.`);
+        return;
+      }
+      const { type: _type, ...rest } = raw;
+      value = rest;
+    } else if (unknownKeys(raw, new Set(["part"])).length) {
+      errors.push(`${where}: part options belong inside the "part" mapping.`);
+      return;
+    }
+    if (!isMapping(value)) {
+      errors.push(`${where}: part must be a mapping.`);
+      return;
+    }
+    const extra = unknownKeys(value, PART_KEYS);
+    if (extra.length) {
+      errors.push(`${where}: part has unknown key(s) ${extra.join(", ")}.`);
+      return;
+    }
+    const children = value.children ?? value.chapters ?? value.structure;
+    if (!Array.isArray(children) || children.length === 0) {
+      errors.push(`${where}: part needs a non-empty children/chapters list.`);
+      return;
+    }
+    const dividerValue = Object.fromEntries(Object.entries(value).filter(([key]) => DIVIDER_KEYS.has(key)));
+    const part = dividerFromValue(
+      dividerValue,
+      where,
+      inherited,
+      layoutResult.layouts,
+      { defaultToc: true }
+    );
+    if (part.error) {
+      errors.push(part.error);
+      return;
+    }
+    part.role = "part";
+    entries.push(part);
+    const defaults = normalizeDefaults(value.defaults, `${where}.defaults`);
+    if (defaults.error) {
+      errors.push(defaults.error);
+      return;
+    }
+    const inheritedLevel = part.navigation.level ?? 1;
+    const childDefaults = mergeOptions(inherited, defaults, {
+      navigation: defaults.navigation?.level === undefined ? { level: Math.min(6, inheritedLevel + 1) } : {}
+    });
+    children.forEach((child, index) => addEntry(child, childDefaults, {
+      where: `${where}.children[${index}]`,
+      sourceDir: context.sourceDir
+    }));
   }
 
-  if (!entries.some((e) => e.kind === "chapter" || e.kind === "insert")) {
-    return { error: `"chapters" must include at least one .md or .html page.` };
-  }
-  if (entries.filter((e) => e.kind === "contents").length > 1) {
-    return { error: `"chapters" may place the main TOC ("contents: true") at most once.` };
+  if (!root.list.length) errors.push(`"${root.key}" must not be empty.`);
+  const rootSourceDir = root.sourcePath ? path.dirname(root.sourcePath) : baseDir;
+  if (root.sourcePath) includeStack.push(root.sourcePath);
+  root.list.forEach((entry, index) => addEntry(entry, undefined, {
+    where: `${root.key}[${index}]`,
+    sourceDir: rootSourceDir
+  }));
+  if (root.sourcePath) includeStack.pop();
+
+  for (let index = 0; index < entries.length - 1; index += 1) {
+    const current = entries[index];
+    const next = entries[index + 1];
+    if (
+      current.running?.custom &&
+      current.flow?.breakAfter !== "page" &&
+      next.flow?.breakBefore === "auto"
+    ) {
+      const currentLabel = current.file ?? current.title ?? current.kind;
+      const nextLabel = next.file ?? next.title ?? next.kind;
+      errors.push(
+        `running profile on ${JSON.stringify(currentLabel)} cannot share a physical page ` +
+          `with following entry ${JSON.stringify(nextLabel)}; use flow.break_after: page ` +
+          `or make the following entry use flow.break_before: page.`
+      );
+    }
   }
 
-  return { entries, source: resolved.source };
+  if (contentsCount > 1) errors.push(`"contents: true" may appear at most once in document structure.`);
+  if (!entries.some((entry) => entry.kind === "chapter" || entry.kind === "insert")) {
+    errors.push(`document structure must include at least one .md or .html file page.`);
+  }
+  const error = errors[0];
+  return {
+    entries,
+    source: root.source,
+    key: root.key,
+    layouts: layoutResult.layouts,
+    dependencies: [...dependencies],
+    errors,
+    error
+  };
 }

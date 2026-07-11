@@ -1,5 +1,53 @@
 # Changelog
 
+## 2.2.0-beta.1 — 2026-07-11 (document structure and page policies)
+
+### Added
+
+- `structure:` as the semantic, book-scale alternative to `chapters:`. Both
+  remain supported and normalize to the same flat renderer IR, but cannot be
+  used together. Explicit `type:` entries cover chapter, insert, divider,
+  blank, contents, part, and include nodes.
+- Named `layouts` with inheritance, reusable classes, chapter mini-TOC
+  defaults, pagination flow, navigation, and running header/footer policies.
+  Layout inheritance cycles and unknown profiles are hard errors.
+- Semantic `part` groups with nested children and inherited defaults. Part
+  headings create real divider pages and TOC levels; children are flattened
+  before rendering so the existing Markdown/PDF pipeline stays deterministic.
+- Recursive YAML `include` entries with relative resolution and cycle
+  detection.
+- Per-entry `flow.break_before` / `break_after`, plus independent navigation
+  controls for TOC inclusion, label, level, and PDF outline participation.
+- Per-chapter `running.header` / `running.footer`. A normal Markdown chapter
+  may suppress either margin band or override its `left` / `center` / `right`
+  content, while `running.style` overrides typography and offset field by
+  field. Missing values inherit global PDF settings; layouts deep-merge these
+  profiles. `{{chapterTitle}}` / `{{sectionTitle}}` and logical page values are
+  available. The official PDF maps the h1 outline destination to a physical
+  page range and replaces only the affected margin bands in the final pass.
+  Policies require a page break and an outline-addressable h1.
+- `mhb inspect` (`--json` supported) prints the normalized sequence after all
+  layout, part, and include inheritance.
+- Packaged `book.schema.json` for YAML editor validation and completion.
+- Complete dialect-edition guide (`docs/dialect-guide/`, zh-CN, edition
+  `2.0-dialect`): every feature and every configuration key of this branch —
+  CLI/pipeline, the structure language, layouts/flow/navigation, running
+  policies, the full Obsidian dialect syntax, theming, the PDF pipeline, and
+  an A–Z `book.yml` reference. The guide's own `book.yml` dogfoods
+  `structure:`, layout inheritance, bleed part dividers, an in-flow contents
+  page, and a per-chapter running header. Built in CI alongside the handbook
+  and the syntax showcase (now also edition `2.0-dialect`), published under
+  `dist/guide/`.
+
+### Compatibility
+
+- Existing `chapters:` string lists, mapping entries, special pages, themes,
+  TOCs, and PDF outputs retain their prior HTML structure unless a new policy
+  is used.
+- Mixed page sizes/orientations remain intentionally deferred: Chromium named
+  pages are not reliable enough, so that capability will require a future
+  segmented-render-and-merge pipeline.
+
 ## 2.1.0-beta.1 — 2026-07-11 (Obsidian dialect preview)
 
 Prerelease of the `dialects` branch; published under the `next` dist-tag.

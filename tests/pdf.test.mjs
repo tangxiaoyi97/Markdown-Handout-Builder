@@ -173,6 +173,90 @@ output:
   }
 });
 
+test("per-chapter running profile: custom bands/page numbers and global restoration", { skip: !hasChromium && "Playwright Chromium not installed" }, async () => {
+  const { dir, pdfStderr } = await buildAndRender({
+    "book.yml": `title: Running Policy
+date: "2026-01-02"
+cover: { enabled: false }
+toc: { enabled: false }
+structure:
+  - type: chapter
+    path: notes/custom.md
+    running:
+      header:
+        left: "{{chapterTitle}}"
+        center: "CHAPTER-HEADER"
+      footer:
+        left: "CHAPTER-ONLY"
+        center: "{{page}} / {{total}}"
+        right: "本章专属"
+      style:
+        font_size: "9px"
+        color: "#345678"
+  - type: chapter
+    path: notes/normal.md
+output:
+  html: dist/handout.html
+  pdf: dist/handout.pdf
+pdf:
+  footer:
+    left: "FOOTER-MARK"
+    center: "{{page}} / {{total}}"
+    right: ""
+`,
+    "notes/custom.md": "# Custom Chapter\n\nThis chapter has its own running bands.\n",
+    "notes/normal.md": "# Normal Footer\n\nThis chapter uses the global footer.\n"
+  });
+
+  assert.doesNotMatch(pdfStderr, /cannot map section pages/);
+  const { doc, destroy } = await loadPdf(path.join(dir, "dist", "handout.pdf"));
+  try {
+    assert.equal(doc.numPages, 2);
+    const custom = await pageText(doc, 1);
+    const normal = await pageText(doc, 2);
+    assert.match(custom, /Custom Chapter/);
+    assert.match(custom, /CHAPTER-HEADER/);
+    assert.match(custom, /CHAPTER-ONLY/);
+    assert.match(custom, /1 \/ 2/);
+    assert.match(normal, /Normal Footer/);
+    assert.match(normal, /FOOTER-MARK/);
+    assert.doesNotMatch(normal, /CHAPTER-HEADER|CHAPTER-ONLY/);
+  } finally {
+    await destroy();
+  }
+});
+
+test("per-chapter running profile can opt bands in when globally disabled", { skip: !hasChromium && "Playwright Chromium not installed" }, async () => {
+  const { dir } = await buildAndRender({
+    "book.yml": `title: Local Opt In
+cover: { enabled: false }
+toc: { enabled: false }
+structure:
+  - path: notes/custom.md
+    running:
+      header: { center: "LOCAL-HEADER" }
+      footer: { center: "{{page}} / {{total}}" }
+  - path: notes/normal.md
+output: { html: dist/handout.html, pdf: dist/handout.pdf }
+pdf:
+  header_footer: false
+`,
+    "notes/custom.md": "# Custom\n\nLocal bands.\n",
+    "notes/normal.md": "# Normal\n\nNo bands.\n"
+  });
+
+  const { doc, destroy } = await loadPdf(path.join(dir, "dist", "handout.pdf"));
+  try {
+    const custom = await pageText(doc, 1);
+    const normal = await pageText(doc, 2);
+    assert.match(custom, /LOCAL-HEADER/);
+    assert.match(custom, /1 \/ 2/);
+    assert.doesNotMatch(normal, /LOCAL-HEADER|2 \/ 2/);
+  } finally {
+    await destroy();
+  }
+});
+
 test("count_toc:false: main TOC excluded from numbering; chapter mini-TOC numbered", { skip: !hasChromium && "Playwright Chromium not installed" }, async () => {
   const book = `title: "CT"
 date: "2026-01-02"

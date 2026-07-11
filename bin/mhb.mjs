@@ -12,6 +12,7 @@ const require = createRequire(import.meta.url);
 
 const scriptByCommand = {
   check: "check.mjs",
+  inspect: "inspect.mjs",
   build: "build.mjs",
   pdf: "render-pdf.mjs",
   "render-pdf": "render-pdf.mjs",
@@ -24,7 +25,8 @@ Usage:
   mhb <command> [options]
 
 Commands:
-  check       Validate book.yml, chapters, and local assets
+  check       Validate book.yml, structure/chapters, and local assets
+  inspect     Show the normalized document structure (--json supported)
   build       Render HTML into dist/
   pdf         Render PDF from the generated HTML
   serve       Preview locally and rebuild HTML on save
@@ -115,7 +117,8 @@ async function initProject(args) {
     .map((part) => part[0]?.toUpperCase() + part.slice(1))
     .join(" ");
 
-  const book = `title: "${title || "My Handout"}"
+  const book = `# yaml-language-server: $schema=./node_modules/markdown-handout-builder/book.schema.json
+title: "${title || "My Handout"}"
 subtitle: "Markdown notes to HTML and PDF"
 language: "en"
 date: "${new Date().toISOString().slice(0, 10)}"
@@ -169,6 +172,7 @@ Start writing your handout here.
   "private": true,
   "scripts": {
     "check": "mhb check",
+    "inspect": "mhb inspect",
     "build": "mhb build",
     "pdf": "mhb pdf",
     "serve": "mhb serve",

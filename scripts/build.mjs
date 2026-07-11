@@ -2,7 +2,7 @@
 /**
  * scripts/build.mjs
  *
- * 按 book.yml 的 chapters 顺序渲染 Markdown，生成：
+ * 按 book.yml 的 structure/chapters 文档流渲染 Markdown，生成：
  *   dist/handout.html          —— 唯一 HTML 渲染源（print.css + KaTeX CSS 内联）
  *   dist/handout.<theme>.html  —— 其他主题的变体（配置 themes 时）
  *   dist/index.html            —— GitHub Pages 首页（含各主题入口）
@@ -84,8 +84,8 @@ const configPath = resolveConfigPath();
 const baseDir = path.dirname(configPath);
 const book = loadBook(configPath);
 
-// chapters: inline list or an external chapters file; each entry is a file path
-// whose extension decides its role (.md -> chapter, .html -> raw insert page).
+// structure/chapters: normalize legacy paths, explicit types, layouts, parts,
+// and includes into one flat renderer sequence.
 const chaptersResult = normalizeChapters(book, baseDir);
 if (chaptersResult.error) {
   console.error(`Error: ${chaptersResult.error}`);
@@ -649,6 +649,40 @@ function buildTheme(theme) {
 
   let dividerSeq = 0;
   let hasInFlowContents = false;
+  const hasPerEntryRunningPolicy = chapterEntries.some(
+    (entry) => entry.running?.custom
+  );
+
+  function entryFlowClasses(entry) {
+    const before = entry.flow?.breakBefore ?? "page";
+    const after = entry.flow?.breakAfter ?? "auto";
+    return [
+      before === "auto" ? "hb-break-before-auto" : "",
+      after === "page" ? "hb-break-after-page" : ""
+    ].filter(Boolean);
+  }
+
+  function entryDataAttributes(entry, anchorId = "") {
+    const attrs = [];
+    if (entry.layout) attrs.push(`data-layout="${escapeHtml(entry.layout)}"`);
+    if (anchorId && hasPerEntryRunningPolicy) {
+      attrs.push(`data-hb-anchor="${escapeHtml(anchorId)}"`);
+    }
+    if (entry.running?.header === false) attrs.push('data-hb-running-header="false"');
+    if (entry.running?.footer === false) attrs.push('data-hb-running-footer="false"');
+    if (entry.running?.custom) {
+      const profile = JSON.stringify({
+        header: entry.running.header,
+        footer: entry.running.footer,
+        style: entry.running.style ?? {},
+        headerSet: Boolean(entry.running.headerSet),
+        footerSet: Boolean(entry.running.footerSet),
+        styleSet: Boolean(entry.running.styleSet)
+      });
+      attrs.push(`data-hb-running="${escapeHtml(profile)}"`);
+    }
+    return attrs.length ? ` ${attrs.join(" ")}` : "";
+  }
 
   chapterEntries.forEach((entry, i) => {
     if (entry.kind === "divider") {
@@ -656,14 +690,33 @@ function buildTheme(theme) {
       const headingId = `hb-divider-${dividerSeq}`;
       // 把生成的 id 记入 slug 记账，避免正文标题撞车
       usedSlugs.set(headingId, (usedSlugs.get(headingId) ?? 0) + 1);
-      sections.push(dividerSectionHtml(entry, { headingId, lead: leadClass() }));
+      sections.push(
+        dividerSectionHtml(
+          {
+            ...entry,
+            anchorId: hasPerEntryRunningPolicy ? headingId : "",
+            className: [entry.className, ...entryFlowClasses(entry)].filter(Boolean).join(" ")
+          },
+          { headingId, lead: leadClass() }
+        )
+      );
       // toc 文案 → 主目录一条 level-1 行；页码由 h1 的 outline 映射回填
-      if (entry.toc) tocEntries.push({ level: 1, id: headingId, title: entry.toc });
+      if (entry.toc) {
+        tocEntries.push({
+          level: entry.navigation?.level ?? 1,
+          id: headingId,
+          title: entry.toc
+        });
+      }
       return;
     }
 
     if (entry.kind === "blank") {
-      for (let n = 0; n < entry.count; n += 1) sections.push(blankSectionHtml());
+      const blankEntry = {
+        ...entry,
+        className: [entry.className, ...entryFlowClasses(entry)].filter(Boolean).join(" ")
+      };
+      for (let n = 0; n < entry.count; n += 1) sections.push(blankSectionHtml(blankEntry));
       return;
     }
 
@@ -688,9 +741,9 @@ function buildTheme(theme) {
         process.exit(1);
       }
       const rendered = renderTemplate(fragment, metaValues);
-      const cls = ["insert", entry.className].filter(Boolean).join(" ");
+      const cls = ["insert", entry.className, ...entryFlowClasses(entry)].filter(Boolean).join(" ");
       sections.push(
-        `<section class="${cls}${leadClass()}" data-entry="${i + 1}">\n` +
+        `<section class="${cls}${leadClass()}" data-entry="${i + 1}"${entryDataAttributes(entry)}>\n` +
           wrapWithRunningHeader(rendered) +
           "\n</section>"
       );
@@ -720,6 +773,16 @@ function buildTheme(theme) {
     const headingStart = tocEntries.length;
     const dialectRender = dialect ? renderDialectSource(source, env) : null;
     let bodyHtml = dialectRender?.html ?? md.render(source, env);
+    const sectionHeadingId = tocEntries[headingStart]?.id ?? "";
+    if (
+      !sectionHeadingId &&
+      entry.running?.custom
+    ) {
+      console.warn(
+        `Warning: ${entry.file} cannot apply its running header/footer policy ` +
+          "because the Markdown page has no heading anchor."
+      );
+    }
 
     // Optional per-chapter mini TOC, inserted right after the chapter's h1.
     const wantChapterToc =
@@ -746,16 +809,31 @@ function buildTheme(theme) {
       if (first && first.level === 1) first.title = entry.toc;
     }
 
+    // Navigation level is independent from Markdown heading depth. Apply it
+    // after the optional label override (which identifies the original h1).
+    const navigationLevel = entry.navigation?.level ?? 1;
+    if (navigationLevel !== 1) {
+      for (const item of tocEntries.slice(headingStart)) {
+        item.level = Math.min(6, navigationLevel + Math.max(0, item.level - 1));
+      }
+    }
+
+
+    if (entry.navigation?.outline === false) {
+      bodyHtml = bodyHtml.replace(/<h([1-6])\b(?![^>]*\brole=)/g, '<h$1 role="paragraph"');
+    }
+
     const cls = [
       isInsert ? "insert" : "chapter",
       entry.className,
+      ...entryFlowClasses(entry),
       ...(dialectRender?.prepared.cssClasses ?? [])
     ]
       .filter(Boolean)
       .join(" ");
     const dataAttr = isInsert ? "data-entry" : "data-chapter";
     sections.push(
-      `<section class="${cls}${leadClass()}" ${dataAttr}="${i + 1}">\n${wrapWithRunningHeader(bodyHtml)}</section>`
+      `<section class="${cls}${leadClass()}" ${dataAttr}="${i + 1}"${entryDataAttributes(entry, sectionHeadingId)}>\n${wrapWithRunningHeader(bodyHtml)}</section>`
     );
   });
 

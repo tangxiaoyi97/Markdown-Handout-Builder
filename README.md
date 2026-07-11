@@ -2,7 +2,7 @@
 
 Build a polished handout from plain Markdown: HTML for reading, PDF for printing, and an optional GitHub Pages showcase.
 
-**Live showcase:** [read online](https://tangxiaoyi97.github.io/Markdown-Handout-Builder/) &middot; [handbook PDF (2.0)](https://tangxiaoyi97.github.io/Markdown-Handout-Builder/handout-2.0.pdf) &middot; [Obsidian dialect showcase PDF (1.0-dialect)](https://tangxiaoyi97.github.io/Markdown-Handout-Builder/showcase/obsidian-syntax-showcase-1.0-dialect.pdf)
+**Live showcase:** [read online](https://tangxiaoyi97.github.io/Markdown-Handout-Builder/) &middot; [handbook PDF (2.0)](https://tangxiaoyi97.github.io/Markdown-Handout-Builder/handout-2.0.pdf) &middot; [Obsidian dialect showcase PDF (2.0-dialect)](https://tangxiaoyi97.github.io/Markdown-Handout-Builder/showcase/obsidian-syntax-showcase-2.0-dialect.pdf)
 
 The package is designed for small note repositories. Your content repo can keep only `book.yml`, `notes/`, optional local custom templates, and a thin `package.json`. The renderer, default templates, print CSS, PDF pipeline, and preview server live in this npm package.
 
@@ -81,6 +81,7 @@ mhb pdf --config path/to/book.yml
 |---|---|
 | `mhb init` | Create a minimal note repository scaffold |
 | `mhb check` | Validate configuration, chapters, local assets, and dialect-specific links/syntax |
+| `mhb inspect` | Show the normalized document structure (`--json` for machine-readable output) |
 | `mhb build` | Render `dist/handout.html`, theme variants, and `dist/index.html` |
 | `mhb pdf` | Render official PDFs from the generated HTML |
 | `mhb serve` | Start local preview and rebuild HTML on save |
@@ -100,7 +101,7 @@ npm run all
 
 `check` fails on missing chapters/assets, invalid theme or dialect settings, missing custom files, and unsupported syntax. In the opt-in Obsidian dialect it also resolves wikilinks and recursively validates embedded notes, reporting missing or ambiguous vault targets. It warns about Markdown files under `notes/` that are neither listed nor transcluded, plus unused files under `notes/assets/`.
 
-`serve` starts a static preview server and watches `book.yml`, `notes/`, and a local `templates/` directory if it exists:
+`serve` starts a static preview server and watches `book.yml`, `notes/`, local templates, the external structure file, and every recursive structure include:
 
 ```bash
 npm run serve -- --port 8000
@@ -135,7 +136,86 @@ output:
 
 ### Chapters and page layout
 
-A file entry's extension decides its default role: a `.md` file is a rendered **chapter**, a `.html` file is a trusted raw-HTML **insert page**. A mistyped path or entry key is reported by `check`, never turned into a blank page.
+`chapters:` remains the compact, backward-compatible file list. For book-like composition, use `structure:` instead. Both normalize to the same renderer IR and cannot appear together. A file entry's extension still decides its default role: `.md` is a rendered **chapter**, `.html` is a trusted raw-HTML **insert page**.
+
+`structure` supports an explicit `type`, semantic parts, recursive YAML includes, inherited defaults, and named layouts:
+
+```yaml
+layouts:
+  body:
+    class: layout-body
+    chapter_toc: true
+  compact:
+    extends: body
+    class: layout-compact
+
+structure:
+  - type: insert
+    path: front/preface.md
+  - type: contents
+  - type: part
+    title: "Part One"
+    navigation:
+      label: "I · Foundations"
+      level: 1
+    defaults:
+      layout: body
+    children:
+      - type: chapter
+        path: notes/01-intro.md
+      - include: parts/foundations.yml
+  - type: blank
+    count: 1
+```
+
+An include is resolved relative to the YAML file that contains it; chapter paths remain relative to `book.yml`. Include and layout-inheritance cycles are hard errors. Run `mhb inspect` to see the flattened sequence and all inherited values before rendering.
+
+Each file entry can independently control pagination and navigation:
+
+```yaml
+- type: chapter
+  path: notes/appendix.md
+  layout: compact
+  flow:
+    break_before: page        # page | auto
+    break_after: auto         # page | auto
+  navigation:
+    toc: true
+    label: "Appendix A"
+    level: 2
+    outline: true
+```
+
+`outline: false` currently requires `toc: false`, because real TOC page numbers are mapped from PDF outline destinations. A chapter with a per-entry running policy must start on a new page for the same physical reason.
+
+Normal Markdown rendering is independent from running headers and footers. For example, this chapter renders normally but has no footer in the official PDF:
+
+```yaml
+- type: chapter
+  path: notes/special.md
+  running:
+    footer: false             # header may remain enabled
+```
+
+Each band can instead override any of the global `left`, `center`, and `right` slots. Missing slots inherit the global value, and `running.style` overrides the global `pdf.header_footer_style` fields (`font_size`, `color`, `font_family`, `offset`) one by one:
+
+```yaml
+- type: chapter
+  path: notes/special.md
+  running:
+    header:
+      center: "{{chapterTitle}}"
+    footer:
+      left: "Internal draft"
+      right: "Chapter A"
+    style:
+      font_size: "8px"
+      color: "#667085"
+```
+
+`{{chapterTitle}}` (alias `{{sectionTitle}}`) resolves to this entry's top-level heading; all global header/footer placeholders remain available, including real logical `{{page}}` and `{{total}}` values. `running.header`, `running.footer`, and `running.style` may be inherited from a named layout or a part's `defaults`, with nested slots merged field by field. The chapter must contain a top-level Markdown heading so the PDF pipeline can map its exact physical page range. Chromium only offers one global header/footer template, so MHB repaints the selected margin band during final PDF post-processing; body content, links, TOC numbers, and bookmarks are untouched. If `pdf.header_footer: false`, an explicitly configured chapter `header` or `footer` can still opt that band back in; omitted bands remain off.
+
+The original concise form is still useful and unchanged:
 
 Beyond files, the list gives you full control over front matter and special pages — Markdown insert pages (`as: insert`), declared part dividers and blank pages (no file needed), a repositionable main TOC, and per-entry main-TOC control:
 
@@ -163,6 +243,12 @@ chapters:
 ```
 
 Notes on the declared pages: a divider occupies exactly one page and its `title` is a real heading (so it gets a PDF bookmark and a real page number in the TOC); `bleed: true` makes the official PDF pipeline print that page standalone and overlay it edge-to-edge — the same mechanism as the back cover. Blank pages and in-flow contents are always counted in page numbering; `pdf.page_numbers.count_toc: false` only applies to the default (front-of-book) TOC position.
+
+Editor completion and validation are available through the packaged [`book.schema.json`](./book.schema.json). For VS Code with the YAML extension, add this as the first line of a project config:
+
+```yaml
+# yaml-language-server: $schema=./node_modules/markdown-handout-builder/book.schema.json
+```
 
 Set `chapter_toc: true` on a long chapter to open it with an auto-built list of its own sub-headings — an isolated `<nav class="chapter-toc">` that gets real PDF page numbers. Configure the default and its look at the top level:
 
@@ -230,7 +316,7 @@ Default document templates, print CSS, index page, and the built-in dark theme a
 
 Date formatting supports presets such as `YYYY-MM-DD`, `YYYYMMDD`, `YYMMDD`, `YYYY/MM/DD`, and `YY.MM.DD`. Put `date_format` at the top level for covers and index pages, or set `pdf.date_format` to override only generated PDF headers and footers.
 
-PDF headers and footers use three slots: `left`, `center`, and `right`. Supported placeholders are `{{title}}`, `{{subtitle}}`, `{{authors}}`, `{{author}}`, `{{date}}`, `{{rawDate}}`, `{{version}}`, `{{commit}}`, `{{lang}}`, `{{theme}}`, `{{page}}`, and `{{total}}`.
+PDF headers and footers use three slots: `left`, `center`, and `right`. Supported placeholders are `{{title}}`, `{{subtitle}}`, `{{authors}}`, `{{author}}`, `{{date}}`, `{{rawDate}}`, `{{version}}`, `{{commit}}`, `{{lang}}`, `{{theme}}`, `{{page}}`, and `{{total}}`. Chapter-level running profiles additionally provide `{{chapterTitle}}` / `{{sectionTitle}}`.
 
 `{{commit}}` is build provenance: the note repository's short git hash, with a `-dirty` suffix when the working tree has uncommitted changes, and empty outside a git repository. Builds from the same commit stay reproducible (there is deliberately no build-timestamp placeholder).
 
@@ -465,7 +551,7 @@ Pushing a `v*` tag triggers `.github/workflows/release.yml` — the single
 release pipeline: full test suite, root handout and Obsidian showcase
 builds, tag/version consistency check, `npm publish --provenance` via
 Trusted Publishing, then a GitHub Release with generated notes.
-A prerelease version (`2.1.0-beta.1`) publishes under the `next`
+A prerelease version (`2.2.0-beta.1`) publishes under the `next`
 dist-tag and marks the GitHub Release as a prerelease.
 
 Manual `workflow_dispatch` runs of the same workflow are dry runs by

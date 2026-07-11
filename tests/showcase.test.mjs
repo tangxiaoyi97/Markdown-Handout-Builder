@@ -16,8 +16,8 @@ async function makeShowcaseFixture() {
   // 输出改到夹具内部（仓库里的 book.yml 指向 ../../dist/showcase/）
   const bookPath = path.join(dir, "book.yml");
   const book = (await fs.readFile(bookPath, "utf8"))
-    .replace("../../dist/showcase/obsidian-syntax-showcase-1.0-dialect.html", "dist/showcase.html")
-    .replace("../../dist/showcase/obsidian-syntax-showcase-1.0-dialect.pdf", "dist/showcase.pdf");
+    .replace("../../dist/showcase/obsidian-syntax-showcase-2.0-dialect.html", "dist/showcase.html")
+    .replace("../../dist/showcase/obsidian-syntax-showcase-2.0-dialect.pdf", "dist/showcase.pdf");
   await fs.writeFile(bookPath, book);
   return dir;
 }

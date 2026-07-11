@@ -1100,6 +1100,15 @@ hr.footnotes-sep {
     break-before: page;
   }
 
+  .chapter.hb-break-before-auto,
+  .insert.hb-break-before-auto {
+    break-before: auto;
+  }
+
+  .hb-break-after-page {
+    break-after: page;
+  }
+
   .hb-lead {
     break-before: auto;
   }
