@@ -45,7 +45,7 @@ frontmatter:
 
 ## 标题注入（title_as_heading）
 
-`title_as_heading: true` 时，**没有一级标题**的章节会以 `fm.title` 注入 `# 标题`：锚点、主目录行、PDF 书签、running 页区间锚点全部照常生成。已有 h1 的章节不受影响。这让「纯 frontmatter 笔记」（常见于 Obsidian 工作流）无需改写正文即可成章。
+`title_as_heading: true` 时，**没有一级标题**的章节会以 `fm.title` 注入 `# 标题`：主目录行、PDF 书签与 `{{chapterTitle}}` 都会照常生成。running 本身即使没有 h1 也能由内部边界探针定位。已有 h1 的章节不受影响。这让「纯 frontmatter 笔记」（常见于 Obsidian 工作流）无需改写正文即可成章。
 
 ## 章标题下的 byline（meta band）
 

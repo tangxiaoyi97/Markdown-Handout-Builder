@@ -257,6 +257,58 @@ pdf:
   }
 });
 
+test("running profile stops before blank, HTML insert, and next chapter cover", { skip: !hasChromium && "Playwright Chromium not installed" }, async () => {
+  const { dir, pdfStderr } = await buildAndRender({
+    "book.yml": `title: Running Boundaries
+cover: { enabled: false }
+structure:
+  - path: notes/a.md
+    running:
+      footer: { left: "CUSTOM-A" }
+  - type: blank
+  - type: contents
+  - type: insert
+    path: notes/interlude.html
+    running:
+      footer: { right: "HTML-ONLY" }
+  - path: notes/b.md
+    cover:
+      title: "B COVER"
+      background: "#e8edf7"
+output: { html: dist/handout.html, pdf: dist/handout.pdf }
+toc: { title: "Contents" }
+pdf:
+  footer:
+    left: "GLOBAL-FOOTER"
+    center: "{{page}} / {{total}}"
+    right: ""
+`,
+    "notes/a.md": "# Chapter A\n\nCustom running profile.\n",
+    "notes/interlude.html": "<h2>Interlude</h2><p>Raw HTML page.</p>",
+    "notes/b.md": "# Chapter B\n\nGlobal running profile.\n"
+  });
+
+  assert.doesNotMatch(pdfStderr, /cannot map running-profile boundaries|unmapped sections/);
+  const { doc, destroy } = await loadPdf(path.join(dir, "dist", "handout.pdf"));
+  try {
+    assert.equal(doc.numPages, 6);
+    assert.match(await pageText(doc, 1), /CUSTOM-A/);
+    for (const pageNo of [2, 3, 4, 5, 6]) {
+      const text = await pageText(doc, pageNo);
+      assert.doesNotMatch(text, /CUSTOM-A/, `custom profile leaked onto page ${pageNo}`);
+    }
+    assert.match(await pageText(doc, 3), /Contents/);
+    assert.match(await pageText(doc, 4), /Interlude/);
+    assert.match(await pageText(doc, 4), /HTML-ONLY/);
+    assert.match(await pageText(doc, 5), /B COVER/);
+    assert.doesNotMatch(await pageText(doc, 5), /HTML-ONLY/);
+    assert.match(await pageText(doc, 6), /Chapter B/);
+    assert.match(await pageText(doc, 6), /GLOBAL-FOOTER/);
+  } finally {
+    await destroy();
+  }
+});
+
 test("count_toc:false: main TOC excluded from numbering; chapter mini-TOC numbered", { skip: !hasChromium && "Playwright Chromium not installed" }, async () => {
   const book = `title: "CT"
 date: "2026-01-02"
@@ -299,6 +351,17 @@ pdf:
     assert.match(toc, /Beta\s*2/);
     assert.doesNotMatch(toc, /1 \/ 2/, "the TOC page itself is not numbered");
 
+    // The excluded TOC is copied from the all-sections render. Its annotations
+    // must still resolve after named destinations are remapped into the final PDF.
+    const tocPage = await doc.getPage(2);
+    const tocLinks = (await tocPage.getAnnotations()).filter(
+      (annotation) => typeof annotation.dest === "string"
+    );
+    assert.ok(tocLinks.length >= 2, "TOC exposes internal link annotations");
+    for (const link of tocLinks) {
+      assert.ok(await doc.getDestination(link.dest), `TOC destination resolves: ${link.dest}`);
+    }
+
     // First chapter (physical page 3) is logical page 1.
     assert.match(await pageText(doc, 3), /1 \/ 2/);
 
@@ -331,8 +394,9 @@ test("sepia (light, non-white) theme: page base fill injected without warnings",
 
   assert.doesNotMatch(pdfStderr, /could not restyle/);
 
-  // 浅色非白主题走"插入基底填充"分支：首个内容流以我们的整页填充开头
-  // (#f6efdf = .9647 .9373 .8745)
+  // 浅色非白主题走"插入页边距条"分支：首个内容流以四条边距填充开头。
+  // 不得恢复为整页矩形，否则透明/媒体合成层可能被 Poppler 渲成黑块。
+  // #f6efdf = .9647 .9373 .8745
   const zlib = await import("node:zlib");
   const { PDFDocument, PDFName, PDFArray, PDFRef, PDFRawStream } = await import("pdf-lib");
   const parsed = await PDFDocument.load(
@@ -345,7 +409,10 @@ test("sepia (light, non-white) theme: page base fill injected without warnings",
   const stream = parsed.context.lookup(ref);
   assert.ok(stream instanceof PDFRawStream);
   const text = zlib.inflateSync(Buffer.from(stream.contents)).toString("latin1");
-  assert.match(text.slice(0, 120), /^q \.9647 \.9373 \.8745 rg 0 0 [\d.]+ [\d.]+ re f Q/);
+  const prelude = text.slice(0, text.indexOf("Q\n") + 2);
+  assert.match(prelude, /^q \.9647 \.9373 \.8745 rg\n/);
+  assert.equal((prelude.match(/ re f/g) ?? []).length, 4, "four page-margin strips");
+  assert.doesNotMatch(prelude, /0 0 594\.96 841\.89 re f/, "no full-page fill");
 });
 
 test("dark theme PDF: variant file, title suffix, base recolor without warnings", { skip: !hasChromium && "Playwright Chromium not installed" }, async () => {

@@ -1,9 +1,9 @@
 title: "Markdown Handout Builder"
 subtitle: "Usage Guide and Package Showcase"
 language: "en"
-date: "2026-07-06"
+date: "2026-07-13"
 date_format: "YYYY.MM.DD"
-version: "v2.0"
+version: "v3.0"
 
 authors:
   - "Tangxy97"
@@ -26,8 +26,8 @@ chapters:
 
 # 输出到仓库根 dist/（Pages 部署目录）；文件名带版次，与 dialects 演示区分
 output:
-  html: ../../dist/handout-2.0.html
-  pdf: ../../dist/handout-2.0.pdf
+  html: ../../dist/handout-3.0.html
+  pdf: ../../dist/handout-3.0.pdf
 
 toc:
   title: "Contents"

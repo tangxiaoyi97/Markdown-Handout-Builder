@@ -294,9 +294,9 @@ function mergeRunning(base = {}, override = {}) {
 }
 
 // meta（章标题下的 frontmatter byline）：false 关闭；字符串列表指定键序；
-// true / 缺省 = 继承（全局 frontmatter.meta 或上层默认）。
+// 缺省 = 继承（全局 frontmatter.meta 或上层默认）。
 function normalizeMeta(value, where) {
-  if (value === undefined || value === null || value === true) return { value: undefined };
+  if (value === undefined || value === null) return { value: undefined };
   if (value === false) return { value: false };
   if (Array.isArray(value)) {
     const keys = value.map((item) => String(item ?? "").trim());
@@ -571,12 +571,6 @@ function optionsFromRaw(raw, where, inherited, layouts) {
         `(a shared physical page cannot have two running profiles).`
     };
   }
-  if (
-    options.running.custom &&
-    options.navigation.outline === false
-  ) {
-    return { error: `${where}: a running header/footer policy requires navigation.outline: true for page-range mapping.` };
-  }
   options.chapterToc = options.chapterToc ?? null;
   return options;
 }
@@ -591,6 +585,10 @@ function normalizePathEntry(raw, where, inherited, layouts, explicitType = null)
   const format = chapterPathFormat(file);
   const defaultKind = classifyChapterPath(file);
   if (!format) return { error: `${where}: unrecognized extension ${JSON.stringify(file)} (use Markdown or HTML).` };
+
+  if (raw.role !== undefined && raw.as !== undefined) {
+    return { error: `${where}: use either "role" or its legacy alias "as", not both.` };
+  }
 
   let kind = explicitType ?? defaultKind;
   const role = raw.role ?? raw.as;
@@ -608,12 +606,6 @@ function normalizePathEntry(raw, where, inherited, layouts, explicitType = null)
 
   const options = optionsFromRaw(raw, where, inherited, layouts);
   if (options.error) return options;
-  if (
-    format === "html" &&
-    options.running.custom
-  ) {
-    return { error: `${where}: per-entry running header/footer control currently requires a Markdown page with an h1 anchor.` };
-  }
   const cover = options.cover?.set && options.cover.enabled !== false ? options.cover : null;
   if (cover && format === "html") {
     return { error: `${where}: a chapter cover page requires a Markdown page (raw-HTML inserts have no frontmatter).` };
@@ -922,6 +914,16 @@ export function normalizeChapters(book, baseDir) {
       return;
     }
     const children = value.children ?? value.chapters ?? value.structure;
+    const childKeys = ["children", "chapters", "structure"].filter(
+      (key) => value[key] !== undefined
+    );
+    if (childKeys.length !== 1) {
+      errors.push(
+        `${where}: part must use exactly one of children / chapters / structure ` +
+          `(found ${childKeys.length ? childKeys.join(", ") : "none"}).`
+      );
+      return;
+    }
     if (!Array.isArray(children) || children.length === 0) {
       errors.push(`${where}: part needs a non-empty children/chapters list.`);
       return;

@@ -1,6 +1,33 @@
 # Changelog
 
-## 2.3.0-beta.1 — 2026-07-11 (frontmatter integration)
+## 2.3.0-beta.1 — 2026-07-13 (frontmatter integration)
+
+### Changed
+
+- **Compatibility:** leading YAML frontmatter is now metadata in both
+  dialects and is removed from the rendered body. Standard-dialect documents
+  that intentionally printed such a block must wrap it in a fenced code block.
+  Obsidian-specific body syntax remains opt-in.
+
+### Fixed
+
+- Per-entry running header/footer ranges now use disposable internal boundary
+  probes for every physical flow section, including titleless Markdown, raw
+  HTML inserts, dividers, blank pages, in-flow contents, and chapter covers.
+  Profiles cannot leak across those boundaries; an incomplete probe mapping
+  safely falls back to the global bands for the whole document.
+- `check` and the packaged Schema now reject ambiguous aliases, misspelled
+  top-level/nested keys, invalid mapping/list types, and parts that specify
+  anything other than exactly one child-list key. The annotated example is
+  synchronized with those constraints and documents every configurable area.
+- Light non-white themes paint only the four page-margin strips during PDF
+  post-processing, avoiding black media/compositing blocks in Poppler while
+  keeping the paper color continuous. Overlong Chromium destination names
+  from CJK headings are normalized to spec-safe digests without breaking
+  internal PDF links. Uncounted TOC pages now merge their named destinations
+  back into the assembled PDF, so every copied TOC annotation remains live.
+- Test fixtures are removed when each worker exits, preventing repeated test
+  runs from filling the system temporary directory.
 
 ### Added
 
@@ -14,8 +41,9 @@
   under each chapter h1 — authors, dates with configurable `labels`, tag
   pills — skipping empty values.
 - `frontmatter.title_as_heading` injects `fm.title` as the h1 of chapters
-  that have none: anchors, TOC rows, PDF bookmarks, and running-policy
-  anchors all work as if the heading were authored.
+  that have none: anchors, TOC rows, PDF bookmarks, and `{{chapterTitle}}`
+  all work as if the heading were authored. Running boundaries themselves no
+  longer require a heading or outline entry.
 - `{{fm.<key>}}` / `{{frontmatter.<key>}}` placeholders resolve per chapter
   inside per-entry running header/footer slots (build-time; missing keys warn
   once and render empty). Using them in the global pdf.header/footer is a
@@ -26,8 +54,8 @@
   `subtitle` / `meta` template lines). `bleed: true` reuses the
   standalone-print overlay, targeting the page before the chapter-heading
   outline destination. Inheritable through layouts and part defaults.
-- Editions: the dialect documentation line moves to `3.0-dialect`
-  (guide + syntax showcase); prior PDFs are preserved under `docs/archive/`
+- Editions: the concise handbook moves to `v3.0`, while the dialect guide and
+  syntax showcase move to `3.0-dialect`; prior dialect PDFs are preserved under `docs/archive/`
   (including the 1.0-dialect showcase re-rendered from its exact committed
   source after the artifact had been cleaned from dist/).
 

@@ -33,6 +33,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import zlib from "node:zlib";
+import { createHash } from "node:crypto";
 import { pathToFileURL } from "node:url";
 import { chromium } from "playwright";
 
@@ -67,7 +68,9 @@ const pdfOut = path.resolve(baseDir, book?.output?.pdf ?? "dist/handout.pdf");
 const title = book?.title ? String(book.title) : "";
 const subtitle = book?.subtitle ? String(book.subtitle) : "";
 const language = book?.language ? String(book.language) : "zh-CN";
-const rawDate = book?.date ? String(book.date) : "";
+const rawDate = book?.date
+  ? String(book.date)
+  : new Date().toISOString().slice(0, 10);
 const baseDateFormat = book?.date_format ? String(book.date_format) : "YYYY-MM-DD";
 const authors = Array.isArray(book?.authors)
   ? book.authors.map(String)
@@ -269,13 +272,12 @@ const hfFontFamily =
 
 /* ---------- 目录页码：解析第一遍 PDF 的大纲 ---------- */
 
-async function resolveTocPageNumbers(pdfBuffer, page) {
+async function readPdfOutlineEntries(pdfBuffer) {
   let getDocument;
   try {
     ({ getDocument } = await import("pdfjs-dist/legacy/build/pdf.mjs"));
   } catch (err) {
-    console.warn(`Warning: cannot load pdfjs-dist (${err.message}); skipping TOC page numbers.`);
-    return null;
+    throw new Error(`cannot load pdfjs-dist (${err.message})`);
   }
 
   const loadingTask = getDocument({
@@ -288,7 +290,7 @@ async function resolveTocPageNumbers(pdfBuffer, page) {
   const doc = await loadingTask.promise;
   try {
     const outline = await doc.getOutline();
-    if (!outline || outline.length === 0) return null;
+    if (!outline || outline.length === 0) return [];
 
     // 展平为文档顺序（与 DOM 中 h1..h6 的顺序一致）
     const flat = [];
@@ -299,7 +301,7 @@ async function resolveTocPageNumbers(pdfBuffer, page) {
       }
     })(outline);
 
-    const outlineEntries = [];
+    const entries = [];
     for (const item of flat) {
       let dest = item.dest;
       if (typeof dest === "string") dest = await doc.getDestination(dest);
@@ -311,47 +313,60 @@ async function resolveTocPageNumbers(pdfBuffer, page) {
           // 无法解析该条目的页码，跳过
         }
       }
-      outlineEntries.push({ title: item.title ?? "", pageNo });
+      entries.push({ title: item.title ?? "", pageNo });
     }
 
-    // 与 outline 对齐的 DOM 标题集合。transclusion 里的标题被降级为
-    // role="paragraph"（不进书签），这里同样排除，保持两侧一一对应。
-    const domHeadings = await page.evaluate(() =>
-      Array.from(document.querySelectorAll("h1, h2, h3, h4, h5, h6"))
-        .filter((h) => h.getAttribute("role") !== "paragraph")
-        .map((h) => ({
-          id: h.id || "",
-          text: (h.textContent || "").trim()
-        }))
-    );
-
-    const norm = (s) => s.normalize("NFKC").replace(/\s+/g, "").toLowerCase();
-    const result = [];
-
-    if (domHeadings.length === outlineEntries.length) {
-      // 数量一致：按顺序一一对应
-      domHeadings.forEach((h, i) => {
-        const o = outlineEntries[i];
-        if (h.id && o.pageNo) result.push({ id: h.id, pageNo: o.pageNo });
-      });
-    } else {
-      // 数量不一致：按标题文本贪心对齐
-      let j = 0;
-      for (const h of domHeadings) {
-        let k = j;
-        while (k < outlineEntries.length && norm(outlineEntries[k].title) !== norm(h.text)) k++;
-        if (k >= outlineEntries.length) continue;
-        if (h.id && outlineEntries[k].pageNo) {
-          result.push({ id: h.id, pageNo: outlineEntries[k].pageNo });
-        }
-        j = k + 1;
-      }
-    }
-
-    return result;
+    return entries;
   } finally {
     await loadingTask.destroy();
   }
+}
+
+async function resolveTocPageNumbers(pdfBuffer, page) {
+  let outlineEntries;
+  try {
+    outlineEntries = await readPdfOutlineEntries(pdfBuffer);
+  } catch (err) {
+    console.warn(`Warning: ${err.message}; skipping TOC page numbers.`);
+    return null;
+  }
+  if (outlineEntries.length === 0) return null;
+
+  // 与 outline 对齐的 DOM 标题集合。transclusion 里的标题被降级为
+  // role="paragraph"（不进书签），这里同样排除，保持两侧一一对应。
+  const domHeadings = await page.evaluate(() =>
+    Array.from(document.querySelectorAll("h1, h2, h3, h4, h5, h6"))
+      .filter((h) => h.getAttribute("role") !== "paragraph")
+      .map((h) => ({
+        id: h.id || "",
+        text: (h.textContent || "").trim()
+      }))
+  );
+
+  const norm = (s) => s.normalize("NFKC").replace(/\s+/g, "").toLowerCase();
+  const result = [];
+
+  if (domHeadings.length === outlineEntries.length) {
+    // 数量一致：按顺序一一对应
+    domHeadings.forEach((h, i) => {
+      const o = outlineEntries[i];
+      if (h.id && o.pageNo) result.push({ id: h.id, pageNo: o.pageNo });
+    });
+  } else {
+    // 数量不一致：按标题文本贪心对齐
+    let j = 0;
+    for (const h of domHeadings) {
+      let k = j;
+      while (k < outlineEntries.length && norm(outlineEntries[k].title) !== norm(h.text)) k++;
+      if (k >= outlineEntries.length) continue;
+      if (h.id && outlineEntries[k].pageNo) {
+        result.push({ id: h.id, pageNo: outlineEntries[k].pageNo });
+      }
+      j = k + 1;
+    }
+  }
+
+  return result;
 }
 
 /* ---------- 后处理：元数据 + 封面/封底无页眉页脚 ---------- */
@@ -368,15 +383,62 @@ async function postProcessPdf(
     runningMaskTailPages = 0
   }
 ) {
-  let PDFDocument, rgb, PDFName, PDFArray, PDFRef, PDFRawStream;
+  let PDFDocument, rgb, PDFName, PDFArray, PDFDict, PDFRef, PDFRawStream;
   try {
-    ({ PDFDocument, rgb, PDFName, PDFArray, PDFRef, PDFRawStream } = await import("pdf-lib"));
+    ({ PDFDocument, rgb, PDFName, PDFArray, PDFDict, PDFRef, PDFRawStream } = await import("pdf-lib"));
   } catch (err) {
     console.warn(`Warning: cannot load pdf-lib (${err.message}); skipping PDF post-processing.`);
     return;
   }
 
   const doc = await PDFDocument.load(fs.readFileSync(filePath), { updateMetadata: false });
+
+  // PDF 1.7 limits a name token to 127 bytes. Chromium encodes non-ASCII
+  // fragment destinations as long /#25E8... names, so ordinary CJK headings
+  // can cross that limit and trigger Poppler compatibility warnings. Rename
+  // every overlong name consistently (destination dictionary key + /Dest
+  // value) to a stable ASCII digest; HTML ids and visible bookmarks stay
+  // unchanged, while internal PDF links continue to resolve.
+  const shortenedNames = new Map();
+  const shortName = (name) => {
+    if (!(name instanceof PDFName) || name.toString().length - 1 <= 127) return name;
+    const source = name.asString();
+    if (!shortenedNames.has(source)) {
+      const digest = createHash("sha256").update(source).digest("hex").slice(0, 24);
+      shortenedNames.set(source, PDFName.of(`hb-${digest}`));
+    }
+    return shortenedNames.get(source);
+  };
+  const visited = new Set();
+  const normalizeNames = (object) => {
+    if (!object || visited.has(object) || object instanceof PDFRef) return;
+    if (typeof object === "object") visited.add(object);
+    if (object instanceof PDFArray) {
+      for (let index = 0; index < object.size(); index += 1) {
+        const value = object.get(index);
+        const normalized = shortName(value);
+        if (normalized !== value) object.set(index, normalized);
+        normalizeNames(normalized);
+      }
+      return;
+    }
+    if (object instanceof PDFDict) {
+      for (const [key, value] of [...object.entries()]) {
+        const normalizedKey = shortName(key);
+        const normalizedValue = shortName(value);
+        if (normalizedKey !== key) object.delete(key);
+        if (normalizedKey !== key || normalizedValue !== value) {
+          object.set(normalizedKey, normalizedValue);
+        }
+        normalizeNames(normalizedValue);
+      }
+      return;
+    }
+    if (object.dict instanceof PDFDict) normalizeNames(object.dict);
+  };
+  for (const [, object] of doc.context.enumerateIndirectObjects()) {
+    normalizeNames(object);
+  }
 
   // ---- 统一页面基底色（含页边距区） ----
   // Chromium 打印时先用页面"基底色"填满整页（color-scheme: dark 下固定为
@@ -420,11 +482,23 @@ async function postProcessPdf(
           head.replace(BASE_FILL_RE, `$1${bgColor} RG ${bgColor} rg`) + text.slice(600);
       } else {
         // 浅色 color-scheme：Chromium 不绘制白色基底（页边距=纸色）。
-        // 在内容流最前插入一条 body 色整页填充——此时没有基底会盖住它，
-        // 插入即最底层，页边距与正文底色统一（如 sepia 纸感主题）。
+        // 正文区已有 body 背景，只在内容流最前填四条页边距。不要垫一张
+        // 整页矩形：Chromium 的隐藏 media/compositing 图层在非白底之上
+        // 可能被 Poppler 合成为黑块（真实 Obsidian 视频页曾触发）。
         const { width, height } = page.getSize();
-        newText =
-          `q ${bgColor} rg 0 0 ${width.toFixed(2)} ${height.toFixed(2)} re f Q\n` + text;
+        const mmToPt = (mm) => Number(mm || 0) * 72 / 25.4;
+        const top = Math.min(height, mmToPt(runningMaskMargins?.top));
+        const right = Math.min(width, mmToPt(runningMaskMargins?.right));
+        const bottom = Math.min(height, mmToPt(runningMaskMargins?.bottom));
+        const left = Math.min(width, mmToPt(runningMaskMargins?.left));
+        const middleHeight = Math.max(0, height - top - bottom);
+        const strips = [
+          `0 0 ${width.toFixed(2)} ${bottom.toFixed(2)} re f`,
+          `0 ${(height - top).toFixed(2)} ${width.toFixed(2)} ${top.toFixed(2)} re f`,
+          `0 ${bottom.toFixed(2)} ${left.toFixed(2)} ${middleHeight.toFixed(2)} re f`,
+          `${(width - right).toFixed(2)} ${bottom.toFixed(2)} ${right.toFixed(2)} ${middleHeight.toFixed(2)} re f`
+        ].join("\n");
+        newText = `q ${bgColor} rg\n${strips}\nQ\n` + text;
       }
 
       const deflated = zlib.deflateSync(Buffer.from(newText, "latin1"));
@@ -487,7 +561,8 @@ async function postProcessPdf(
   // ---- Per-section running header/footer policy ----
   // Chromium exposes one global header/footer template for the whole print
   // job. Sections marked by build.mjs are mapped to physical page ranges via
-  // their h1 outline destinations; suppressing a slot then means repainting
+  // a disposable PDF's internal boundary-probe destinations; suppressing a
+  // slot then means repainting
   // only that page-margin band with the page base color. Body content begins
   // outside these bands, so no chapter content or link annotation is touched.
   if (runningMasks?.length) {
@@ -586,7 +661,9 @@ async function postProcessPdf(
     }
   }
 
-  fs.writeFileSync(filePath, await doc.save());
+  // Classic xref objects are slightly larger but easier for print tooling to
+  // inspect and keep the normalized destination names directly addressable.
+  fs.writeFileSync(filePath, await doc.save({ useObjectStreams: false }));
 }
 
 // 任意"出血区段"的独立单页打印：隐藏其余内容后，该区段成为文档第一页，
@@ -643,9 +720,9 @@ async function assembleWithExcluded({
   excludeToc,
   excludeBack
 }) {
-  let PDFDocument;
+  let PDFDocument, PDFName, PDFDict, PDFArray, PDFRef;
   try {
-    ({ PDFDocument } = await import("pdf-lib"));
+    ({ PDFDocument, PDFName, PDFDict, PDFArray, PDFRef } = await import("pdf-lib"));
   } catch (err) {
     throw new Error(`Cannot assemble excluded pages: ${err.message}`);
   }
@@ -708,6 +785,47 @@ async function assembleWithExcluded({
     offset += copied.length;
   }
 
+  // copyPages preserves link annotations on an excluded TOC page, but named
+  // destinations live in the source catalog and are not copied with the page.
+  // Rebuild the final /Dests dictionary from the all-sections render. Final
+  // physical page order matches `plain`, so every source page reference maps
+  // directly by page index; destination coordinates remain valid because the
+  // body boxes are identical in the two renders.
+  const destsKey = PDFName.of("Dests");
+  const plainDestsRaw = plain.catalog.get(destsKey);
+  const plainDests =
+    plainDestsRaw instanceof PDFRef ? plain.context.lookup(plainDestsRaw) : plainDestsRaw;
+  if (plainDests instanceof PDFDict && numbered.getPageCount() === P) {
+    let numberedDestsRaw = numbered.catalog.get(destsKey);
+    let numberedDests =
+      numberedDestsRaw instanceof PDFRef
+        ? numbered.context.lookup(numberedDestsRaw)
+        : numberedDestsRaw;
+    if (!(numberedDests instanceof PDFDict)) {
+      numberedDests = numbered.context.obj({});
+      numberedDestsRaw = numbered.context.register(numberedDests);
+      numbered.catalog.set(destsKey, numberedDestsRaw);
+    }
+
+    const plainPageIndices = new Map(
+      plain.getPages().map((page, index) => [page.ref.toString(), index])
+    );
+    for (const [name, rawDestination] of plainDests.entries()) {
+      const destination =
+        rawDestination instanceof PDFRef
+          ? plain.context.lookup(rawDestination)
+          : rawDestination;
+      if (!(destination instanceof PDFArray) || destination.size() === 0) continue;
+      const sourcePageRef = destination.get(0);
+      if (!(sourcePageRef instanceof PDFRef)) continue;
+      const pageIndex = plainPageIndices.get(sourcePageRef.toString());
+      if (pageIndex === undefined || pageIndex >= numbered.getPageCount()) continue;
+      const tail = destination.asArray().slice(1);
+      const mapped = numbered.context.obj([numbered.getPage(pageIndex).ref, ...tail]);
+      numberedDests.set(PDFName.of(name.decodeText()), mapped);
+    }
+  }
+
   return numbered.save();
 }
 
@@ -735,6 +853,55 @@ async function preparePage(browser, htmlPath) {
   await page.evaluate(() => document.documentElement.classList.add("mhb-pdf"));
   await page.evaluate(() => document.fonts.ready);
   return page;
+}
+
+// Real headings are insufficient as running-profile boundaries: blank pages,
+// in-flow contents, HTML inserts, and chapter covers can sit between them. A
+// disposable probe render injects zero-height h6 sentinels into every
+// build-owned data-hb-anchor section. The sentinels leave pagination unchanged
+// and never enter the delivered PDF, but give each flow boundary an exact page
+// in the probe outline.
+const RUNNING_BOUNDARY_PREFIX = "MHB-RUNNING-BOUNDARY:";
+
+async function resolveRunningBoundaryPages(browser, htmlPath, basePdfOptions) {
+  const probe = await preparePage(browser, htmlPath);
+  try {
+    const boundaryCount = await probe.evaluate((prefix) => {
+      const boundaries = Array.from(document.querySelectorAll("[data-hb-anchor]"));
+      for (const [index, element] of boundaries.entries()) {
+        const anchorId = element.getAttribute("data-hb-anchor");
+        if (!anchorId) continue;
+        element.removeAttribute("aria-hidden");
+        const heading = document.createElement("h6");
+        heading.textContent = `${prefix}${anchorId}`;
+        heading.setAttribute("data-hb-running-probe", String(index + 1));
+        heading.style.cssText =
+          "display:block!important;height:1px!important;min-height:0!important;" +
+          "margin:0 0 -1px 0!important;padding:0!important;border:0!important;" +
+          "font-size:1px!important;line-height:1px!important;white-space:nowrap!important;";
+        element.insertBefore(heading, element.firstChild);
+      }
+      return boundaries.length;
+    }, RUNNING_BOUNDARY_PREFIX);
+    if (boundaryCount === 0) return [];
+
+    const bytes = await probe.pdf({
+      ...basePdfOptions,
+      displayHeaderFooter: false
+    });
+    const outline = await readPdfOutlineEntries(bytes);
+    return outline
+      .filter(
+        (entry) =>
+          entry.pageNo && String(entry.title).startsWith(RUNNING_BOUNDARY_PREFIX)
+      )
+      .map((entry) => ({
+        id: String(entry.title).slice(RUNNING_BOUNDARY_PREFIX.length),
+        pageNo: entry.pageNo
+      }));
+  } finally {
+    await probe.close();
+  }
 }
 
 async function applyNumberingDomAdjustments(
@@ -1019,15 +1186,43 @@ try {
     const bleedOverlays = [];
     const needsRunningRanges = hasPerEntryRunning;
     let headingPages = null;
+    let runningBoundaryPages = [];
     let finalBytes = null;
     if (present.bleedSections.length > 0 || present.bleedBeforeSections.length > 0 || needsRunningRanges) {
       finalBytes = fs.readFileSync(pdfPath);
+    }
+    if (present.bleedSections.length > 0 || present.bleedBeforeSections.length > 0) {
       try {
         headingPages = await resolveTocPageNumbers(finalBytes, page);
       } catch (err) {
         console.warn(
-          `Warning: cannot map section pages (${err.message}); ` +
-            "keeping in-flow backgrounds and global running headers/footers."
+          `Warning: cannot map bleed section pages (${err.message}); ` +
+            "keeping in-flow backgrounds."
+        );
+      }
+    }
+    if (needsRunningRanges) {
+      try {
+        runningBoundaryPages = await resolveRunningBoundaryPages(
+          browser,
+          htmlPath,
+          basePdfOptions
+        );
+        if (runningBoundaryPages.length !== present.runningSections.length) {
+          console.warn(
+            `Warning: mapped ${runningBoundaryPages.length} of ` +
+              `${present.runningSections.length} running-profile boundaries; ` +
+              "keeping global headers/footers for every section."
+          );
+          // Partial ranges are unsafe: dropping an unmapped stop boundary can
+          // extend the preceding profile across later pages. Fail closed and
+          // preserve the global bands for the entire document.
+          runningBoundaryPages = [];
+        }
+      } catch (err) {
+        console.warn(
+          `Warning: cannot map running-profile boundaries (${err.message}); ` +
+            "keeping global running headers/footers."
         );
       }
     }
@@ -1071,7 +1266,9 @@ try {
     const mappedRunningSections = present.runningSections
       .map((section) => ({
         ...section,
-        pageNo: headingPages?.find((heading) => heading.id === section.anchorId)?.pageNo ?? null
+        pageNo:
+          runningBoundaryPages.find((boundary) => boundary.id === section.anchorId)?.pageNo ??
+          null
       }))
       .filter((section) => section.pageNo !== null);
     const physicalPageCount = finalBytes
@@ -1161,7 +1358,9 @@ try {
       runningOverlays,
       runningMaskMargins: {
         top: cssLengthToMm(pageMargin.top),
-        bottom: cssLengthToMm(pageMargin.bottom)
+        right: cssLengthToMm(pageMargin.right),
+        bottom: cssLengthToMm(pageMargin.bottom),
+        left: cssLengthToMm(pageMargin.left)
       },
       runningMaskTailPages: hasBack ? 1 : 0
     });

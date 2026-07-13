@@ -2,7 +2,7 @@
 
 Build a polished handout from plain Markdown: HTML for reading, PDF for printing, and an optional GitHub Pages showcase.
 
-**Live showcase:** [read online](https://tangxiaoyi97.github.io/Markdown-Handout-Builder/) &middot; [handbook PDF (2.0)](https://tangxiaoyi97.github.io/Markdown-Handout-Builder/handout-2.0.pdf) &middot; [Obsidian dialect showcase PDF (3.0-dialect)](https://tangxiaoyi97.github.io/Markdown-Handout-Builder/showcase/obsidian-syntax-showcase-3.0-dialect.pdf)
+**Live showcase:** [read online](https://tangxiaoyi97.github.io/Markdown-Handout-Builder/) &middot; [v3 handbook PDF](https://tangxiaoyi97.github.io/Markdown-Handout-Builder/handout-3.0.pdf) &middot; [v3 dialect guide PDF](https://tangxiaoyi97.github.io/Markdown-Handout-Builder/guide/dialect-guide-3.0-dialect.pdf) &middot; [Obsidian syntax showcase PDF (3.0-dialect)](https://tangxiaoyi97.github.io/Markdown-Handout-Builder/showcase/obsidian-syntax-showcase-3.0-dialect.pdf)
 
 The package is designed for small note repositories. Your content repo can keep only `book.yml`, `notes/`, optional local custom templates, and a thin `package.json`. The renderer, default templates, print CSS, PDF pipeline, and preview server live in this npm package.
 
@@ -16,9 +16,12 @@ Requirements:
 In a note repository:
 
 ```bash
-npm install -D markdown-handout-builder
+npm install -D markdown-handout-builder@next
 npx mhb install-browser
 ```
+
+The `dialects` prerelease is published under the `next` dist-tag. Omit `@next`
+only when you intentionally want the current stable package.
 
 For a new repository, generate the minimal scaffold:
 
@@ -53,7 +56,7 @@ Recommended `package.json`:
     "install-deps": "mhb install-deps"
   },
   "devDependencies": {
-    "markdown-handout-builder": "^1.0.0"
+    "markdown-handout-builder": "2.3.0-beta.1"
   }
 }
 ```
@@ -186,7 +189,7 @@ Each file entry can independently control pagination and navigation:
     outline: true
 ```
 
-`outline: false` currently requires `toc: false`, because real TOC page numbers are mapped from PDF outline destinations. A chapter with a per-entry running policy must start on a new page for the same physical reason.
+`outline: false` currently requires `toc: false`, because real TOC page numbers are mapped from PDF outline destinations. An entry with a per-entry running policy must start on a new page because one physical page cannot carry two profiles.
 
 Normal Markdown rendering is independent from running headers and footers. For example, this chapter renders normally but has no footer in the official PDF:
 
@@ -213,7 +216,7 @@ Each band can instead override any of the global `left`, `center`, and `right` s
       color: "#667085"
 ```
 
-`{{chapterTitle}}` (alias `{{sectionTitle}}`) resolves to this entry's top-level heading; all global header/footer placeholders remain available, including real logical `{{page}}` and `{{total}}` values. `running.header`, `running.footer`, and `running.style` may be inherited from a named layout or a part's `defaults`, with nested slots merged field by field. The chapter must contain a top-level Markdown heading so the PDF pipeline can map its exact physical page range. Chromium only offers one global header/footer template, so MHB repaints the selected margin band during final PDF post-processing; body content, links, TOC numbers, and bookmarks are untouched. If `pdf.header_footer: false`, an explicitly configured chapter `header` or `footer` can still opt that band back in; omitted bands remain off.
+`{{chapterTitle}}` (alias `{{sectionTitle}}`) resolves to this entry's first heading; all global header/footer placeholders remain available, including real logical `{{page}}` and `{{total}}` values. `running.header`, `running.footer`, and `running.style` may be inherited from a named layout or a part's `defaults`, with nested slots merged field by field. Internal flow-boundary probes map chapters, Markdown/HTML inserts, dividers, blank pages, in-flow contents, and chapter covers without requiring a heading or PDF-outline entry; an entry without a heading simply gets an empty `{{chapterTitle}}`. Chromium only offers one global header/footer template, so MHB repaints the selected margin band during final PDF post-processing; body content, links, TOC numbers, and bookmarks are untouched. If `pdf.header_footer: false`, an explicitly configured chapter `header` or `footer` can still opt that band back in; omitted bands remain off.
 
 The original concise form is still useful and unchanged:
 
@@ -320,7 +323,7 @@ PDF headers and footers use three slots: `left`, `center`, and `right`. Supporte
 
 `{{commit}}` is build provenance: the note repository's short git hash, with a `-dirty` suffix when the working tree has uncommitted changes, and empty outside a git repository. Builds from the same commit stay reproducible (there is deliberately no build-timestamp placeholder).
 
-Set a top-level `version: "v2"` in `book.yml` to show a handout revision on the cover and index page; the same value is available as `{{version}}` in header/footer slots and cover fragments.
+Set a top-level `version: "3.0-dialect"` in `book.yml` to show a handout revision on the cover and index page; the same value is available as `{{version}}` in header/footer slots and cover fragments.
 
 `pdf.page_numbers.count_cover: false` keeps the cover in the PDF but starts generated numbering after it. `count_toc: false` does the same for the contents page, and `count_back_cover: false` keeps the back cover in the PDF while excluding it from `{{total}}`. Chapter mini-TOCs are body content and are always counted.
 
@@ -455,7 +458,7 @@ Fragments are trusted template code. Do not inject untrusted user content there.
 
 This repository includes a showcase workflow:
 
-- [`.github/workflows/render.yml`](./.github/workflows/render.yml) builds this repo's two documentation books — the handbook (`docs/handbook/`, edition 2.0) and the Obsidian dialect showcase (`docs/obsidian-showcase/`, edition 1.0-dialect) — uploads HTML/PDF artifacts, and deploys `dist/` to GitHub Pages on `main`.
+- [`.github/workflows/render.yml`](./.github/workflows/render.yml) builds three current v3 documentation books: the concise handbook (`v3.0`), dialect guide, and Obsidian syntax showcase (both `3.0-dialect`). It uploads their HTML/PDF artifacts and deploys `dist/` to GitHub Pages on `main`.
 - [`.github/workflows/release.yml`](./.github/workflows/release.yml) verifies, publishes the npm package, and creates the GitHub Release when a `v*` tag is pushed (see [Releasing](#releasing)).
 
 For an independent note repository, a minimal build job can be:
@@ -548,10 +551,10 @@ git push --follow-tags
 ```
 
 Pushing a `v*` tag triggers `.github/workflows/release.yml` — the single
-release pipeline: full test suite, root handout and Obsidian showcase
-builds, tag/version consistency check, `npm publish --provenance` via
+release pipeline: full test suite, root handout, v3 dialect guide, and
+Obsidian showcase builds, tag/version consistency check, `npm publish --provenance` via
 Trusted Publishing, then a GitHub Release with generated notes.
-A prerelease version (`2.2.0-beta.1`) publishes under the `next`
+A prerelease version (`2.3.0-beta.1`) publishes under the `next`
 dist-tag and marks the GitHub Release as a prerelease.
 
 Manual `workflow_dispatch` runs of the same workflow are dry runs by

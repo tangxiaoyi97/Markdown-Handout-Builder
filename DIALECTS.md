@@ -6,9 +6,20 @@ defines the compatibility boundary so “supported” has a testable meaning.
 
 ## Main-branch baseline
 
-The baseline below is the behavior of `main` at `a2c52ff` (`v2.0.0`), before
-the `dialects` branch. It is the compatibility contract retained by
-`markdown.dialect: standard` (and by configurations with no `markdown` key).
+The baseline below records the behavior of `main` at `a2c52ff` (`v2.0.0`),
+before the `dialects` branch. `markdown.dialect: standard` (and configurations
+with no `markdown` key) retains that Markdown syntax and raw-HTML safety model,
+with one deliberate v3 compatibility change: a leading YAML frontmatter block
+is now parsed and removed from the rendered body in both dialects. See
+"Compatibility note" below and the 2.3.0 changelog before upgrading.
+
+### Compatibility note: v3 frontmatter
+
+On main, YAML properties were misinterpreted as ordinary Markdown. In the v3
+dialect package they are metadata in every dialect, so a document that
+intentionally displayed a leading `---` YAML block must fence it as code. This
+is a documented breaking behavior change; all other Obsidian-only syntax still
+requires `markdown.dialect: obsidian`.
 
 ### Supported on main
 

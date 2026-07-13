@@ -3,7 +3,7 @@ title: "book.yml 全键参考"
 authors:
   - "Markdown Handout Builder"
 created: 2026-07-11
-modified: 2026-07-11
+modified: 2026-07-13
 tags:
   - guide/reference
 ---
@@ -20,7 +20,7 @@ tags:
 | language | str | zh-CN | HTML `lang` 与 PDF Language |
 | date | str | 今天 | 原始日期（`{{rawDate}}`） |
 | date_format | str | YYYY-MM-DD | 日期显示格式（ISO 预设或字面模式） |
-| version | str/num | "" | 版次（如 `2.0-dialect`）；进封面/封底与 `{{version}}` |
+| version | str/num | "" | 版次（如 `3.0-dialect`）；进封面/封底与 `{{version}}` |
 | authors | str/list | [] | 作者；`{{authors}}` 全列 / `{{author}}` 第一位 |
 | keywords | list | [] | PDF Keywords |
 
@@ -31,10 +31,14 @@ tags:
 | **chapters** | list/str | — | 紧凑文档流；或指向 `.yml` 清单文件。与 structure 二选一 |
 | **structure** | list/str | — | 语义文档流（type/part/include/layouts 全能力） |
 | layouts | map | {} | 命名条目默认值包；键为 layout 名 |
-| **output.html** | str | dist/handout.html | HTML 输出（相对 book.yml） |
-| **output.pdf** | str | dist/handout.pdf | PDF 输出；非默认主题自动插入 `.<name>` |
+| output.html | str | dist/handout.html | HTML 输出（相对 book.yml）；整个 output 可省略 |
+| output.pdf | str | dist/handout.pdf | PDF 输出；非默认主题自动插入 `.<name>` |
 
-### 条目通用键（chapter / insert / divider / part 可用）
+### 条目策略键
+
+`class/layout/toc/navigation/flow/running` 可用于 chapter、insert、divider
+和 part。`chapter_toc/meta/cover` 是章节策略，可直接用于 chapter，也可放
+进 layout 或 part defaults 供子章节继承；insert/divider 本身不消费它们。
 
 | 键 | 类型 | 默认 | 说明 |
 |:--|:--|:--|:--|
@@ -56,11 +60,11 @@ tags:
 
 | 条目 | 专有键 |
 |:--|:--|
-| path（chapter/insert） | **path**；`as`/`role`: chapter\|insert（.html 不可作 chapter） |
+| path（chapter/insert） | **path**；`as`/`role`: chapter\|insert（互为别名，只写一个；.html 不可作 chapter） |
 | divider | title（bleed 时必填）、subtitle、note、background、color、bleed |
 | blank | `blank: true\|1–20`；长形另可 count/class/layout/flow |
 | contents | 仅 `contents: true` / `type: contents`；全书至多一次 |
-| part | divider 全键 + **children**（chapters/structure 同义）+ defaults（class/layout/chapter_toc/toc/navigation/flow/running） |
+| part | divider 全键 + **children**（chapters/structure 为别名，三者只写一个）+ defaults（class/layout/chapter_toc/toc/navigation/flow/running/meta/cover） |
 | include | **include**: 相对所在 YAML 的 `.yml` 路径（长形 `type: include` + path） |
 | layouts.\<name\> | extends + 条目通用键（不含 path 类键） |
 
@@ -135,7 +139,8 @@ tags:
 | {{chapterTitle}} {{sectionTitle}} | 每章 running 槽位 | 本章一级标题 |
 | {{fm.\<key\>}} {{frontmatter.\<key\>}} | 每章 running 槽位、章节 cover 模板 | 本章 frontmatter 值（构建期解析；全局槽位禁用） |
 
-未知占位符保留字面并在 `check` 警告。
+未知的普通占位符保留字面并在 `check` 警告；缺失的 `{{fm.*}}` 在构建期
+警告并渲染为空，因为它表示本章确实没有该 frontmatter 值。
 
 ## CLI 速查
 

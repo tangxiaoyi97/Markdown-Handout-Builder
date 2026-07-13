@@ -28,6 +28,11 @@ export function resolveDialectConfig(book, baseDir) {
     markdownRaw && typeof markdownRaw === "object" && !Array.isArray(markdownRaw)
       ? markdownRaw
       : {};
+  for (const key of Object.keys(markdownCfg)) {
+    if (!["dialect", "obsidian"].includes(key)) {
+      errors.push(`markdown.${key}: unknown key (use dialect / obsidian).`);
+    }
+  }
 
   const dialect = String(markdownCfg.dialect ?? "standard").toLowerCase();
   if (!SUPPORTED_DIALECTS.includes(dialect)) {
@@ -43,6 +48,13 @@ export function resolveDialectConfig(book, baseDir) {
     if (!obsidianCfg || typeof obsidianCfg !== "object" || Array.isArray(obsidianCfg)) {
       errors.push("markdown.obsidian must be a mapping.");
     } else {
+      for (const key of Object.keys(obsidianCfg)) {
+        if (!["vault_root", "properties"].includes(key)) {
+          errors.push(
+            `markdown.obsidian.${key}: unknown key (use vault_root / properties).`
+          );
+        }
+      }
       propertiesMode = String(obsidianCfg.properties ?? "visible").toLowerCase();
       if (!["visible", "hidden", "source"].includes(propertiesMode)) {
         errors.push('markdown.obsidian.properties must be "visible", "hidden", or "source".');

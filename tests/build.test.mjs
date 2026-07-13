@@ -642,12 +642,12 @@ output:
   const result = await runScript("build.mjs", { cwd: dir });
   assert.equal(result.code, 0, result.stderr);
   const html = await readOut(dir, "handout.html");
-  const plain = html.match(/<section[^>]*data-hb-anchor="plain-markdown"[^>]*>/)?.[0] ?? "";
+  const plain = html.match(/<section[^>]*data-hb-anchor="[^"]+"[^>]*data-hb-running="[^"]+"[^>]*>/)?.[0] ?? "";
   assert.match(plain, /data-hb-running=/);
   assert.match(plain, /&quot;center&quot;:&quot;\{\{chapterTitle\}\}&quot;/);
   assert.match(plain, /&quot;left&quot;:&quot;CHAPTER-ONLY&quot;/);
   assert.match(plain, /&quot;color&quot;:&quot;#345678&quot;/);
-  const normal = html.match(/<section[^>]*data-hb-anchor="normal"[^>]*>/)?.[0] ?? "";
+  const normal = html.match(/<section[^>]*data-hb-anchor="[^"]+"[^>]*data-hb-running-footer="false"[^>]*>/)?.[0] ?? "";
   assert.match(normal, /data-hb-running-footer="false"/);
   assert.match(normal, /data-hb-running=/);
 });

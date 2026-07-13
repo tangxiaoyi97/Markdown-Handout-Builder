@@ -5,7 +5,7 @@ title: "笔记与媒体嵌入"
 authors:
   - "Markdown Handout Builder"
 created: 2026-07-10
-modified: 2026-07-11
+modified: 2026-07-13
 tags:
   - showcase/embeds
 cssclasses:
@@ -68,10 +68,9 @@ Wikilink 图片支持宽度与宽高：
 
 Canvas 和 Bases 是独立文件格式而不是 Markdown。静态手册将它们打包并显示为可访问文件卡片：
 
-![[attachments/knowledge-map.canvas]]
-
-![[attachments/library.base]]
-
 > [!info] 静态输出边界
 > Canvas/Bases 的交互式应用视图不会在 PDF 中伪造；文件本体被保留并可从 HTML 成品访问。
 
+![[attachments/knowledge-map.canvas]]
+
+![[attachments/library.base]]

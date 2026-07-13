@@ -4,8 +4,7 @@
   "title": "Markdown Handout Builder book configuration",
   "type": "object",
   "required": [
-    "title",
-    "output"
+    "title"
   ],
   "oneOf": [
     {
@@ -31,9 +30,9 @@
   ],
   "properties": {
     "title": {
-      "type": [
-        "string",
-        "number"
+      "oneOf": [
+        { "type": "string", "minLength": 1 },
+        { "type": "number" }
       ]
     },
     "subtitle": {
@@ -104,50 +103,36 @@
       }
     },
     "output": {
-      "type": "object",
-      "required": [
-        "html",
-        "pdf"
-      ],
-      "properties": {
-        "html": {
-          "type": "string"
-        },
-        "pdf": {
-          "type": "string"
-        }
-      },
-      "additionalProperties": false
+      "$ref": "#/$defs/outputConfig"
     },
     "toc": {
-      "type": "object"
+      "$ref": "#/$defs/tocConfig"
     },
     "chapter_toc": {
-      "type": "object"
+      "$ref": "#/$defs/chapterTocConfig"
     },
     "pdf": {
-      "type": "object"
+      "$ref": "#/$defs/pdfConfig"
     },
     "style": {
-      "type": "object"
+      "$ref": "#/$defs/styleConfig"
     },
     "cover": {
-      "type": "object"
+      "$ref": "#/$defs/bookCoverConfig"
     },
     "back_cover": {
-      "type": "object"
+      "$ref": "#/$defs/bookCoverConfig"
     },
     "themes": {
       "type": "array",
-      "items": {
-        "type": "object"
-      }
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/themeConfig" }
     },
     "labels": {
-      "type": "object"
+      "$ref": "#/$defs/labelsConfig"
     },
     "markdown": {
-      "type": "object"
+      "$ref": "#/$defs/markdownConfig"
     },
     "frontmatter": {
       "description": "Dialect-independent frontmatter integration (v3): special rendering, {{fm.*}} placeholders, chapter covers.",
@@ -194,10 +179,169 @@
           }
         }
       }
+    },
+    "numbering": {
+      "deprecated": true,
+      "description": "Removed option; numbering is authored directly in content."
     }
   },
-  "additionalProperties": true,
+  "additionalProperties": false,
   "$defs": {
+    "nonEmptyString": {
+      "type": "string",
+      "minLength": 1
+    },
+    "outputConfig": {
+      "type": "object",
+      "description": "Optional output paths; omitted fields default to dist/handout.html and dist/handout.pdf.",
+      "properties": {
+        "html": { "$ref": "#/$defs/nonEmptyString" },
+        "pdf": { "$ref": "#/$defs/nonEmptyString" }
+      },
+      "additionalProperties": false
+    },
+    "tocConfig": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean", "default": true },
+        "title": { "type": ["string", "number"], "default": "目录" },
+        "depth": { "type": "integer", "minimum": 1, "maximum": 3, "default": 2 }
+      },
+      "additionalProperties": false
+    },
+    "chapterTocConfig": {
+      "type": "object",
+      "properties": {
+        "default": { "type": "boolean", "default": false },
+        "title": { "type": ["string", "number"], "default": "In this chapter" },
+        "depth": { "type": "integer", "minimum": 2, "maximum": 6, "default": 3 },
+        "class": { "$ref": "#/$defs/class" }
+      },
+      "additionalProperties": false
+    },
+    "slotConfig": {
+      "type": "object",
+      "properties": {
+        "left": { "type": "string" },
+        "center": { "type": "string" },
+        "right": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "pageNumbersConfig": {
+      "type": "object",
+      "properties": {
+        "format": { "type": "string", "default": "{{page}} / {{total}}" },
+        "count_cover": { "type": "boolean", "default": true },
+        "count_toc": { "type": "boolean", "default": true },
+        "count_back_cover": { "type": "boolean", "default": true }
+      },
+      "additionalProperties": false
+    },
+    "pdfConfig": {
+      "type": "object",
+      "properties": {
+        "header_footer": { "type": "boolean", "default": true },
+        "toc_page_numbers": { "type": "boolean", "default": true },
+        "cover_header_footer": { "type": "boolean", "default": false },
+        "page_size": { "$ref": "#/$defs/nonEmptyString", "default": "A4" },
+        "margin": {
+          "$ref": "#/$defs/nonEmptyString",
+          "default": "18mm 16mm 20mm 16mm"
+        },
+        "date_format": { "$ref": "#/$defs/nonEmptyString" },
+        "page_numbers": { "$ref": "#/$defs/pageNumbersConfig" },
+        "header": { "$ref": "#/$defs/slotConfig" },
+        "footer": { "$ref": "#/$defs/slotConfig" },
+        "header_footer_style": { "$ref": "#/$defs/runningStyle" }
+      },
+      "additionalProperties": false
+    },
+    "fontsConfig": {
+      "type": "object",
+      "properties": {
+        "body": { "$ref": "#/$defs/nonEmptyString" },
+        "heading": { "$ref": "#/$defs/nonEmptyString" },
+        "code": { "$ref": "#/$defs/nonEmptyString" }
+      },
+      "additionalProperties": false
+    },
+    "styleConfig": {
+      "type": "object",
+      "properties": {
+        "accent_color": { "$ref": "#/$defs/nonEmptyString" },
+        "content_width": { "$ref": "#/$defs/nonEmptyString" },
+        "base_font_size": { "$ref": "#/$defs/nonEmptyString" },
+        "print_font_size": { "$ref": "#/$defs/nonEmptyString" },
+        "fonts": { "$ref": "#/$defs/fontsConfig" },
+        "custom_css": {
+          "oneOf": [
+            { "$ref": "#/$defs/nonEmptyString" },
+            {
+              "type": "array",
+              "minItems": 1,
+              "items": { "$ref": "#/$defs/nonEmptyString" }
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "bookCoverConfig": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "html": { "$ref": "#/$defs/nonEmptyString" },
+        "background": { "$ref": "#/$defs/nonEmptyString" },
+        "color": { "$ref": "#/$defs/nonEmptyString" }
+      },
+      "additionalProperties": false
+    },
+    "themeConfig": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+        },
+        "label": { "type": "string" },
+        "default": { "type": "boolean" },
+        "style": { "$ref": "#/$defs/styleConfig" },
+        "cover": { "$ref": "#/$defs/bookCoverConfig" },
+        "back_cover": { "$ref": "#/$defs/bookCoverConfig" },
+        "pdf": { "$ref": "#/$defs/pdfConfig" }
+      },
+      "additionalProperties": false
+    },
+    "labelsConfig": {
+      "type": "object",
+      "propertyNames": {
+        "allOf": [
+          { "pattern": "^[A-Za-z][A-Za-z0-9_-]*$" },
+          { "not": { "const": "pagebreak" } }
+        ]
+      },
+      "additionalProperties": { "type": "string" }
+    },
+    "markdownConfig": {
+      "type": "object",
+      "properties": {
+        "dialect": { "enum": ["standard", "obsidian"], "default": "standard" },
+        "obsidian": {
+          "type": "object",
+          "properties": {
+            "vault_root": { "$ref": "#/$defs/nonEmptyString", "default": "." },
+            "properties": {
+              "enum": ["visible", "hidden", "source"],
+              "default": "visible"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
     "class": {
       "type": "string",
       "pattern": "^[A-Za-z_-][A-Za-z0-9_-]*(?:\\s+[A-Za-z_-][A-Za-z0-9_-]*)*$"
@@ -310,7 +454,18 @@
       },
       "additionalProperties": false
     },
-    "common": {
+    "entryCommon": {
+      "type": "object",
+      "properties": {
+        "class": { "$ref": "#/$defs/class" },
+        "layout": { "$ref": "#/$defs/nonEmptyString" },
+        "toc": { "type": ["boolean", "string"] },
+        "navigation": { "$ref": "#/$defs/navigation" },
+        "flow": { "$ref": "#/$defs/flow" },
+        "running": { "$ref": "#/$defs/running" }
+      }
+    },
+    "fileCommon": {
       "type": "object",
       "properties": {
         "class": {
@@ -350,7 +505,7 @@
       "unevaluatedProperties": false,
       "allOf": [
         {
-          "$ref": "#/$defs/common"
+          "$ref": "#/$defs/fileCommon"
         },
         {
           "type": "object",
@@ -382,7 +537,7 @@
       "unevaluatedProperties": false,
       "allOf": [
         {
-          "$ref": "#/$defs/common"
+          "$ref": "#/$defs/fileCommon"
         },
         {
           "type": "object",
@@ -413,7 +568,8 @@
                 "insert"
               ]
             }
-          }
+          },
+          "not": { "required": ["role", "as"] }
         }
       ]
     },
@@ -421,7 +577,7 @@
       "unevaluatedProperties": false,
       "allOf": [
         {
-          "$ref": "#/$defs/common"
+          "$ref": "#/$defs/fileCommon"
         },
         {
           "type": "object",
@@ -445,14 +601,15 @@
                 "insert"
               ]
             }
-          }
+          },
+          "not": { "required": ["role", "as"] }
         }
       ]
     },
     "dividerBody": {
       "allOf": [
         {
-          "$ref": "#/$defs/common"
+          "$ref": "#/$defs/entryCommon"
         },
         {
           "type": "object",
@@ -514,7 +671,8 @@
       ],
       "properties": {
         "divider": {
-          "$ref": "#/$defs/dividerBody"
+          "unevaluatedProperties": false,
+          "allOf": [{ "$ref": "#/$defs/dividerBody" }]
         }
       },
       "additionalProperties": false
@@ -636,7 +794,7 @@
       "unevaluatedProperties": false,
       "allOf": [
         {
-          "$ref": "#/$defs/common"
+          "$ref": "#/$defs/fileCommon"
         },
         {
           "type": "object"
@@ -676,7 +834,7 @@
               }
             }
           },
-          "anyOf": [
+          "oneOf": [
             {
               "required": [
                 "children"
@@ -722,7 +880,8 @@
       ],
       "properties": {
         "part": {
-          "$ref": "#/$defs/partBody"
+          "unevaluatedProperties": false,
+          "allOf": [{ "$ref": "#/$defs/partBody" }]
         }
       },
       "additionalProperties": false
@@ -767,9 +926,6 @@
       "oneOf": [
         {
           "const": false
-        },
-        {
-          "const": true
         },
         {
           "type": "array",

@@ -3,7 +3,7 @@ title: "工具总览"
 authors:
   - "Markdown Handout Builder"
 created: 2026-07-11
-modified: 2026-07-11
+modified: 2026-07-13
 tags:
   - guide/overview
 ---
@@ -68,7 +68,7 @@ notes/            # 正式内容；本地图片放 notes/assets/
 dist/             # 构建产物（HTML、PDF、index.html、复制的资源）
 ```
 
-- 章节文件通常有且只有一个 `#` 一级标题：它是章名，进入主目录与 PDF 书签，也是每章 running 策略的页区间锚点。
+- 章节文件通常有且只有一个 `#` 一级标题：它是章名，并可进入主目录与 PDF 书签。每章 running 的页区间由内部边界探针定位，不要求一级标题。
 - `notes/` 下未被结构收录且未被 transclusion 引用的 `.md` 会得到警告；文件名以 `_` 开头视为草稿，不提醒。
 - `notes/assets/` 下未被引用的文件同样会被警告。
 
@@ -85,4 +85,6 @@ output:
   pdf: dist/handout.pdf
 ```
 
-除 `title`、`chapters` / `structure` 二选一、`output` 外，其余键全部可选。完整注释模板见包内 `book.example.yml`，全键速查见本书第 11 章。
+只有 `title` 与 `chapters` / `structure` 二选一是必填；`output` 可省略并
+使用 `dist/handout.html`、`dist/handout.pdf`。完整注释模板见包内
+`book.example.yml`，全键速查见本书第 11 章。

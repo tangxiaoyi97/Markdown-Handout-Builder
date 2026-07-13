@@ -9,6 +9,7 @@ cssclasses:
   - showcase-opening
 status: Published
 created: 2026-07-10
+modified: 2026-07-13
 featured: true
 score: 100
 related:
@@ -85,5 +86,3 @@ source: https://obsidian.md/help/obsidian-flavored-markdown
 - 查看 [[02 · 内部链接与块引用]]
 - 跳到 [[Reference Library#Canonical Heading|规范标题]]
 - 打开 [[Reference Library#^fact-block|事实块]]
-
-下一章会逐一展示这些链接的解析结果。

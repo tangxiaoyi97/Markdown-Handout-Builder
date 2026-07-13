@@ -93,7 +93,7 @@ Content rendering and running furniture are separate. This is a normal Markdown 
     footer: false
 ```
 
-The chapter must start on a new page and contain one top-level heading. Chromium offers only one global header/footer template, so the final PDF pass maps that heading to its physical page range and repaints only the footer margin band. Body content, links, bookmarks, and page-number calculations stay intact.
+The entry starts on a new page. An internal probe maps every flow boundary—including blanks, inserts, contents, dividers, and chapter covers—then the final pass repaints only the selected margin band. No heading is required; body content, links, bookmarks, and numbering stay intact.
 
 The policy can be reused through a layout:
 
@@ -111,7 +111,7 @@ structure:
 
 ## Chapter-Specific Header and Footer Content
 
-A band may be a three-slot mapping instead of a boolean. Only the named slots change; the other slots inherit the global `pdf.header` or `pdf.footer` configuration. The `font_size`, `color`, `font_family`, and `offset` style values likewise inherit from `pdf.header_footer_style`:
+A band may be a three-slot mapping instead of a boolean. Unspecified slots inherit global `pdf.header` / `pdf.footer`; style fields inherit `pdf.header_footer_style`:
 
 ```yaml
 - type: chapter
@@ -128,7 +128,7 @@ A band may be a three-slot mapping instead of a boolean. Only the named slots ch
       color: "#667085"
 ```
 
-The chapter-local placeholders `{{chapterTitle}}` and `{{sectionTitle}}` both resolve to the entry's top-level heading. Every global placeholder remains available, and page placeholders use logical numbering even when the cover, main contents, or back cover is excluded from the count. Layout inheritance deep-merges `header`, `footer`, and `style`, so a child layout can replace one slot without repeating the rest. With `pdf.header_footer: false`, an explicitly configured chapter `header` or `footer` opts only that band back in; omitted bands remain off.
+`{{chapterTitle}}` and `{{sectionTitle}}` resolve to the entry's top-level heading; global and logical-page placeholders remain available. Layouts deep-merge `header`, `footer`, and `style`. With `pdf.header_footer: false`, an explicit chapter band opts only that band back in.
 
 ## Inspect Before Rendering
 
@@ -143,7 +143,8 @@ The table shows every flattened entry, resolved layout, page-break policy, TOC/o
 
 ## Front-Matter Numbering
 
-Front matter can remain in the PDF without joining logical body numbering:
+Front matter can remain in the PDF without joining logical body numbering;
+chapter mini-TOCs remain body content and are always counted:
 
 ```yaml
 pdf:
@@ -152,5 +153,3 @@ pdf:
     count_toc: false
     count_back_cover: false
 ```
-
-Chapter mini-TOCs remain body content and are always counted.

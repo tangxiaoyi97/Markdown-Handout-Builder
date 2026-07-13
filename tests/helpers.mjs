@@ -1,12 +1,28 @@
 // tests/helpers.mjs — shared utilities for the test suite (node:test).
 
 import { execFile } from "node:child_process";
+import fsSync from "node:fs";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const toolRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+
+// Every test file runs in its own node:test worker process. Keep fixtures for
+// the duration of that worker, then remove only the directories created by
+// this helper. Without this, repeated release verification leaks gigabytes of
+// copied KaTeX/Mermaid assets into the system temp directory.
+const fixtureDirs = new Set();
+process.once("exit", () => {
+  for (const dir of fixtureDirs) {
+    try {
+      fsSync.rmSync(dir, { recursive: true, force: true });
+    } catch {
+      // Process shutdown: the OS temp cleaner remains the final fallback.
+    }
+  }
+});
 
 /** 1x1 transparent PNG for image fixtures. */
 export const TINY_PNG = Buffer.from(
@@ -42,6 +58,7 @@ export function runScript(script, { cwd, args = [] } = {}) {
  */
 export async function makeFixture(files) {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), "mhb-test-"));
+  fixtureDirs.add(dir);
   for (const [rel, content] of Object.entries(files)) {
     const target = path.join(dir, rel);
     await fs.mkdir(path.dirname(target), { recursive: true });

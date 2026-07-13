@@ -691,9 +691,13 @@ function buildTheme(theme) {
   let dividerSeq = 0;
   let coverSeq = 0;
   let hasInFlowContents = false;
+  let contentsRunningBoundary = "";
+  let runningBoundarySeq = 0;
   const hasPerEntryRunningPolicy = chapterEntries.some(
     (entry) => entry.running?.custom
   );
+  const nextRunningBoundary = () =>
+    hasPerEntryRunningPolicy ? `hb-running-boundary-${++runningBoundarySeq}` : "";
 
   function entryFlowClasses(entry) {
     const before = entry.flow?.breakBefore ?? "page";
@@ -736,7 +740,7 @@ function buildTheme(theme) {
         dividerSectionHtml(
           {
             ...entry,
-            anchorId: hasPerEntryRunningPolicy ? headingId : "",
+            anchorId: nextRunningBoundary(),
             className: [entry.className, ...entryFlowClasses(entry)].filter(Boolean).join(" ")
           },
           { headingId, lead: leadClass() }
@@ -758,13 +762,16 @@ function buildTheme(theme) {
         ...entry,
         className: [entry.className, ...entryFlowClasses(entry)].filter(Boolean).join(" ")
       };
-      for (let n = 0; n < entry.count; n += 1) sections.push(blankSectionHtml(blankEntry));
+      for (let n = 0; n < entry.count; n += 1) {
+        sections.push(blankSectionHtml({ ...blankEntry, anchorId: nextRunningBoundary() }));
+      }
       return;
     }
 
     if (entry.kind === "contents") {
       // 主目录在此布点；目录内容在全部条目渲染完成后回填
       hasInFlowContents = true;
+      contentsRunningBoundary = nextRunningBoundary();
       sections.push(CONTENTS_SLOT_MARKER);
       return;
     }
@@ -785,7 +792,7 @@ function buildTheme(theme) {
       const rendered = renderTemplate(fragment, metaValues);
       const cls = ["insert", entry.className, ...entryFlowClasses(entry)].filter(Boolean).join(" ");
       sections.push(
-        `<section class="${cls}${leadClass()}" data-entry="${i + 1}"${entryDataAttributes(entry)}>\n` +
+        `<section class="${cls}${leadClass()}" data-entry="${i + 1}"${entryDataAttributes(entry, nextRunningBoundary())}>\n` +
           wrapWithRunningHeader(rendered) +
           "\n</section>"
       );
@@ -819,7 +826,7 @@ function buildTheme(theme) {
     });
 
     // title_as_heading：无一级标题的章节以 fm.title 注入 h1（锚点/目录/
-    // 书签/running 锚点全部照常生成）。已有 h1 的章节不受影响。
+    // 书签/章名全部照常生成）。running 边界由独立探针定位；已有 h1 不受影响。
     let fmBody = parsedFm.body;
     if (
       fmTitleAsHeading &&
@@ -846,16 +853,6 @@ function buildTheme(theme) {
     const sectionHeadingId = tocEntries[headingStart]?.id ?? "";
     const chapterH1Title =
       tocEntries[headingStart]?.level === 1 ? tocEntries[headingStart].title : "";
-    if (
-      !sectionHeadingId &&
-      entry.running?.custom
-    ) {
-      console.warn(
-        `Warning: ${entry.file} cannot apply its running header/footer policy ` +
-          "because the Markdown page has no heading anchor."
-      );
-    }
-
     // 章标题下方的 frontmatter byline（meta band），其后是可选的章节小目录。
     const metaKeys = isInsert ? false : entry.meta !== undefined ? entry.meta : fmGlobalMeta;
     const metaBand =
@@ -948,7 +945,8 @@ function buildTheme(theme) {
             subtitle: coverSubtitle,
             metaLines,
             tags: coverTags,
-            lead: leadClass()
+            lead: leadClass(),
+            runningAnchorId: nextRunningBoundary()
           }
         )
       );
@@ -969,7 +967,7 @@ function buildTheme(theme) {
       .join(" ");
     const dataAttr = isInsert ? "data-entry" : "data-chapter";
     sections.push(
-      `<section class="${cls}${leadClass()}" ${dataAttr}="${i + 1}"${entryDataAttributes(entryForAttrs, sectionHeadingId)}>\n${wrapWithRunningHeader(bodyHtml)}</section>`
+      `<section class="${cls}${leadClass()}" ${dataAttr}="${i + 1}"${entryDataAttributes(entryForAttrs, nextRunningBoundary())}>\n${wrapWithRunningHeader(bodyHtml)}</section>`
     );
   });
 
@@ -1033,6 +1031,12 @@ function buildTheme(theme) {
     // 标记 in-flow：render-pdf 据此把目录当作正文页计页
     //（count_toc: false 对流内目录不适用——拼接机制假设目录紧随封面）。
     tocRaw = tocRaw.replace('<nav class="toc" id="toc">', '<nav class="toc" id="toc" data-hb-in-flow="true">');
+  }
+  if (contentsRunningBoundary && tocRaw) {
+    tocRaw = tocRaw.replace(
+      '<nav class="toc" id="toc"',
+      `<nav class="toc" id="toc" data-hb-anchor="${escapeHtml(contentsRunningBoundary)}"`
+    );
   }
   const wrappedToc = tocRaw
     ? tocRaw.replace(

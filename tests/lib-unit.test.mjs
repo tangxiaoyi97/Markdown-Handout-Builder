@@ -3,6 +3,10 @@
 
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { parse as parseYaml } from "yaml";
 import { makeFixture } from "./helpers.mjs";
 
 import {
@@ -18,6 +22,39 @@ import { buildToc, buildChapterToc } from "../scripts/lib/toc.mjs";
 import { buildOverrideCss } from "../scripts/lib/css.mjs";
 import { normalizeChapterEntry, normalizeChapters } from "../scripts/lib/chapters.mjs";
 import { dividerSectionHtml, blankSectionHtml } from "../scripts/lib/special-pages.mjs";
+
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+
+test("book.schema.json parses and every local $ref resolves", () => {
+  const schema = JSON.parse(fs.readFileSync(path.join(repoRoot, "book.schema.json"), "utf8"));
+  const refs = [];
+  const visit = (value) => {
+    if (!value || typeof value !== "object") return;
+    if (typeof value.$ref === "string" && value.$ref.startsWith("#/")) refs.push(value.$ref);
+    for (const child of Object.values(value)) visit(child);
+  };
+  visit(schema);
+
+  for (const ref of refs) {
+    const target = ref
+      .slice(2)
+      .split("/")
+      .map((part) => part.replace(/~1/g, "/").replace(/~0/g, "~"))
+      .reduce((value, part) => value?.[part], schema);
+    assert.notEqual(target, undefined, `unresolved schema ref: ${ref}`);
+  }
+  assert.ok(refs.length > 0, "schema should contain local references");
+});
+
+test("book.example.yml parses and its active CSS class options are valid", () => {
+  const example = parseYaml(fs.readFileSync(path.join(repoRoot, "book.example.yml"), "utf8"));
+  assert.equal(typeof example.title, "string");
+  assert.ok(Array.isArray(example.chapters) !== Array.isArray(example.structure));
+  for (const value of [example.chapter_toc?.class]) {
+    if (value === undefined) continue;
+    assert.match(value, /^[A-Za-z_-][A-Za-z0-9_-]*(?:\s+[A-Za-z_-][A-Za-z0-9_-]*)*$/);
+  }
+});
 
 test("parseObsidianReference: targets, fragments, aliases, embed sizes", () => {
   assert.deepEqual(
@@ -224,6 +261,10 @@ test("chapters entries: path roles, declared special pages, and strict typos", (
   const mdInsert = normalizeChapterEntry({ path: "front/preface.md", as: "insert" });
   assert.equal(mdInsert.kind, "insert");
   assert.equal(mdInsert.format, "markdown");
+  assert.match(
+    normalizeChapterEntry({ path: "front/preface.md", role: "insert", as: "insert" }).error ?? "",
+    /either "role".*"as"/
+  );
   assert.match(normalizeChapterEntry({ path: "p.html", as: "chapter" }).error ?? "", /cannot be "as: chapter"/);
 
   // 每条目主目录控制
@@ -382,6 +423,21 @@ test("structure IR: layout cycles and structure/chapters ambiguity are hard erro
     "/tmp"
   );
   assert.match(ambiguous.error ?? "", /either "structure" or "chapters"/);
+
+  const ambiguousPart = normalizeChapters(
+    {
+      structure: [
+        {
+          type: "part",
+          title: "P",
+          children: [{ path: "a.md" }],
+          chapters: [{ path: "b.md" }]
+        }
+      ]
+    },
+    "/tmp"
+  );
+  assert.match(ambiguousPart.errors.join("\n"), /exactly one of children \/ chapters \/ structure/);
 });
 
 test("special pages: divider html carries heading id, bleed hook, sanitized style", () => {

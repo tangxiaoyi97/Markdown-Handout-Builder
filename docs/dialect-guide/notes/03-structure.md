@@ -3,7 +3,7 @@ title: "文档结构语言"
 authors:
   - "Markdown Handout Builder"
 created: 2026-07-11
-modified: 2026-07-11
+modified: 2026-07-13
 tags:
   - guide/structure
 ---
@@ -25,7 +25,7 @@ chapters:
 
 ```yaml
   - path: notes/02-deep.md
-    as: insert               # 角色覆盖（role 同义）；.html 不可作 chapter
+    as: insert               # role 为同义键，只写一个；.html 不可作 chapter
     class: deep-dive         # 附加到 <section> 的 CSS class
     layout: body             # 引用命名 layout（见第 04 章）
     chapter_toc: true        # 开章小目录（仅章节有意义）
@@ -49,14 +49,14 @@ structure:
 
 ### chapter —— 渲染章节
 
-Markdown 渲染；一级标题成为章名（主目录行 + PDF 书签 + running 锚点）。可选键：`class` `layout` `chapter_toc` `toc` `navigation` `flow` `running`。
+Markdown 渲染；一级标题成为章名（主目录行 + PDF 书签），running 页区间则由内部边界探针定位。可选键：`class` `layout` `chapter_toc` `toc` `navigation` `flow` `running`。
 
 ### insert —— 特殊页
 
 两种来源，同一角色（不进主目录、按插页排版、带运行页眉）：
 
 - **`.html` 文件**：受信原样片段，`{{title}}` 等全局占位符会被填充。是 Markdown 表达不了的版式的逃生门。
-- **`.md` + `as: insert`（或 `type: insert`）**：前言、致谢、版权页——照常渲染 Markdown，但不进主目录。注意：raw HTML 插页**不能**携带 running 策略（策略需要 Markdown 一级标题作页区间锚点）。
+- **`.md` + `as: insert`（或 `type: insert`）**：前言、致谢、版权页——照常渲染 Markdown，但不进主目录。Markdown 与 raw HTML 插页都可以携带 running 策略；无一级标题时 `{{chapterTitle}}` 为空。
 
 ### divider —— 篇章隔页（无文件）
 
@@ -111,7 +111,7 @@ part = 一页 divider + 一组子条目 + 可继承的 defaults：
     defaults:                    # 后代条目的默认值（可被子条目覆盖）
       layout: body
       class: part-one-page
-    children:                    # chapters / structure 是同义键
+    children:                    # chapters / structure 是同义键，三者只写一个
       - notes/01-a.md
       - include: parts/more.yml
       - type: part               # 部可以再嵌套

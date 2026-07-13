@@ -50,6 +50,104 @@ const embeddedNotes = new Set();
 
 const book = loadBook(configPath);
 
+const isMapping = (value) =>
+  Boolean(value) && typeof value === "object" && !Array.isArray(value);
+const TOP_LEVEL_KEYS = new Set([
+  "title", "subtitle", "language", "date", "date_format", "version",
+  "authors", "keywords", "chapters", "structure", "layouts", "output",
+  "toc", "chapter_toc", "pdf", "style", "cover", "back_cover", "themes",
+  "labels", "markdown", "frontmatter", "numbering"
+]);
+for (const key of Object.keys(book)) {
+  if (!TOP_LEVEL_KEYS.has(key)) {
+    fail(`${configName}: unknown top-level key ${JSON.stringify(key)}.`);
+  }
+}
+
+if (
+  book.title === undefined ||
+  book.title === null ||
+  !["string", "number"].includes(typeof book.title) ||
+  !String(book.title).trim()
+) {
+  fail(`${configName}: "title" is required and must be a non-empty string or number.`);
+}
+for (const key of ["subtitle", "date"]) {
+  if (
+    book[key] !== undefined &&
+    book[key] !== null &&
+    !["string", "number"].includes(typeof book[key])
+  ) {
+    fail(`${configName}: "${key}" must be a string or number.`);
+  }
+}
+if (
+  book.language !== undefined &&
+  (typeof book.language !== "string" || !book.language.trim())
+) {
+  fail(`${configName}: "language" must be a non-empty string.`);
+}
+if (book.authors !== undefined) {
+  const validAuthor = (value) => ["string", "number"].includes(typeof value);
+  if (!(validAuthor(book.authors) || (Array.isArray(book.authors) && book.authors.every(validAuthor)))) {
+    fail(`${configName}: "authors" must be a string/number or a list of them.`);
+  }
+}
+if (
+  book.keywords !== undefined &&
+  (!Array.isArray(book.keywords) ||
+    book.keywords.some((value) => !["string", "number"].includes(typeof value)))
+) {
+  fail(`${configName}: "keywords" must be a list of strings or numbers.`);
+}
+
+if (book.output !== undefined) {
+  if (!isMapping(book.output)) {
+    fail(`${configName}: "output" must be a mapping with optional html/pdf paths.`);
+  } else {
+    for (const key of Object.keys(book.output)) {
+      if (!["html", "pdf"].includes(key)) {
+        fail(`${configName}: output.${key}: unknown key (use html / pdf).`);
+      }
+    }
+    for (const key of ["html", "pdf"]) {
+      if (
+        book.output[key] !== undefined &&
+        (typeof book.output[key] !== "string" || !book.output[key].trim())
+      ) {
+        fail(`${configName}: output.${key} must be a non-empty path string.`);
+      }
+    }
+  }
+}
+
+if (book.toc !== undefined) {
+  if (!isMapping(book.toc)) {
+    fail(`${configName}: "toc" must be a mapping (enabled / title / depth).`);
+  } else {
+    for (const key of Object.keys(book.toc)) {
+      if (!["enabled", "title", "depth"].includes(key)) {
+        fail(`${configName}: toc.${key}: unknown key (use enabled / title / depth).`);
+      }
+    }
+    if (book.toc.enabled !== undefined && typeof book.toc.enabled !== "boolean") {
+      fail(`${configName}: toc.enabled must be true or false.`);
+    }
+    if (
+      book.toc.title !== undefined &&
+      !["string", "number"].includes(typeof book.toc.title)
+    ) {
+      fail(`${configName}: toc.title must be a string or number.`);
+    }
+    if (
+      book.toc.depth !== undefined &&
+      (!Number.isInteger(book.toc.depth) || book.toc.depth < 1 || book.toc.depth > 3)
+    ) {
+      fail(`${configName}: toc.depth must be an integer between 1 and 3.`);
+    }
+  }
+}
+
 /* ---------- Markdown dialect ---------- */
 
 // 归一化与校验和 build.mjs 共用 lib/dialects.mjs；check 收集错误继续跑
@@ -79,19 +177,24 @@ function checkChapterContent(absPath, relPath) {
   if (obsidianEnabled && checkedMarkdownContent.has(absPath)) return;
   if (obsidianEnabled) checkedMarkdownContent.add(absPath);
   const text = fs.readFileSync(absPath, "utf8").replace(/^﻿/, ""); // 去 UTF-8 BOM
-  if (obsidianEnabled) {
-    const frontmatter = parseObsidianFrontmatter(text);
-    if (frontmatter.error) {
-      fail(`${relPath}: invalid Obsidian properties: ${frontmatter.error}`);
-    }
+  const frontmatter = parseObsidianFrontmatter(text);
+  if (frontmatter.error) {
+    fail(
+      `${relPath}: invalid ${obsidianEnabled ? "Obsidian properties" : "frontmatter"}: ` +
+        frontmatter.error
+    );
   }
-  const lines = text.split(/\r?\n/);
+  // Frontmatter is YAML metadata, not Markdown. Build strips it in every
+  // dialect, so strict-syntax and image checks must inspect only the body.
+  // Keep line numbers anchored to the source file for useful diagnostics.
+  const lines = frontmatter.body.split(/\r?\n/);
+  const lineOffset = frontmatter.lineOffset;
 
   let inFence = false;
   let fenceChar = "";
 
   lines.forEach((rawLine, idx) => {
-    const lineNo = idx + 1;
+    const lineNo = idx + 1 + lineOffset;
 
     // 围栏代码块开/关（``` 或 ~~~）
     const fenceMatch = rawLine.match(/^\s{0,3}(`{3,}|~{3,})/);
@@ -223,7 +326,7 @@ for (const entry of structureEntries) {
   // Wikilink / local-image checks apply to every Markdown page (chapters and
   // as:insert pages alike). Raw HTML inserts are trusted, author-controlled.
   if (entry.format === "markdown") {
-    if (entry.running?.custom || entry.cover?.bleed) {
+    if (entry.cover?.bleed) {
       const source = fs.readFileSync(absPath, "utf8").replace(/^﻿/, "");
       const hasAtxH1 = /^ {0,3}#(?!#)\s+\S.*$/m.test(source);
       const hasSetextH1 = /^\S.*\r?\n {0,3}=+\s*$/m.test(source);
@@ -232,8 +335,7 @@ for (const entry of structureEntries) {
         book.frontmatter?.title_as_heading === true &&
         Boolean(parseObsidianFrontmatter(source).data?.title);
       if (!hasAtxH1 && !hasSetextH1 && !canInjectTitle) {
-        const need = entry.running?.custom ? "per-entry running header/footer control" : "cover.bleed";
-        fail(`${entry.file}: ${need} requires a top-level Markdown heading`);
+        fail(`${entry.file}: cover.bleed requires a top-level Markdown heading`);
       }
     }
     checkChapterContent(absPath, toPosix(entry.file));
@@ -277,9 +379,17 @@ if (book.themes !== undefined) {
     let defaultCount = 0;
     book.themes.forEach((theme, i) => {
       const label = `themes[${i}]`;
-      if (!theme || typeof theme !== "object") {
+      if (!isMapping(theme)) {
         fail(`${configName}: ${label} must be a mapping with at least a "name".`);
         return;
+      }
+      for (const key of Object.keys(theme)) {
+        if (!["name", "label", "default", "style", "cover", "back_cover", "pdf"].includes(key)) {
+          fail(
+            `${configName}: ${label}.${key}: unknown key ` +
+              "(use name / label / default / style / cover / back_cover / pdf)."
+          );
+        }
       }
       const name = theme.name;
       if (typeof name !== "string" || !/^[A-Za-z0-9][A-Za-z0-9_-]*$/.test(name)) {
@@ -292,12 +402,96 @@ if (book.themes !== undefined) {
       } else {
         seenNames.add(name);
       }
+      if (theme.label !== undefined && typeof theme.label !== "string") {
+        fail(`${configName}: ${label}.label must be a string.`);
+      }
+      if (theme.default !== undefined && typeof theme.default !== "boolean") {
+        fail(`${configName}: ${label}.default must be true or false.`);
+      }
       if (theme.default === true) defaultCount += 1;
     });
     if (defaultCount > 1) {
       fail(`${configName}: only one theme may have "default: true" (found ${defaultCount}).`);
     }
   }
+}
+
+const STYLE_KEYS = new Set([
+  "accent_color", "content_width", "base_font_size", "print_font_size",
+  "fonts", "custom_css"
+]);
+const COVER_KEYS = new Set(["enabled", "html", "background", "color"]);
+
+function checkStyleConfig(scope, where) {
+  const style = scope?.style;
+  if (style === undefined) return;
+  if (!isMapping(style)) {
+    fail(`${configName}: ${where}style must be a mapping.`);
+    return;
+  }
+  for (const key of Object.keys(style)) {
+    if (!STYLE_KEYS.has(key)) fail(`${configName}: ${where}style.${key}: unknown key.`);
+  }
+  for (const key of ["accent_color", "content_width", "base_font_size", "print_font_size"]) {
+    if (style[key] !== undefined && (typeof style[key] !== "string" || !style[key].trim())) {
+      fail(`${configName}: ${where}style.${key} must be a non-empty CSS value string.`);
+    }
+  }
+  if (style.fonts !== undefined) {
+    if (!isMapping(style.fonts)) {
+      fail(`${configName}: ${where}style.fonts must be a mapping.`);
+    } else {
+      for (const [key, value] of Object.entries(style.fonts)) {
+        if (!["body", "heading", "code"].includes(key)) {
+          fail(`${configName}: ${where}style.fonts.${key}: unknown key (use body / heading / code).`);
+        } else if (typeof value !== "string" || !value.trim()) {
+          fail(`${configName}: ${where}style.fonts.${key} must be a non-empty string.`);
+        }
+      }
+    }
+  }
+  if (style.custom_css !== undefined) {
+    const files = Array.isArray(style.custom_css) ? style.custom_css : [style.custom_css];
+    if (files.length === 0 || files.some((file) => typeof file !== "string" || !file.trim())) {
+      fail(`${configName}: ${where}style.custom_css must be a path string or non-empty path list.`);
+    }
+  }
+}
+
+function checkCoverConfig(scope, where) {
+  for (const key of ["cover", "back_cover"]) {
+    const cover = scope?.[key];
+    if (cover === undefined) continue;
+    if (!isMapping(cover)) {
+      fail(`${configName}: ${where}${key} must be a mapping.`);
+      continue;
+    }
+    for (const option of Object.keys(cover)) {
+      if (!COVER_KEYS.has(option)) {
+        fail(`${configName}: ${where}${key}.${option}: unknown key.`);
+      }
+    }
+    if (cover.enabled !== undefined && typeof cover.enabled !== "boolean") {
+      fail(`${configName}: ${where}${key}.enabled must be true or false.`);
+    }
+    for (const option of ["html", "background", "color"]) {
+      if (
+        cover[option] !== undefined &&
+        (typeof cover[option] !== "string" || !cover[option].trim())
+      ) {
+        fail(`${configName}: ${where}${key}.${option} must be a non-empty string.`);
+      }
+    }
+  }
+}
+
+checkStyleConfig(book, "");
+checkCoverConfig(book, "");
+if (Array.isArray(book.themes)) {
+  book.themes.forEach((theme, i) => {
+    checkStyleConfig(theme, `themes[${i}].`);
+    checkCoverConfig(theme, `themes[${i}].`);
+  });
 }
 
 // 配置中引用的文件必须存在（custom_css / 封面封底组件），基础配置与各主题都查
@@ -368,9 +562,30 @@ if (
 function checkPdfConfig(scope, where) {
   const pdf = scope?.pdf;
   if (pdf === undefined) return;
-  if (!pdf || typeof pdf !== "object") {
+  if (!isMapping(pdf)) {
     fail(`${configName}: ${where}pdf must be a mapping.`);
     return;
+  }
+
+  const knownPdfKeys = new Set([
+    "header_footer", "toc_page_numbers", "cover_header_footer", "page_size",
+    "margin", "date_format", "page_numbers", "header", "footer",
+    "header_footer_style"
+  ]);
+  for (const key of Object.keys(pdf)) {
+    if (!knownPdfKeys.has(key)) {
+      fail(`${configName}: ${where}pdf.${key}: unknown key.`);
+    }
+  }
+  for (const key of ["header_footer", "toc_page_numbers", "cover_header_footer"]) {
+    if (pdf[key] !== undefined && typeof pdf[key] !== "boolean") {
+      fail(`${configName}: ${where}pdf.${key} must be true or false.`);
+    }
+  }
+  for (const key of ["page_size", "margin"]) {
+    if (pdf[key] !== undefined && (typeof pdf[key] !== "string" || !pdf[key].trim())) {
+      fail(`${configName}: ${where}pdf.${key} must be a non-empty string.`);
+    }
   }
 
   if (pdf.date_format !== undefined && typeof pdf.date_format !== "string") {
@@ -379,9 +594,14 @@ function checkPdfConfig(scope, where) {
 
   const pn = pdf.page_numbers;
   if (pn !== undefined) {
-    if (!pn || typeof pn !== "object") {
+    if (!isMapping(pn)) {
       fail(`${configName}: ${where}pdf.page_numbers must be a mapping.`);
     } else {
+      for (const key of Object.keys(pn)) {
+        if (!["format", "count_cover", "count_toc", "count_back_cover"].includes(key)) {
+          fail(`${configName}: ${where}pdf.page_numbers.${key}: unknown key.`);
+        }
+      }
       if (pn.format !== undefined && typeof pn.format !== "string") {
         fail(`${configName}: ${where}pdf.page_numbers.format must be a string.`);
       }
@@ -405,13 +625,16 @@ function checkPdfConfig(scope, where) {
   for (const section of ["header", "footer"]) {
     const slots = pdf[section];
     if (slots === undefined) continue;
-    if (!slots || typeof slots !== "object") {
+    if (!isMapping(slots)) {
       fail(`${configName}: ${where}pdf.${section} must be a mapping with left/center/right.`);
       continue;
     }
     for (const [slot, value] of Object.entries(slots)) {
       if (!["left", "center", "right"].includes(slot)) {
-        warnings.push(`${where}pdf.${section}.${slot}: unknown slot (use left / center / right)`);
+        fail(
+          `${configName}: ${where}pdf.${section}.${slot}: ` +
+            "unknown slot (use left / center / right)."
+        );
         continue;
       }
       if (typeof value !== "string") {
@@ -438,12 +661,17 @@ function checkPdfConfig(scope, where) {
 
   const hfs = pdf.header_footer_style;
   if (hfs !== undefined) {
-    if (!hfs || typeof hfs !== "object") {
+    if (!isMapping(hfs)) {
       fail(`${configName}: ${where}pdf.header_footer_style must be a mapping.`);
     } else {
-      for (const key of Object.keys(hfs)) {
+      for (const [key, value] of Object.entries(hfs)) {
         if (!KNOWN_HF_STYLE_KEYS.has(key)) {
-          warnings.push(`${where}pdf.header_footer_style.${key}: unknown key (ignored)`);
+          fail(`${configName}: ${where}pdf.header_footer_style.${key}: unknown key.`);
+        } else if (typeof value !== "string" || !value.trim()) {
+          fail(
+            `${configName}: ${where}pdf.header_footer_style.${key} ` +
+              "must be a non-empty string."
+          );
         }
       }
     }
@@ -545,6 +773,14 @@ if (book.chapter_toc !== undefined) {
   if (!ct || typeof ct !== "object" || Array.isArray(ct)) {
     fail(`${configName}: "chapter_toc" must be a mapping (default / title / depth / class).`);
   } else {
+    for (const key of Object.keys(ct)) {
+      if (!["default", "title", "depth", "class"].includes(key)) {
+        fail(
+          `${configName}: chapter_toc.${key}: unknown key ` +
+            "(use default / title / depth / class)."
+        );
+      }
+    }
     if (ct.default !== undefined && typeof ct.default !== "boolean") {
       fail(`${configName}: chapter_toc.default must be true or false.`);
     }

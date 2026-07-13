@@ -21,6 +21,56 @@ test("valid project passes with 'Check passed'", async () => {
   assert.match(r.stdout, /Check passed/);
 });
 
+test("book config rejects unknown keys and invalid nested option types", async () => {
+  const dir = await makeFixture({
+    "book.yml": `title: T
+chapters: [notes/a.md]
+outpt: {}
+toc: { enabled: yes, extra: 1 }
+style: { accent_color: 12, typo: true }
+cover: { enabled: yes, typo: true }
+markdown:
+  dialect: standard
+  typo: true
+pdf:
+  header_footer: yes
+  typo: true
+themes:
+  - name: light
+    default: yes
+    typo: true
+`,
+    "notes/a.md": "# A\n"
+  });
+  const result = await runScript("check.mjs", { cwd: dir });
+  assert.equal(result.code, 1);
+  assert.match(result.stderr, /unknown top-level key "outpt"/);
+  assert.match(result.stderr, /toc\.enabled must be true or false/);
+  assert.match(result.stderr, /toc\.extra: unknown key/);
+  assert.match(result.stderr, /style\.accent_color must be a non-empty CSS value string/);
+  assert.match(result.stderr, /cover\.enabled must be true or false/);
+  assert.match(result.stderr, /markdown\.typo: unknown key/);
+  assert.match(result.stderr, /pdf\.header_footer must be true or false/);
+  assert.match(result.stderr, /themes\[0\]\.default must be true or false/);
+});
+
+test("title is required; output remains optional because runtime paths have defaults", async () => {
+  const noTitle = await makeFixture({
+    "book.yml": "chapters: [notes/a.md]\n",
+    "notes/a.md": "# A\n"
+  });
+  const bad = await runScript("check.mjs", { cwd: noTitle });
+  assert.equal(bad.code, 1);
+  assert.match(bad.stderr, /"title" is required/);
+
+  const defaults = await makeFixture({
+    "book.yml": "title: T\nchapters: [notes/a.md]\n",
+    "notes/a.md": "# A\n"
+  });
+  const ok = await runScript("check.mjs", { cwd: defaults });
+  assert.equal(ok.code, 0, ok.stderr);
+});
+
 test("missing chapter file fails", async () => {
   const dir = await makeFixture({ "book.yml": MINI_BOOK });
   const r = await runScript("check.mjs", { cwd: dir });
@@ -100,6 +150,24 @@ test("pdf config validation: bad boolean fails, unknown placeholder and slot war
   assert.match(r.stderr, /must be true or false/);
   assert.match(r.stderr, /unknown placeholder \{\{titel\}\}/);
   assert.match(r.stderr, /unknown slot/);
+});
+
+test("pdf config rejects arrays where mappings are required", async () => {
+  for (const pdf of [
+    "[]",
+    "{ page_numbers: [] }",
+    "{ header: [] }",
+    "{ footer: [] }",
+    "{ header_footer_style: [] }"
+  ]) {
+    const dir = await makeFixture({
+      "book.yml": `title: T\nchapters: [notes/a.md]\npdf: ${pdf}\n`,
+      "notes/a.md": "# A\n"
+    });
+    const result = await runScript("check.mjs", { cwd: dir });
+    assert.equal(result.code, 1, `should reject pdf: ${pdf}`);
+    assert.match(result.stderr, /must be a mapping/);
+  }
 });
 
 test("warnings: orphan chapters reported, _drafts skipped, unused assets reported", async () => {
@@ -287,7 +355,7 @@ structure:
   assert.match(bad.stderr, /include file not found/);
 });
 
-test("per-entry running policy requires an isolated, outline-addressable Markdown chapter", async () => {
+test("per-entry running policy requires an isolated physical page", async () => {
   const dir = await makeFixture({
     "book.yml": `title: T
 structure:
@@ -307,23 +375,25 @@ output: { html: dist/a.html, pdf: dist/a.pdf }
   const result = await runScript("check.mjs", { cwd: dir });
   assert.equal(result.code, 1);
   assert.match(result.stderr, /requires flow\.break_before: page/);
-  assert.match(result.stderr, /requires navigation\.outline: true/);
 });
 
-test("per-entry running policy requires a top-level Markdown heading anchor", async () => {
+test("running boundaries support no-h1 Markdown and raw HTML inserts", async () => {
   const dir = await makeFixture({
     "book.yml": `title: T
 structure:
   - type: chapter
     path: notes/a.md
     running: { footer: false }
+  - type: insert
+    path: notes/raw.html
+    running: { header: false }
 output: { html: dist/a.html, pdf: dist/a.pdf }
 `,
-    "notes/a.md": "No top-level heading.\n"
+    "notes/a.md": "No top-level heading.\n",
+    "notes/raw.html": "<p>Raw insert.</p>"
   });
   const result = await runScript("check.mjs", { cwd: dir });
-  assert.equal(result.code, 1);
-  assert.match(result.stderr, /requires a top-level Markdown heading/);
+  assert.equal(result.code, 0, result.stderr);
 });
 
 test("per-entry running content validates slots/style and warns on unknown placeholders", async () => {
@@ -498,4 +568,21 @@ chapters:
   });
   const r2 = await runScript("check.mjs", { cwd: ok });
   assert.equal(r2.code, 0, r2.stderr);
+});
+
+test("v3 standard dialect validates frontmatter and excludes YAML from Markdown checks", async () => {
+  const invalid = await makeFixture({
+    "book.yml": "title: T\nchapters: [notes/a.md]\n",
+    "notes/a.md": "---\ntags: [broken\n---\n# A\n"
+  });
+  const bad = await runScript("check.mjs", { cwd: invalid });
+  assert.equal(bad.code, 1);
+  assert.match(bad.stderr, /invalid frontmatter/);
+
+  const valid = await makeFixture({
+    "book.yml": "title: T\nchapters: [notes/a.md]\n",
+    "notes/a.md": "---\nnote: '[[metadata only]]'\nimage: '![x](missing.png)'\n---\n# A\n"
+  });
+  const ok = await runScript("check.mjs", { cwd: valid });
+  assert.equal(ok.code, 0, ok.stderr);
 });

@@ -2,7 +2,8 @@
 # yaml-language-server: $schema=./book.schema.json
 # book.example.yml - annotated configuration template
 # Copy the fields you need into book.yml.
-# Everything except title, one of chapters/structure, and output is optional.
+# Only title and exactly one of chapters/structure are required. Output paths
+# default to dist/handout.html and dist/handout.pdf.
 # Commented values document the defaults or common choices.
 # =============================================================
 
@@ -10,8 +11,9 @@ title: "My Handout"                      # Required: cover, header, PDF Title
 subtitle: "Markdown notes to HTML and PDF" # Cover, index page, PDF Subject
 language: "en"                           # <html lang> and PDF language metadata
 date: "2026-07-06"                       # Display date and PDF creation date
-date_format: "YYYY-MM-DD"                # Presets: YYYY-MM-DD, YYYYMMDD, YYMMDD
-# version: "v2"                          # Handout revision ("Rev. B", "第 3 版" ...).
+date_format: "YYYY-MM-DD"                # Also ISO, YYYYMMDD, YYMMDD,
+#                                        # YYYY/MM/DD, YY/MM/DD, YYYY.MM.DD, YY.MM.DD
+version: "3.0-dialect"                  # Handout/document edition.
 #                                        # Shows on the cover and index page, and is
 #                                        # available as {{version}} in header/footer
 #                                        # slots and cover fragments.
@@ -30,6 +32,7 @@ chapters:                                # Required: order + role of each page.
   - notes/interlude.html                 # a raw-HTML insert page
   # Mapping form, for entries that need extra options:
   - path: notes/02-deep.md               # "path" is required
+    # role: chapter                      # Alias of legacy "as"; never write both
     class: deep-dive                     #   extra CSS class(es) on the <section>
     chapter_toc: true                    #   open this chapter with a mini-TOC
     # toc: false                         #   keep this chapter out of the main TOC
@@ -42,12 +45,18 @@ chapters:                                # Required: order + role of each page.
   #   - divider:                         # part-divider page (one full page)
   #       title: "Part One"              #   becomes a real <h1> + PDF bookmark
   #       subtitle: "Foundations"
+  #       note: "A short part description"
   #       class: part-one                #   style it from style.custom_css
   #       background: "#25304a"          #   any CSS color/gradient
   #       color: "#ffffff"
   #       bleed: true                    #   official PDF paints it edge-to-edge
   #       toc: "Part One"                #   optional main-TOC row
   #   - blank: true                      # intentionally blank page (duplex)
+  #   - type: blank                      # long form: count + style/flow hooks
+  #     count: 2                         # 1-20
+  #     class: intentional-blank
+  #     layout: body
+  #     flow: { break_before: page, break_after: auto }
   #   - contents: true                   # place the main TOC here (at most once;
   #                                      # an in-flow TOC is always page-counted)
   # The whole list may instead live in its own file, like book.yml:
@@ -62,10 +71,13 @@ chapters:                                # Required: order + role of each page.
 #   body:
 #     class: layout-body
 #     chapter_toc: true
+#     meta: [authors, modified]
+#     cover: false
 #   no-footer:
 #     extends: body
 #     running:
 #       footer: false
+#       # header: true                   # Explicitly opt in if global switch is off
 #   chapter-running:
 #     extends: body
 #     running:                            # Unspecified slots inherit global pdf.*
@@ -77,6 +89,8 @@ chapters:                                # Required: order + role of each page.
 #       style:                            # Field-wise override of header_footer_style
 #         font_size: "8px"
 #         color: "#667085"
+#         font_family: "Inter, Arial, sans-serif"
+#         offset: "6mm"
 #
 # structure:
 #   - type: insert
@@ -86,6 +100,7 @@ chapters:                                # Required: order + role of each page.
 #     title: "Part One"
 #     navigation: { label: "I · Foundations", level: 1 }
 #     defaults: { layout: body }
+#     # Use exactly one child-list key: children (preferred), chapters, or structure.
 #     children:
 #       - type: chapter
 #         path: notes/00-intro.md
@@ -94,24 +109,34 @@ chapters:                                # Required: order + role of each page.
 #     path: notes/appendix.md
 #     layout: chapter-running             # Or no-footer
 #     flow: { break_before: page, break_after: auto }
-#     navigation: { label: "Appendix A", level: 1 }
+#     navigation:
+#       toc: true
+#       label: "Appendix A"
+#       level: 1
+#       outline: true
 #     meta: [authors, modified]           # Frontmatter byline under the h1
+#     # meta: false                       # Disable inherited/global byline
 #     cover:                              # Chapter cover page from frontmatter
+#       enabled: true
+#       class: appendix-cover
 #       background: "#25304a"
 #       color: "#ffffff"
 #       bleed: true                       #   official PDF paints edge-to-edge
+#       title: "{{fm.title}}"
+#       subtitle: "{{fm.subtitle}}"
+#       meta: ["{{fm.authors}}", "Updated {{fm.modified}}"]
 #
 # Running slots may reference this chapter's frontmatter: "{{fm.status}}".
 #
 # Dialect-independent frontmatter integration (v3):
 # frontmatter:
 #   title_as_heading: true                # fm.title becomes the h1 when absent
-#   meta: [authors, created, modified, tags]   # global byline under each h1
+#   meta: [authors, created, modified, tags]   # false or global byline keys
 #   labels: { created: "Created", modified: "Updated" }
 #   dates:
-#     fallback_modified: none             # "file" = use source mtime (unreliable in CI)
+#     fallback_modified: none             # none | file (source mtime; unreliable in CI)
 
-output:                                  # Output paths
+output:                                  # Optional output paths (both have defaults)
   html: dist/handout.html                # Non-default themes append .<theme>
   pdf: dist/handout.pdf
 
@@ -128,7 +153,7 @@ output:                                  # Output paths
 # ---------- Table of contents ----------
 toc:
   title: "Contents"                      # TOC heading
-  depth: 2                               # Include heading levels 1-3
+  depth: 2                               # Include heading levels h1..h2 (1-3)
   enabled: true                          # false disables the TOC entirely
 
 # ---------- Per-chapter mini tables of contents ----------
@@ -141,7 +166,7 @@ chapter_toc:
   default: false                         # true = on for every chapter
   title: "In this chapter"               # heading above each mini-TOC ("" hides it)
   depth: 3                               # include heading levels 2..depth (2-6)
-  class: ""                              # extra CSS class on every chapter-toc
+  # class: compact-toc                   # extra CSS class on every chapter-toc
 
 # ---------- Official PDF print options ----------
 pdf:
@@ -200,7 +225,13 @@ back_cover:
 # environment names (::: theorem 3.1 Cauchy), captions, or KaTeX \tag.
 # labels:
 #   note: "注意"
+#   tip: "提示"
+#   warning: "警告"
+#   danger: "危险"
 #   theorem: "定理"
+#   definition: "定义"
+#   example: "示例"
+#   exercise: "练习"
 #   keypoint: "划重点"
 
 # ---------- Style ----------
@@ -236,10 +267,17 @@ themes:
     style:
       accent_color: "#eaeaea"
       custom_css: "templates/theme-dark.css" # Built in. Local file wins if present.
-    # Themes may also override pdf settings (deep-merged per section):
-    # pdf:
-    #   header_footer_style:
-    #     color: "#9a9a9a"
+    # Every theme may override style, cover, back_cover, and pdf. Nested PDF
+    # slots/page_numbers/header_footer_style merge field by field:
+    cover:
+      background: "linear-gradient(160deg, #111827, #312e81)"
+      color: "#ffffff"
+    back_cover:
+      background: "#111827"
+      color: "#ffffff"
+    pdf:
+      header_footer_style:
+        color: "#9a9a9a"
   # More built-in themes (variable-only files, easy to copy and adapt):
   # - name: sepia
   #   label: "Sepia"

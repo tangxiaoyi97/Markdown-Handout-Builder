@@ -52,7 +52,8 @@ export function dividerSectionHtml(entry, { headingId, lead = "" }) {
 export function blankSectionHtml(entry = {}) {
   const cls = ["insert", "hb-blank", entry.className].filter(Boolean).join(" ");
   const layoutAttr = entry.layout ? ` data-layout="${escapeHtml(entry.layout)}"` : "";
-  return `<section class="${cls}"${layoutAttr} aria-hidden="true"></section>`;
+  const anchorAttr = entry.anchorId ? ` data-hb-anchor="${escapeHtml(entry.anchorId)}"` : "";
+  return `<section class="${cls}"${layoutAttr}${anchorAttr} aria-hidden="true"></section>`;
 }
 
 // ---- v3：frontmatter 驱动的章节元素 ----
@@ -86,12 +87,27 @@ export function chapterMetaHtml(keys, fm, { labels = {} } = {}) {
 // 章节 cover 页：divider 同款版面（恰占一页 / 可出血），但标题不是真实
 // h1——章的书签与锚点属于正文一级标题；出血定位经 data-hb-bleed-before
 // 指向该锚点（官方管线覆盖"锚点页的前一页"）。
-export function chapterCoverHtml(cover, { seq, anchorId, title, subtitle, metaLines = [], tags = [], lead = "" }) {
+export function chapterCoverHtml(
+  cover,
+  {
+    seq,
+    anchorId,
+    title,
+    subtitle,
+    metaLines = [],
+    tags = [],
+    lead = "",
+    runningAnchorId = ""
+  }
+) {
   const styleParts = [];
   if (cover.background) styleParts.push(`background: ${sanitizeCssValue(cover.background)};`);
   if (cover.color) styleParts.push(`color: ${sanitizeCssValue(cover.color)};`);
   const styleAttr = styleParts.length > 0 ? ` style="${escapeHtml(styleParts.join(" "))}"` : "";
   const bleedAttr = cover.bleed && anchorId ? ` data-hb-bleed-before="${escapeHtml(anchorId)}"` : "";
+  const runningAnchorAttr = runningAnchorId
+    ? ` data-hb-anchor="${escapeHtml(runningAnchorId)}"`
+    : "";
   const cls = ["insert", "hb-divider", "hb-chapter-cover", cover.className, lead]
     .filter(Boolean)
     .join(" ");
@@ -109,7 +125,7 @@ export function chapterCoverHtml(cover, { seq, anchorId, title, subtitle, metaLi
   }
 
   return (
-    `<section class="${cls}" id="hb-chapter-cover-${seq}-sec"${bleedAttr}${styleAttr}>\n` +
+    `<section class="${cls}" id="hb-chapter-cover-${seq}-sec"${bleedAttr}${runningAnchorAttr}${styleAttr}>\n` +
     `<div class="hb-divider-inner">\n${lines.join("\n")}\n</div>\n` +
     "</section>"
   );
